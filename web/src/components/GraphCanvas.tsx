@@ -12,7 +12,7 @@ cytoscape.use(fcose)
 const LAYOUT: FcoseLayoutOptions = {
   name: 'fcose',
   animate: true,
-  animationDuration: 500,
+  animationDuration: 400,
   randomize: false,
   fit: false,
   nodeRepulsion: () => 6000,
@@ -48,16 +48,20 @@ export function GraphCanvas() {
     if (!ref.current) return
     const cy = cytoscape({ container: ref.current, style: stylesheet, wheelSensitivity: 0.2, minZoom: 0.05, maxZoom: 4 })
     cyRef.current = cy
-    const { select, loadNeighbors } = useStore.getState()
+    const { select, expandNode } = useStore.getState()
 
-    cy.on('tap', 'node', (ev) => select((ev.target as NodeSingular).id()))
+    cy.on('tap', 'node', (ev) => {
+      const id = (ev.target as NodeSingular).id()
+      select(id)
+      if (useStore.getState().filters.expandOnClick) void expandNode(id)
+    })
     cy.on('tap', (ev) => {
       if (ev.target === cy) {
         select(null)
         setMenu(null)
       }
     })
-    cy.on('dbltap', 'node', (ev) => void loadNeighbors((ev.target as NodeSingular).id()))
+    cy.on('dbltap', 'node', (ev) => void expandNode((ev.target as NodeSingular).id()))
     cy.on('cxttap', 'node', (ev) => {
       const n = ev.target as NodeSingular
       const pos = ev.renderedPosition
@@ -165,7 +169,7 @@ export function GraphCanvas() {
         <div className="empty-hint">
           Search for an anime, character or voice actor to start.
           <br />
-          <small>click = select · double-click = expand neighbours · right-click = more</small>
+          <small>click = select · double-click = expand (fetches stubs from MAL) · right-click = more</small>
         </div>
       )}
     </div>

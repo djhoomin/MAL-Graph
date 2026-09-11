@@ -7,6 +7,7 @@ export interface Filters {
   lang: string | null // null = all languages
   onlyWatched: boolean
   highlightNeighbors: boolean // dim everything except the selected node's neighbourhood
+  expandOnClick: boolean // single click also expands (fetching from MAL first if the node is a stub)
 }
 
 interface State {
@@ -37,6 +38,8 @@ interface State {
   relayout: () => void
   loadNeighbors: (id: string) => Promise<void>
   fetchFromMal: (id: string) => Promise<void>
+  /** Fetch from MAL if the node is still a stub, then load its neighbours. */
+  expandNode: (id: string) => Promise<void>
   refreshUser: () => Promise<void>
   run: <T>(label: string, fn: () => Promise<T>) => Promise<T | undefined>
 }
@@ -50,7 +53,7 @@ export const useStore = create<State>((set, get) => ({
   pathFrom: null,
   pathTo: null,
   highlight: new Set(),
-  filters: { labels: { ...allTrue(LABELS), Genre: false, User: false }, rels: { ...allTrue(REL_TYPES), WORKED_ON: false, HAS_GENRE: false }, lang: 'Japanese', onlyWatched: false, highlightNeighbors: true },
+  filters: { labels: { ...allTrue(LABELS), Genre: false, User: false }, rels: { ...allTrue(REL_TYPES), WORKED_ON: false, HAS_GENRE: false }, lang: 'Japanese', onlyWatched: false, highlightNeighbors: true, expandOnClick: false },
   user: null,
   busy: null,
   error: null,
@@ -130,6 +133,14 @@ export const useStore = create<State>((set, get) => ({
       mergePayload(p)
       await refreshUser()
     })
+  },
+
+  expandNode: async (id) => {
+    const { nodes, fetchFromMal, loadNeighbors } = get()
+    const n = nodes[id]
+    const expandable = n && (n.label === 'Anime' || n.label === 'Person' || n.label === 'Character')
+    if (expandable && !n.fetched) await fetchFromMal(id)
+    else await loadNeighbors(id)
   },
 
   refreshUser: async () => {
