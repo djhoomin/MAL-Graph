@@ -138,3 +138,60 @@ INSIGHTS_GAPS = """
            collect({relation: r.relation, mal_id: a.mal_id, title: a.title, my_score: l.score, status: l.status}) AS via
     ORDER BY size(via) DESC, mal_id
 """
+
+# ---- recommendations ------------------------------------------------------
+# Unseen, fetched anime scored by the user's people. A person's weight = number of watched anime in which they
+# have a MAIN role (VAs) / a key position (staff), scaled by the user's average score for that work. Only the
+# user's top people count, and only main roles on the candidate side, so giant casts don't win by volume.
+# Candidates in the same franchise as anything on the list are excluded via the precomputed Anime.seen_franchise flag
+# (ingest.mark_seen_franchise, BFS over RELATED_TO chains) — direct ones are surfaced as "gaps"; the goal here is new series.
+# Only franchise entry points (no prequel) with a members floor, so a new series is recommended by its first season.
+RECS_VA = """
+    MATCH (u:User)-[l:LISTED]->(a:Anime)-[h0:HAS_CHARACTER {role: 'Main'}]->(:Character)<-[v:VOICES]-(p:Person)
+    WHERE l.status <> 'plan_to_watch' AND v.language = $lang
+    WITH u, p, count(DISTINCT a) AS n, avg(CASE WHEN l.score > 0 THEN toFloat(l.score) END) AS avg_score
+    WHERE n >= 2
+    WITH u, p, n * coalesce(avg_score, 7.0) / 10.0 AS w ORDER BY w DESC LIMIT 150
+    MATCH (p)-[v2:VOICES]->(c:Character)<-[h:HAS_CHARACTER {role: 'Main'}]-(b:Anime)
+    WHERE v2.language = $lang AND b.fetched_at IS NOT NULL AND NOT (u)-[:LISTED]->(b)
+      AND NOT coalesce(b.seen_franchise, false)
+      AND coalesce(b.members, 0) >= 5000
+      AND NOT (b)-[:RELATED_TO {relation: 'Prequel'}]->(:Anime)
+      AND ($min_score IS NULL OR b.score >= $min_score) AND b.type IN $types
+    WITH b, sum(w) AS score, collect(DISTINCT p.name) AS people
+    RETURN b, score, people[..6] AS via, size(people) AS n_people
+    ORDER BY score DESC LIMIT $limit
+"""
+RECS_STAFF = """
+    MATCH (u:User)-[l:LISTED]->(a:Anime)<-[w:WORKED_ON]-(p:Person)
+    WHERE l.status <> 'plan_to_watch' AND any(pos IN w.positions WHERE pos IN $positions)
+    WITH u, p, count(DISTINCT a) AS n, avg(CASE WHEN l.score > 0 THEN toFloat(l.score) END) AS avg_score
+    WHERE n >= 2
+    WITH u, p, n * coalesce(avg_score, 7.0) / 10.0 AS w ORDER BY w DESC LIMIT 150
+    MATCH (p)-[w2:WORKED_ON]->(b:Anime)
+    WHERE any(pos IN w2.positions WHERE pos IN $positions)
+      AND b.fetched_at IS NOT NULL AND NOT (u)-[:LISTED]->(b)
+      AND NOT coalesce(b.seen_franchise, false)
+      AND coalesce(b.members, 0) >= 5000
+      AND NOT (b)-[:RELATED_TO {relation: 'Prequel'}]->(:Anime)
+      AND ($min_score IS NULL OR b.score >= $min_score) AND b.type IN $types
+    WITH b, sum(w) AS score, collect(DISTINCT p.name) AS people
+    RETURN b, score, people[..6] AS via, size(people) AS n_people
+    ORDER BY score DESC LIMIT $limit
+"""
+RECS_STUDIO = """
+    MATCH (u:User)-[l:LISTED]->(a:Anime)-[:PRODUCED_BY]->(s:Studio)
+    WHERE l.status <> 'plan_to_watch'
+    WITH u, s, count(DISTINCT a) AS n, avg(CASE WHEN l.score > 0 THEN toFloat(l.score) END) AS avg_score
+    WHERE n >= 3
+    WITH u, s, n * coalesce(avg_score, 7.0) / 10.0 AS w
+    MATCH (s)<-[:PRODUCED_BY]-(b:Anime)
+    WHERE b.fetched_at IS NOT NULL AND NOT (u)-[:LISTED]->(b)
+      AND NOT coalesce(b.seen_franchise, false)
+      AND coalesce(b.members, 0) >= 5000
+      AND NOT (b)-[:RELATED_TO {relation: 'Prequel'}]->(:Anime)
+      AND ($min_score IS NULL OR b.score >= $min_score) AND b.type IN $types
+    WITH b, sum(w) * coalesce(b.score, 6.5) / 10.0 AS score, collect(DISTINCT s.name) AS studios
+    RETURN b, score, studios AS via, size(studios) AS n_people
+    ORDER BY score DESC LIMIT $limit
+"""

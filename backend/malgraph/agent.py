@@ -10,13 +10,13 @@ from typing import Any, AsyncIterator
 
 from openai import AsyncOpenAI
 
-from . import db
+from . import db, ingest, mal
 from .config import settings
 from .api import queries as Q
 from .api import routes as R
 from .api.serialize import PayloadBuilder, node_payload
 
-MAX_STEPS = 16
+MAX_STEPS = 20
 MAX_ROWS = 200
 FORBIDDEN = re.compile(r"\b(CREATE|MERGE|SET|DELETE|DETACH|REMOVE|DROP|INDEX|CONSTRAINT|LOAD\s+CSV|IMPORT|ALTER|STORAGE\s+MODE|FREE\s+MEMORY|CREATE\s+TRIGGER)\b", re.I)
 
@@ -34,6 +34,16 @@ Graph model (all ids are MAL ids; node refs look like "Anime:5114", "Character:1
 List statuses: completed, watching, on_hold, dropped, plan_to_watch. "watched"/"seen" means status <> plan_to_watch (Anime.watched = true).
 Anime with fetched_at IS NULL are stubs known only by title (sequels etc. not on the list); persons/characters can be stubs too.
 Only anime on the user's list have been fully fetched, so a voice actor's roles are only known for those anime.
+
+The graph contains the user's list, related anime, and (after enrichment) the filmographies of their favourite people and
+metadata for anime those people share. For RECOMMENDATIONS, follow this playbook and keep it to ~6 tool calls:
+  1. `taste_profile` — one call that gives their favourite VAs, directors, composers, studios, genres and top-rated anime. Never
+     re-derive this with cypher_read.
+  2. `recommendations` (via va / staff / studio) — graph-based candidates with the people/studio as the reason.
+  3. Widen with MAL when asked for genres, popularity or novelty: `mal_top` (rankings filtered by genre, skips their list),
+     `mal_recommendations` (MAL users' picks for an anime they loved), `mal_search`, `mal_season`. Results carry `on_list`.
+  4. Answer. Explain *why* each pick fits (people, studio, genres, their scores for the related work) and call present_cards.
+`fetch_from_mal` pulls any anime/person/character into the graph when you need details or connections that are missing.
 
 Guidance:
 - Prefer the dedicated tools; use cypher_read for anything they can't express. Keep queries small; always add LIMIT.
@@ -54,6 +64,13 @@ TOOLS: list[dict[str, Any]] = [
     {"type": "function", "function": {"name": "people", "description": "Ranked people by anime count on the user's list. kind='va' or a staff position like 'Director', 'Music', 'Character Design', 'Original Creator', 'Series Composition'.", "parameters": {"type": "object", "properties": {"kind": {"type": "string", "default": "va"}, "statuses": {"type": "string", "default": "completed,watching,on_hold,dropped"}, "lang": {"type": "string", "default": "Japanese"}, "min_anime": {"type": "integer", "default": 2}, "limit": {"type": "integer", "default": 30}}}}},
     {"type": "function", "function": {"name": "gaps", "description": "Related anime (sequels, prequels, ...) of anime the user has seen that are NOT on their list.", "parameters": {"type": "object", "properties": {"statuses": {"type": "string", "default": "completed,watching,on_hold"}, "relations": {"type": "string", "default": "Sequel,Prequel"}}}}},
     {"type": "function", "function": {"name": "cypher_read", "description": "Run a read-only Cypher query (MATCH/RETURN; no writes). Max 200 rows. Nodes are returned as refs with key properties.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "params": {"type": "object", "description": "Query parameters", "additionalProperties": True}}, "required": ["query"]}}},
+    {"type": "function", "function": {"name": "taste_profile", "description": "One-call summary of the user's taste: top voice actors, directors, composers, studios, genres (with their average score) and their highest-rated anime. Use this first for any recommendation or 'what do I like' question.", "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {"name": "recommendations", "description": "Graph-based recommendations: unseen anime ranked by how many of the user's favourite voice actors (via='va'), key staff (via='staff') or studios (via='studio') are involved, with the names as 'via'. Excludes sequels/prequels of seen anime.", "parameters": {"type": "object", "properties": {"via": {"type": "string", "enum": ["va", "staff", "studio"], "default": "va"}, "min_score": {"type": "number", "default": 7.0}, "types": {"type": "string", "default": "TV,Movie,ONA"}, "limit": {"type": "integer", "default": 20}}}}},
+    {"type": "function", "function": {"name": "fetch_from_mal", "description": "Fetch a node from MyAnimeList into the graph (anime: metadata+characters+staff; person: full filmography; character: appearances+voice actors). Use when the graph lacks details or connections for something.", "parameters": {"type": "object", "properties": {"ref": {"type": "string", "description": "Anime:<id> | Person:<id> | Character:<id>"}}, "required": ["ref"]}}},
+    {"type": "function", "function": {"name": "mal_search", "description": "Search MyAnimeList by title (beyond the graph). Results include on_list (the user's status or null).", "parameters": {"type": "object", "properties": {"q": {"type": "string"}, "limit": {"type": "integer", "default": 15}}, "required": ["q"]}}},
+    {"type": "function", "function": {"name": "mal_top", "description": "MyAnimeList rankings, optionally filtered by genre names client-side. ranking_type: all (top rated) | airing | upcoming | tv | movie | bypopularity | favorite. Scans up to `scan` top entries and returns those matching the filters, so use scan=500 for narrow genre filters.", "parameters": {"type": "object", "properties": {"ranking_type": {"type": "string", "default": "all"}, "genres": {"type": "string", "description": "Comma list of genre/theme names that must ALL be present, e.g. 'Mystery,Psychological'"}, "exclude_on_list": {"type": "boolean", "default": True}, "min_year": {"type": "integer"}, "scan": {"type": "integer", "default": 200}, "limit": {"type": "integer", "default": 20}}}}},
+    {"type": "function", "function": {"name": "mal_recommendations", "description": "MyAnimeList users' 'if you liked X you might like Y' pairs for an anime, with vote counts.", "parameters": {"type": "object", "properties": {"anime_id": {"type": "integer"}}, "required": ["anime_id"]}}},
+    {"type": "function", "function": {"name": "mal_season", "description": "Anime of a season, most popular first.", "parameters": {"type": "object", "properties": {"year": {"type": "integer"}, "season": {"type": "string", "description": "winter | spring | summer | fall"}, "limit": {"type": "integer", "default": 30}}, "required": ["year", "season"]}}},
     {"type": "function", "function": {"name": "show_on_canvas", "description": "Display these nodes (and the edges between them) in the user's graph view.", "parameters": {"type": "object", "properties": {"refs": {"type": "array", "items": {"type": "string"}}, "select": {"type": "string", "description": "Optional ref to select"}}, "required": ["refs"]}}},
     {"type": "function", "function": {"name": "present_cards", "description": "Show a card grid (image, name, caption) — use for sets of characters/anime the user should look at or choose between.", "parameters": {"type": "object", "properties": {"title": {"type": "string"}, "cards": {"type": "array", "items": {"type": "object", "properties": {"ref": {"type": "string"}, "caption": {"type": "string"}}, "required": ["ref"]}}}, "required": ["cards"]}}},
 ]
@@ -136,6 +153,75 @@ def _subgraph(refs: list[str]) -> dict[str, Any]:
     return builder.build()
 
 
+def _annotate_on_list(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    ids = [i["mal_id"] for i in items]
+    rows = db.run("MATCH (u:User)-[l:LISTED]->(a:Anime) WHERE a.mal_id IN $ids RETURN a.mal_id AS id, l.status AS status, l.score AS my_score", ids=ids)
+    status = {r["id"]: (r["status"], r["my_score"]) for r in rows}
+    for i in items:
+        st = status.get(i["mal_id"])
+        i["on_list"] = st[0] if st else None
+        if st and st[1]:
+            i["my_score"] = st[1]
+    return items
+
+
+def _compact_mal_anime(a: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ref": f"Anime:{a['id']}", "mal_id": a["id"], "title": a.get("title"), "type": a.get("media_type"),
+        "year": (a.get("start_season") or {}).get("year"), "episodes": a.get("num_episodes") or None,
+        "score": a.get("mean"), "members": a.get("num_list_users"), "status": a.get("status"),
+        "genres": [g["name"] for g in a.get("genres") or []][:6],
+        "studios": [s["name"] for s in a.get("studios") or []][:2],
+    }
+
+
+def _mal_tool(name: str, args: dict[str, Any]) -> Any:
+    if name == "mal_search":
+        return _annotate_on_list([_compact_mal_anime(a) for a in mal.search_anime(args["q"], int(args.get("limit") or 15))])
+    if name == "mal_recommendations":
+        d = mal.anime_details(int(args["anime_id"]), fields="id,title,recommendations")
+        items = [{"ref": f"Anime:{r['node']['id']}", "mal_id": r["node"]["id"], "title": r["node"].get("title"), "votes": r.get("num_recommendations")} for r in d.get("recommendations") or []]
+        return _annotate_on_list(items[:20])
+    if name == "mal_season":
+        items = [_compact_mal_anime(a) for a in mal.season(int(args["year"]), args["season"], int(args.get("limit") or 30))]
+        return _annotate_on_list(items)
+    # mal_top: scan the ranking and filter client-side
+    scan = min(int(args.get("scan") or 200), 500)
+    want = {g.strip().lower() for g in (args.get("genres") or "").split(",") if g.strip()}
+    items = _annotate_on_list([_compact_mal_anime(a) for a in mal.ranking(args.get("ranking_type") or "all", scan)])
+    out = []
+    for i in items:
+        if want and not want.issubset({g.lower() for g in i["genres"]}):
+            continue
+        if args.get("exclude_on_list", True) and i["on_list"]:
+            continue
+        if args.get("min_year") and (i["year"] or 0) < int(args["min_year"]):
+            continue
+        out.append(i)
+    return out[: int(args.get("limit") or 20)]
+
+
+def taste_profile() -> dict[str, Any]:
+    statuses = "completed,watching,on_hold,dropped"
+    out: dict[str, Any] = {}
+    for key, kind in (("voice_actors", "va"), ("directors", "Director"), ("composers", "Music"), ("character_designers", "Character Design"), ("original_creators", "Original Creator")):
+        r = R.insights_people(kind=kind, statuses=statuses, lang="Japanese" if kind == "va" else None, min_anime=2, limit=8)
+        out[key] = [{"ref": x["person"]["id"], "name": x["person"]["name"], "anime": len(x["anime_ids"]), "avg_my_score": round(x["avg_my_score"], 1) if x["avg_my_score"] else None} for x in r["people"]]
+    out["studios"] = db.run("""
+        MATCH (u:User)-[l:LISTED]->(a:Anime)-[:PRODUCED_BY]->(s:Studio) WHERE l.status <> 'plan_to_watch'
+        WITH s, count(DISTINCT a) AS n, avg(CASE WHEN l.score > 0 THEN toFloat(l.score) END) AS avg
+        RETURN s.name AS name, n AS anime, round(avg * 10) / 10 AS avg_my_score ORDER BY n DESC LIMIT 8""")
+    out["genres"] = db.run("""
+        MATCH (u:User)-[l:LISTED]->(a:Anime)-[:HAS_GENRE]->(g:Genre) WHERE l.status <> 'plan_to_watch' AND g.kind <> 'explicit'
+        WITH g, count(DISTINCT a) AS n, avg(CASE WHEN l.score > 0 THEN toFloat(l.score) END) AS avg
+        RETURN g.name AS name, n AS anime, round(avg * 10) / 10 AS avg_my_score ORDER BY n DESC LIMIT 12""")
+    out["top_rated"] = db.run("""
+        MATCH (u:User)-[l:LISTED]->(a:Anime) WHERE l.score >= 9
+        RETURN 'Anime:' + toString(a.mal_id) AS ref, a.title AS title, l.score AS my_score, a.year AS year ORDER BY l.score DESC, a.members DESC LIMIT 20""")
+    out["counts"] = db.run("MATCH (u:User)-[l:LISTED]->(a:Anime) RETURN l.status AS status, count(*) AS n ORDER BY n DESC")
+    return out
+
+
 class ToolContext:
     """Collects UI side-effects (canvas payloads, cards) produced during one turn."""
 
@@ -177,6 +263,21 @@ def execute_tool(name: str, args: dict[str, Any], ctx: ToolContext) -> Any:
         return [{"ref": f"Anime:{g['mal_id']}", "title": g["title"], "score": g["score"], "year": g["year"], "via": g["via"][:3]} for g in r["gaps"][:60]]
     if name == "cypher_read":
         return cypher_read(args["query"], args.get("params"))
+    if name == "taste_profile":
+        return taste_profile()
+    if name == "recommendations":
+        r = R.insights_recommendations(via=args.get("via") or "va", lang="Japanese", min_score=args.get("min_score", 7.0), types=args.get("types") or "TV,Movie,ONA", limit=int(args.get("limit") or 20))
+        return [{"anime": _compact_node(x["anime"]), "score": x["score"], "via": x["via"], "n_people": x["n_people"]} for x in r["recommendations"]]
+    if name == "fetch_from_mal":
+        label, key = R._parse_ref(args["ref"])
+        fn = {"Anime": ingest.expand_anime, "Person": ingest.expand_person, "Character": ingest.expand_character}.get(label)
+        if fn is None:
+            raise ValueError("only Anime, Person and Character can be fetched")
+        summary = fn(R.jikan(), key)
+        n = R.node_detail(args["ref"])["node"]
+        return {"fetched": _compact_node(n), **summary}
+    if name in ("mal_search", "mal_top", "mal_recommendations", "mal_season"):
+        return _mal_tool(name, args)
     if name == "show_on_canvas":
         p = _subgraph(args["refs"][:150])
         if not p["nodes"]:

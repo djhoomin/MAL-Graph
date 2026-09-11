@@ -238,6 +238,31 @@ def insights_gaps(statuses: str | None = "completed,watching,on_hold", relations
     return {"gaps": [r.data() for r in _records(Q.INSIGHTS_GAPS, statuses=_statuses(statuses), relations=rels)]}
 
 
+STAFF_POSITIONS = ["Director", "Series Composition", "Music", "Character Design", "Original Creator"]
+
+
+@router.get("/insights/recommendations")
+def insights_recommendations(
+    via: str = "va",
+    lang: str | None = "Japanese",
+    min_score: float | None = 7.0,
+    types: str = "TV,Movie,ONA",
+    limit: int = 40,
+) -> dict[str, Any]:
+    """Unseen anime ranked by connections to the user's voice actors ('va'), staff ('staff') or studios ('studio')."""
+    q = {"va": Q.RECS_VA, "staff": Q.RECS_STAFF, "studio": Q.RECS_STUDIO}.get(via)
+    if q is None:
+        raise HTTPException(400, "via must be va, staff or studio")
+    recs = _records(q, lang=lang or "Japanese", positions=STAFF_POSITIONS, min_score=min_score, types=types.split(","), limit=limit)
+    return {
+        "via": via,
+        "recommendations": [
+            {"anime": node_payload(r["b"]), "score": round(r["score"], 2), "via": r["via"], "n_people": r["n_people"]}
+            for r in recs
+        ],
+    }
+
+
 # --------------------------------------------------------------------------- list sync
 
 class _SyncJob:
@@ -273,6 +298,7 @@ class _SyncJob:
                 self.failed.append({"mal_id": mal_id, "error": str(e)})
             self.done += 1
         self.current = None
+        ingest.mark_seen_franchise()
 
     def status(self) -> dict[str, Any]:
         return {"running": self.running, "total": self.total, "done": self.done, "failed": self.failed, "current": self.current}

@@ -96,6 +96,12 @@ export interface Gap {
   fetched: boolean
   via: { relation: string; mal_id: number; title: string; my_score: number; status: ListStatus }[]
 }
+export interface Recommendation {
+  anime: GNode
+  score: number
+  via: string[]
+  n_people: number
+}
 export interface SyncStatus {
   running: boolean
   total: number
@@ -199,6 +205,8 @@ export const api = {
   insightsList: () => req<{ anime: ListAnime[] }>('/api/insights/list'),
   insightsPeople: (kind: string, statuses: string[], lang: string | null, min_anime = 2, limit = 40) =>
     req<{ kind: string; people: RankedPerson[] }>(`/api/insights/people${qs({ kind, statuses: statuses.join(','), lang, min_anime, limit })}`),
+  insightsRecommendations: (via: 'va' | 'staff' | 'studio', min_score: number | null, types: string, limit = 40) =>
+    req<{ via: string; recommendations: Recommendation[] }>(`/api/insights/recommendations${qs({ via, min_score, types, limit })}`),
   insightsGaps: (statuses: string[]) => req<{ gaps: Gap[] }>(`/api/insights/gaps${qs({ statuses: statuses.join(',') })}`),
   sync: () => req<{ synced: number; unfetched: number; expanding: boolean }>('/api/sync', { method: 'POST' }),
   syncStatus: () => req<SyncStatus>('/api/sync/status'),

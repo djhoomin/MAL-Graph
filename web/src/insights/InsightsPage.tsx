@@ -6,6 +6,7 @@ import { navigate } from '../useHashRoute'
 import { fmt, SEEN, type Bucket } from './data'
 import { Gaps } from './Gaps'
 import { People } from './People'
+import { Recommendations } from './Recommendations'
 import { Timeline, type Thread } from './Timeline'
 
 const LANGS = ['Japanese', 'English', 'Korean', 'Mandarin', 'Spanish', 'French', 'German', 'Italian', 'Portuguese (BR)']
@@ -143,6 +144,14 @@ export function InsightsPage() {
               <span className="muted">click a name to highlight their anime on the timeline</span>
             </div>
             <People anime={anime} statuses={statusList} lang={lang} thread={thread} onThread={setThread} />
+          </section>
+
+          <section>
+            <div className="section-head">
+              <h2>Recommendations</h2>
+              <span className="muted">unseen anime connected to your people</span>
+            </div>
+            <Recommendations />
           </section>
 
           <section>

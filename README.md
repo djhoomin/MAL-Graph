@@ -37,6 +37,7 @@ Jikan v4, self-hosted (:8080) ┘                            :7687         :8000
 .venv/bin/malgraph sync-list              # your list -> User/Anime/LISTED
 .venv/bin/malgraph expand-list            # characters/VAs/staff/relations for every listed anime (resumable)
 .venv/bin/malgraph expand anime 5114      # one node's neighbourhood (anime | person | character)
+.venv/bin/malgraph enrich                 # grow the graph beyond your list (see Recommendations)
 .venv/bin/malgraph stats
 
 .venv/bin/uvicorn malgraph.api.main:app --app-dir backend --reload   # API on :8000
@@ -77,6 +78,10 @@ Nodes without `fetched_at` are **stubs** (known only by id/title); the UI draws 
 - **Phone**: below 900 px the canvas fills the screen with the search on top and a bottom tab bar
   that opens the tools / node panels as sheets; long-press a node for the context menu. The page is
   installable (web manifest), so Chrome's "Add to Home screen" opens it full-screen.
+- **Recommendations** (Insights page): unseen anime ranked by how many of *your* people are involved
+  (voice actors in main roles, key staff, studios), sequels of things you've seen excluded. Needs
+  `malgraph enrich`, which pulls your top people's filmographies and the metadata of the anime they
+  share into the graph (~1,800 Jikan calls the first time; cached thereafter).
 - **Insights** (`#/insights`): KPI tiles, a seasonal timeline of your list (stacked by status, or
   highlighting one person's / studio's / genre's anime), ranked voice actors / directors / composers /
   studios / genres, and "gaps" — sequels and prequels of anime you've seen that aren't on your list.

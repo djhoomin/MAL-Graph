@@ -1,6 +1,7 @@
 """Upsert Jikan / MAL payloads into Memgraph. All writes are idempotent (MERGE) and batched via UNWIND."""
 from __future__ import annotations
 
+import re
 import time
 from typing import Any, Iterable
 
@@ -30,6 +31,30 @@ def _ref(obj: dict[str, Any] | None, name_key: str = "name") -> dict[str, Any]:
 
 def _now() -> int:
     return int(time.time())
+
+
+def split_positions(text: str) -> list[str]:
+    """'add Director (Chief Director), Series Composition (eps 1, 3)' -> ['Director', 'Series Composition'].
+    Splits on commas outside parentheses and strips parenthetical notes."""
+    text = text.removeprefix("add ").strip()
+    parts, depth, cur = [], 0, ""
+    for ch in text:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        elif ch == "," and depth == 0:
+            parts.append(cur)
+            cur = ""
+            continue
+        cur += ch
+    parts.append(cur)
+    out: list[str] = []
+    for part in parts:
+        name = re.sub(r"\s*\(.*?\)\s*", " ", part).strip(" ,")
+        if name and name not in out:
+            out.append(name)
+    return out
 
 
 # --------------------------------------------------------------------------- anime
@@ -168,7 +193,12 @@ def upsert_anime_staff(anime_id: int, rows: Iterable[dict[str, Any]]) -> None:
         p = _ref(row.get("person"))
         if p["mal_id"] is None:
             continue
-        staff.append({**p, "positions": row.get("positions") or []})
+        clean: list[str] = []
+        for pos in row.get("positions") or []:
+            for x in split_positions(pos):
+                if x not in clean:
+                    clean.append(x)
+        staff.append({**p, "positions": clean})
     if staff:
         db.run(
             """
@@ -182,10 +212,19 @@ def upsert_anime_staff(anime_id: int, rows: Iterable[dict[str, Any]]) -> None:
         )
 
 
+def expand_anime_light(j: JikanClient, mal_id: int) -> dict[str, int]:
+    """Metadata only (/full): score, genres, studio, relations, image — no characters/staff. Marks the node light=true."""
+    full = j.anime_full(mal_id)
+    upsert_anime_full(full)
+    db.run("MATCH (a:Anime {mal_id: $id}) SET a.light = true", id=mal_id)
+    return {"relations": sum(len(r.get("entry") or []) for r in full.get("relations") or [])}
+
+
 def expand_anime(j: JikanClient, mal_id: int) -> dict[str, int]:
     """Fetch /full, /characters, /staff for an anime and upsert everything."""
     full = j.anime_full(mal_id)
     upsert_anime_full(full)
+    db.run("MATCH (a:Anime {mal_id: $id}) REMOVE a.light", id=mal_id)
     chars = j.anime_characters(mal_id)
     upsert_anime_characters(mal_id, chars)
     staff = j.anime_staff(mal_id)
@@ -243,9 +282,9 @@ def expand_person(j: JikanClient, mal_id: int) -> dict[str, int]:
         if a["mal_id"] is None:
             continue
         entry = positions.setdefault(a["mal_id"], {"anime": a, "positions": []})
-        pos = (w.get("position") or "").removeprefix("add ").strip()
-        if pos and pos not in entry["positions"]:
-            entry["positions"].append(pos)
+        for pos in split_positions(w.get("position") or ""):
+            if pos not in entry["positions"]:
+                entry["positions"].append(pos)
     if positions:
         db.run(
             """
@@ -253,7 +292,9 @@ def expand_person(j: JikanClient, mal_id: int) -> dict[str, int]:
             UNWIND $rows AS row
             MERGE (a:Anime {mal_id: row.anime.mal_id})
               ON CREATE SET a.title = row.anime.name, a.image_url = row.anime.image_url, a.url = row.anime.url
-            MERGE (p)-[w:WORKED_ON]->(a) SET w.positions = row.positions
+            MERGE (p)-[w:WORKED_ON]->(a)
+              ON CREATE SET w.positions = row.positions
+              ON MATCH SET w.positions = w.positions + [x IN row.positions WHERE NOT x IN w.positions]
             """,
             id=mal_id, rows=list(positions.values()),
         )
@@ -372,7 +413,21 @@ def upsert_user_list(username: str, entries: Iterable[dict[str, Any]]) -> int:
             """,
             u=username, rows=rows[i:i + 500],
         )
+    mark_seen_franchise()
     return len(rows)
+
+
+def mark_seen_franchise() -> int:
+    """Flag every anime in the same franchise (sequel/prequel/side-story chains) as anything on the list.
+    Recommendations exclude these; direct ones are shown as gaps. Cheap (Memgraph BFS), so run after any ingest."""
+    db.run("MATCH (a:Anime) WHERE a.seen_franchise REMOVE a.seen_franchise")
+    rows = db.run("""
+        MATCH (u:User)-[:LISTED]->(x:Anime)
+        MATCH (x)-[:RELATED_TO *BFS 0..6 (r, n | r.relation <> 'Character')]-(f:Anime)
+        WITH DISTINCT f SET f.seen_franchise = true
+        RETURN count(f) AS n
+    """)
+    return rows[0]["n"] if rows else 0
 
 
 def listed_stub_ids(username: str | None = None, limit: int | None = None) -> list[int]:
@@ -395,3 +450,51 @@ def stats() -> dict[str, Any]:
         out[rel] = db.run(f"MATCH ()-[r:{rel}]->() RETURN count(r) AS c")[0]["c"]
     out["listed_unfetched"] = len(listed_stub_ids())
     return out
+
+
+# --------------------------------------------------------------------------- enrichment (beyond the list)
+
+def top_people_ids(kind: str, top: int, lang: str = "Japanese") -> list[int]:
+    """Unexpanded people ranked by presence in watched anime. kind='va' or a staff position."""
+    if kind == "va":
+        q = """
+            MATCH (u:User)-[l:LISTED]->(a:Anime)-[:HAS_CHARACTER]->(c:Character)<-[v:VOICES]-(p:Person)
+            WHERE l.status <> 'plan_to_watch' AND v.language = $lang
+            WITH p, count(DISTINCT a) AS n WHERE p.fetched_at IS NULL
+            RETURN p.mal_id AS id ORDER BY n DESC LIMIT $top
+        """
+    else:
+        q = """
+            MATCH (u:User)-[l:LISTED]->(a:Anime)<-[w:WORKED_ON]-(p:Person)
+            WHERE l.status <> 'plan_to_watch' AND $kind IN w.positions
+            WITH p, count(DISTINCT a) AS n WHERE p.fetched_at IS NULL
+            RETURN p.mal_id AS id ORDER BY n DESC LIMIT $top
+        """
+    return [r["id"] for r in db.run(q, lang=lang, kind=kind, top=top)]
+
+
+def linked_stub_ids(min_links: int, limit: int) -> list[int]:
+    """Stub anime (never fetched) connected to at least `min_links` people, most-connected first."""
+    return [r["id"] for r in db.run("""
+        MATCH (b:Anime) WHERE b.fetched_at IS NULL
+        OPTIONAL MATCH (b)-[:HAS_CHARACTER]->(:Character)<-[:VOICES]-(p1:Person)
+        OPTIONAL MATCH (b)<-[:WORKED_ON]-(p2:Person)
+        WITH b, count(DISTINCT p1) + count(DISTINCT p2) AS links
+        WHERE links >= $min_links
+        RETURN b.mal_id AS id ORDER BY links DESC LIMIT $limit
+    """, min_links=min_links, limit=limit)]
+
+
+def normalize_positions() -> int:
+    """One-off repair: split/strip every WORKED_ON.positions entry (see split_positions)."""
+    rows = db.run("MATCH ()-[w:WORKED_ON]->() UNWIND w.positions AS pos WITH DISTINCT pos RETURN pos")
+    fixes = {r["pos"]: split_positions(r["pos"]) for r in rows}
+    changed = [{"old": k, "new": v} for k, v in fixes.items() if v != [k]]
+    for i in range(0, len(changed), 200):
+        db.run("""
+            UNWIND $rows AS row
+            MATCH ()-[w:WORKED_ON]->() WHERE row.old IN w.positions
+            WITH w, row, [x IN w.positions WHERE x <> row.old] AS rest
+            SET w.positions = rest + [x IN row.new WHERE NOT x IN rest]
+        """, rows=changed[i:i + 200])
+    return len(changed)
