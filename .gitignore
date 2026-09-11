@@ -1,0 +1,27 @@
+# secrets / local config
+.env
+.env.*
+!.env.example
+
+# python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ingest cache (Jikan/MAL responses; regenerable)
+data/cache/
+
+# node / vite
+node_modules/
+web/dist/
+*.log
+
+# editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

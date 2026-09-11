@@ -1,0 +1,75 @@
+services:
+  memgraph:
+    image: memgraph/memgraph-mage:latest
+    container_name: malgraph-memgraph
+    ports:
+      - "7687:7687"
+      - "7444:7444"
+    command: ["--log-level=WARNING", "--storage-snapshot-interval-sec=300", "--storage-wal-enabled=true"]
+    volumes:
+      - mg_lib:/var/lib/memgraph
+      - mg_log:/var/log/memgraph
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'RETURN 0;' | mgconsole || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  lab:
+    image: memgraph/lab:latest
+    container_name: malgraph-lab
+    ports:
+      - "3000:3000"
+    depends_on:
+      - memgraph
+    environment:
+      - QUICK_CONNECT_MG_HOST=memgraph
+      - QUICK_CONNECT_MG_PORT=7687
+
+
+  # Self-hosted Jikan: scrapes MAL from your own IP, avoiding the public instance's 504s.
+  mongodb:
+    image: mongo:7
+    container_name: malgraph-mongo
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-jikan}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:?set MONGO_PASSWORD in .env}
+    volumes:
+      - mongo_data:/data/db
+    command: ["--wiredTigerCacheSizeGB", "0.5"]
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh mongodb://localhost:27017 --quiet --eval 'db.runCommand(\"ping\").ok'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  jikan:
+    image: jikanme/jikan-rest:latest
+    container_name: malgraph-jikan
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - LOG_LEVEL=info
+      - DB_CONNECTION=mongodb
+      - DB_HOST=mongodb
+      - DB_PORT=27017
+      - DB_DATABASE=jikan
+      - DB_ADMIN=admin
+      - DB_USERNAME=${MONGO_USER:-jikan}
+      - DB_PASSWORD=${MONGO_PASSWORD:?set MONGO_PASSWORD in .env}
+      - DB_CACHING=true
+      - CACHING=false
+      - SCOUT_DRIVER=collection
+      - MICROCACHING=false
+      - CORS_MIDDLEWARE=true
+      - JIKAN_ENABLE_PERIODICAL_FULL_INDEXER=false
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+volumes:
+  mg_lib:
+  mg_log:
+  mongo_data:
