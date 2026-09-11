@@ -75,7 +75,8 @@ export interface UserSummary {
   unfetched: number
 }
 
-const BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000'
+// Dev talks to uvicorn on :8000; in production Caddy serves the UI and proxies /api on the same origin.
+const BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? 'http://localhost:8000' : '')
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(BASE + path, init)

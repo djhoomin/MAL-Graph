@@ -25,3 +25,4 @@ web/dist/
 .idea/
 .vscode/
 *.swp
+deploy/caddy/users

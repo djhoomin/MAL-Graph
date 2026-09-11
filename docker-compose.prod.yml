@@ -1,0 +1,91 @@
+# Production stack: Caddy (TLS + basic auth + static UI) -> FastAPI -> Memgraph, with a self-hosted Jikan.
+# Usage: docker compose -f docker-compose.prod.yml up -d --build
+services:
+  memgraph:
+    image: memgraph/memgraph-mage:latest
+    restart: unless-stopped
+    command: ["--log-level=WARNING", "--storage-snapshot-interval-sec=300", "--storage-wal-enabled=true"]
+    volumes:
+      - mg_lib:/var/lib/memgraph
+      - mg_log:/var/log/memgraph
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'RETURN 0;' | mgconsole || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-jikan}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:?set MONGO_PASSWORD in .env}
+    volumes:
+      - mongo_data:/data/db
+    command: ["--wiredTigerCacheSizeGB", "0.25"]
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh mongodb://localhost:27017 --quiet --eval 'db.runCommand(\"ping\").ok'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  jikan:
+    image: jikanme/jikan-rest:latest
+    restart: unless-stopped
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - LOG_LEVEL=warning
+      - DB_CONNECTION=mongodb
+      - DB_HOST=mongodb
+      - DB_PORT=27017
+      - DB_DATABASE=jikan
+      - DB_ADMIN=admin
+      - DB_USERNAME=${MONGO_USER:-jikan}
+      - DB_PASSWORD=${MONGO_PASSWORD}
+      - DB_CACHING=true
+      - CACHING=false
+      - SCOUT_DRIVER=collection
+      - MICROCACHING=false
+      - JIKAN_ENABLE_PERIODICAL_FULL_INDEXER=false
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - MEMGRAPH_URI=bolt://memgraph:7687
+      - JIKAN_BASE=http://jikan:8080/v4
+      - CACHE_DIR=data/cache
+    volumes:
+      - ./data/cache:/app/data/cache
+    depends_on:
+      memgraph:
+        condition: service_healthy
+      jikan:
+        condition: service_started
+
+  web:
+    build: ./web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - SITE_ADDRESS=${SITE_ADDRESS:-http://localhost:8088}
+    volumes:
+      - ./deploy/caddy/users:/etc/caddy/users:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  mg_lib:
+  mg_log:
+  mongo_data:
+  caddy_data:
+  caddy_config:

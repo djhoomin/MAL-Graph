@@ -1,0 +1,5 @@
+# Publishes Caddy on :8088 instead of 80/443 for a local test of docker-compose.prod.yml.
+services:
+  web:
+    ports: !override
+      - "8088:8088"

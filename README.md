@@ -47,6 +47,11 @@ The client stays under 3 req/s and 60 req/min (be polite to MAL); every response
 `data/cache/`, so re-runs are free and `expand-list` can be interrupted and resumed. Transient
 errors are retried with backoff; failed ids are listed at the end and retried on the next run.
 
+## Deploying
+
+See [deploy/README.md](deploy/README.md) — `docker-compose.prod.yml` adds Caddy (HTTPS + basic auth)
+in front of the API and a static build of the UI; it runs on a small Scaleway Instance.
+
 ## Graph model
 
 | Edge | Meaning |

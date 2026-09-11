@@ -1,0 +1,19 @@
+# SITE_ADDRESS e.g. mal.example.com (automatic HTTPS) or http://localhost:8088 for local testing.
+{$SITE_ADDRESS:http://localhost:8088} {
+	encode gzip
+
+	# One "user bcrypt-hash" per line, mounted from deploy/caddy/users (not in git).
+	basic_auth {
+		import /etc/caddy/users
+	}
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
