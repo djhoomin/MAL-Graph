@@ -44,6 +44,7 @@ export function Gaps({ statuses }: { statuses: ListStatus[] }) {
         /* keep going; the item stays a stub */
       }
       setProgress({ done: i + 1, total: todo.length })
+      if ((i + 1) % 10 === 0) await load()
     }
     setProgress(null)
     await load()
