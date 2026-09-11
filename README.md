@@ -74,6 +74,9 @@ Nodes without `fetched_at` are **stubs** (known only by id/title); the UI draws 
   optionally restricted to anime you've seen and excluding hub nodes (genres, your User node).
 - **Voice roles** (Person) lists every character they voice, grouped by anime, filtered to your
   list by default.
+- **Phone**: below 900 px the canvas fills the screen with the search on top and a bottom tab bar
+  that opens the tools / node panels as sheets; long-press a node for the context menu. The page is
+  installable (web manifest), so Chrome's "Add to Home screen" opens it full-screen.
 - **Sync list** (status bar) re-fetches your MAL list and then fetches any newly added anime from
   MAL in the background, showing progress — the same as `malgraph sync-list && malgraph expand-list`.
 - **VA roster** (`#/roster`, or the link in the header) is a URL-addressable card view: voice actors

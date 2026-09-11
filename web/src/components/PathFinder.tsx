@@ -40,7 +40,7 @@ export function PathFinder() {
 
   const chip = (end: 'from' | 'to', id: string | null) => (
     <span className={`endpoint ${end}`}>
-      {id ? nodes[id]?.name ?? id : <i>right-click a node → "Set as path {end === 'from' ? 'start' : 'end'}"</i>}
+      {id ? nodes[id]?.name ?? id : <i>right-click / long-press a node → "path {end === 'from' ? 'start' : 'end'}"</i>}
       {id && <button onClick={() => setPathEnd(end, null)}>×</button>}
     </span>
   )

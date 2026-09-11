@@ -62,13 +62,29 @@ export function GraphCanvas() {
       }
     })
     cy.on('dbltap', 'node', (ev) => void expandNode((ev.target as NodeSingular).id()))
-    cy.on('cxttap', 'node', (ev) => {
+    const openMenu = (ev: cytoscape.EventObject) => {
       const n = ev.target as NodeSingular
       const pos = ev.renderedPosition
-      setMenu({ id: n.id(), label: n.data('label'), x: pos.x, y: pos.y })
-    })
+      // keep the menu inside the canvas on small screens
+      const x = Math.min(pos.x, cy.width() - 230)
+      const y = Math.min(pos.y, cy.height() - 240)
+      setMenu({ id: n.id(), label: n.data('label'), x: Math.max(0, x), y: Math.max(0, y) })
+    }
+    cy.on('cxttap', 'node', openMenu) // right-click
+    cy.on('taphold', 'node', openMenu) // long-press on touch
     cy.on('pan zoom drag', () => setMenu(null))
-    return () => cy.destroy()
+    // Keep the renderer in sync with the container (orientation changes, sheets opening).
+    let fitTimer: ReturnType<typeof setTimeout> | undefined
+    const ro = new ResizeObserver(() => {
+      cy.resize()
+      clearTimeout(fitTimer)
+      fitTimer = setTimeout(() => cy.nodes().length && cy.animate({ fit: { eles: cy.elements(), padding: 30 }, duration: 200 }), 250)
+    })
+    ro.observe(ref.current)
+    return () => {
+      ro.disconnect()
+      cy.destroy()
+    }
   }, [])
 
   // Sync store elements -> cytoscape (incremental add/remove) and run layout for additions.
@@ -171,7 +187,7 @@ export function GraphCanvas() {
         <div className="empty-hint">
           Search for an anime, character or voice actor to start.
           <br />
-          <small>click = select · double-click = expand (fetches stubs from MAL) · right-click = more</small>
+          <small>tap = select · double-tap = expand (fetches stubs from MAL) · right-click / long-press = more</small>
         </div>
       )}
     </div>
