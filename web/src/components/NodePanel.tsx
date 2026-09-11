@@ -52,6 +52,7 @@ export function NodePanel() {
         </button>
         {expandable && <button onClick={() => void fetchFromMal(node.id)}>{node.fetched ? 'Refetch from MAL' : 'Fetch from MAL'}</button>}
         {node.label === 'Person' && <button onClick={() => setView('va')}>Voice roles</button>}
+        {node.label === 'Person' && <a className="btn" href={`#/roster/${node.mal_id}`}>Roster ↗</a>}
         <button onClick={() => setPathEnd('from', node.id)}>Path start</button>
         <button onClick={() => setPathEnd('to', node.id)}>Path end</button>
         <button onClick={() => removeNode(node.id)}>Remove</button>

@@ -53,6 +53,7 @@ export function VaView() {
               {data.roles.length} roles in {byAnime.size} anime{filters.lang ? ` (${filters.lang})` : ''}
             </span>
             <button onClick={() => mergePayload(data)}>Add all to canvas</button>
+            <a href={`#/roster/${node.mal_id}`}>roster view ↗</a>
           </div>
           {[...byAnime.entries()].map(([animeId, roles]) => (
             <div key={animeId} className="va-anime">

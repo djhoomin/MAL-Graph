@@ -41,6 +41,11 @@ export interface VaRole {
 export interface VaResult extends GraphPayload {
   roles: VaRole[]
 }
+export interface RosterEntry {
+  person: GNode
+  characters: number
+  anime: number
+}
 export interface NodeDetail {
   node: GNode
   degrees: { type: RelType; label: Label; n: number }[]
@@ -97,6 +102,8 @@ export const api = {
     req<PathResult>(`/api/path${qs({ from, to, ...o })}`),
   vaRoles: (malId: number, only_watched: boolean, lang: string | null) =>
     req<VaResult>(`/api/person/${malId}/characters${qs({ only_watched, lang })}`),
+  roster: (o: { only_watched?: boolean; main_only?: boolean; lang?: string | null; min_characters?: number; q?: string; limit?: number }) =>
+    req<{ people: RosterEntry[] }>(`/api/roster${qs(o)}`),
   user: () => req<UserSummary>('/api/user'),
   stats: () => req<Record<string, number>>('/api/stats'),
 }

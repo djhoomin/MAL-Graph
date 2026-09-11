@@ -154,6 +154,21 @@ def person_characters(mal_id: int, only_watched: bool = True, lang: str | None =
     return builder.build(roles=roles)
 
 
+@router.get("/roster")
+def roster(
+    only_watched: bool = True,
+    main_only: bool = False,
+    lang: str | None = "Japanese",
+    min_characters: int = Query(3, ge=1),
+    q: str | None = None,
+    limit: int = 200,
+) -> dict[str, Any]:
+    """Voice actors with at least `min_characters` distinct characters (in watched anime by default)."""
+    recs = _records(Q.ROSTER, only_watched=only_watched, main_only=main_only, lang=lang or None, min_characters=min_characters,
+                    q=q.strip().lower() if q else None, limit=limit)
+    return {"people": [{"person": node_payload(r["p"]), "characters": r["characters"], "anime": r["anime"]} for r in recs]}
+
+
 @router.get("/user")
 def user_summary() -> dict[str, Any]:
     rows = [r.data() for r in _records(Q.USER_SUMMARY)]

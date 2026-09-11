@@ -78,3 +78,17 @@ USER_SUMMARY = """
            sum(CASE WHEN a.fetched_at IS NULL THEN 1 ELSE 0 END) AS unfetched
     ORDER BY status
 """
+
+# Voice actors ranked by distinct characters in anime the user has watched (for the roster view).
+ROSTER = """
+    MATCH (p:Person)-[v:VOICES]->(c:Character)<-[h:HAS_CHARACTER]-(a:Anime)
+    WHERE (NOT $only_watched OR coalesce(a.watched, false))
+      AND (NOT $main_only OR h.role = 'Main')
+      AND ($lang IS NULL OR v.language = $lang)
+      AND ($q IS NULL OR toLower(p.name) CONTAINS $q)
+    WITH p, count(DISTINCT c) AS characters, count(DISTINCT a) AS anime
+    WHERE characters >= $min_characters
+    RETURN p, characters, anime
+    ORDER BY characters DESC, anime DESC, p.name
+    LIMIT $limit
+"""

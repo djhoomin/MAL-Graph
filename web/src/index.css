@@ -88,3 +88,25 @@ main { display: flex; flex-direction: column; min-width: 0; }
 .ctx-menu { position: absolute; z-index: 40; display: flex; flex-direction: column; background: #1d2130; border: 1px solid var(--border); border-radius: 8px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); min-width: 200px; }
 .ctx-menu button { background: none; border: none; text-align: left; padding: 6px 10px; border-radius: 4px; }
 .ctx-menu button:hover:not(:disabled) { background: #2a2f3d; }
+
+/* roster view */
+h1 .nav { font-size: 12px; font-weight: normal; margin-left: 10px; }
+a.btn { display: inline-block; background: #20242f; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; text-decoration: none; color: inherit; }
+a.btn:hover { border-color: var(--accent); }
+.back { color: var(--muted); text-decoration: none; }
+.back:hover { color: var(--accent); }
+.roster { min-height: 100vh; }
+.roster-head { display: flex; align-items: center; gap: 18px; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
+.roster-head h1 { margin: 0; }
+.roster-body { padding: 14px 20px; }
+.roster-body h2 { margin: 0; font-size: 18px; }
+.avatar { width: 44px; height: 58px; object-fit: cover; border-radius: 6px; }
+.roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin-top: 14px; }
+.roster-grid.people { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.card { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; padding: 0; text-align: left; color: inherit; }
+.card img, .card .noimg { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; background: #20242f; }
+.card-body { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px; font-size: 12px; }
+.card-body strong { font-size: 13px; }
+.card.picked { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.35); }
+.card.picked img { aspect-ratio: 2 / 3; }
+.anime-line { color: #c9c9c9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
