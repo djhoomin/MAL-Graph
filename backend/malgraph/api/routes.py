@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import threading
 import time
 from typing import Any, Literal
@@ -139,6 +140,9 @@ def path(
 def builder_node_id(n: Any) -> str:
     from .serialize import node_id
     return node_id(n)
+
+
+node_id_of = builder_node_id
 
 
 @router.get("/person/{mal_id}/characters")
@@ -296,3 +300,35 @@ async def sync_list(expand: bool = True) -> dict[str, Any]:
 @router.get("/sync/status")
 def sync_status() -> dict[str, Any]:
     return _sync.status()
+
+
+# --------------------------------------------------------------------------- ask the graph (agent)
+
+from fastapi import Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
+from .. import agent
+
+
+class AskBody(BaseModel):
+    message: str
+    session_id: str | None = None
+
+
+@router.get("/ask/status")
+def ask_status() -> dict[str, Any]:
+    return {"configured": agent.configured(), "model": settings.openrouter_model if agent.configured() else None}
+
+
+@router.post("/ask")
+async def ask(body: AskBody, request: Request) -> StreamingResponse:
+    """Server-sent events: one JSON event per line ("data: {...}\n\n")."""
+
+    async def gen():
+        async for ev in agent.run(body.session_id, body.message):
+            if await request.is_disconnected():
+                break
+            yield f"data: {json.dumps(ev, ensure_ascii=False, default=str)}\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

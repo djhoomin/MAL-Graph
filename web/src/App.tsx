@@ -7,12 +7,13 @@ import { SearchBar } from './components/SearchBar'
 import { StatusBar } from './components/StatusBar'
 import { VaView } from './components/VaView'
 import { RosterPage } from './components/RosterPage'
+import { AskPanel } from './components/AskPanel'
 import { InsightsPage } from './insights/InsightsPage'
 import { useStore } from './store'
 import { useHashRoute } from './useHashRoute'
 import { useIsMobile } from './useMediaQuery'
 
-type Sheet = 'none' | 'tools' | 'node'
+type Sheet = 'none' | 'tools' | 'node' | 'ask'
 
 export default function App() {
   const view = useStore((s) => s.view)
@@ -23,14 +24,19 @@ export default function App() {
   return isMobile ? <MobileLayout view={view} /> : <DesktopLayout view={view} />
 }
 
-function DesktopLayout({ view }: { view: 'node' | 'va' }) {
+function DesktopLayout({ view }: { view: 'node' | 'va' | 'ask' }) {
+  const setView = useStore((s) => s.setView)
   return (
     <div className="app">
       <aside className="sidebar left">
-        <h1>
-          MAL·Graph <a href="#/roster" className="nav">VA roster</a>
+        <h1>MAL·Graph</h1>
+        <div className="nav-row">
+          <button className={`nav-btn ${view === 'ask' ? 'on' : ''}`} onClick={() => setView(view === 'ask' ? 'node' : 'ask')}>
+            Ask the graph
+          </button>
+          <a href="#/roster" className="nav">VA roster</a>
           <a href="#/insights" className="nav">Insights</a>
-        </h1>
+        </div>
         <SearchBar />
         <PathFinder />
         <FilterBar />
@@ -39,12 +45,12 @@ function DesktopLayout({ view }: { view: 'node' | 'va' }) {
         <GraphCanvas />
         <StatusBar />
       </main>
-      <aside className="sidebar right">{view === 'va' ? <VaView /> : <NodePanel />}</aside>
+      <aside className="sidebar right">{view === 'ask' ? <AskPanel /> : view === 'va' ? <VaView /> : <NodePanel />}</aside>
     </div>
   )
 }
 
-function MobileLayout({ view }: { view: 'node' | 'va' }) {
+function MobileLayout({ view }: { view: 'node' | 'va' | 'ask' }) {
   const [sheet, setSheet] = useState<Sheet>('none')
   const selected = useStore((s) => s.selected)
   const selectedName = useStore((s) => (s.selected ? s.nodes[s.selected]?.name : undefined))
@@ -54,6 +60,7 @@ function MobileLayout({ view }: { view: 'node' | 'va' }) {
   // "Voice roles" / roster links switch the view; make sure the node sheet is showing it.
   useEffect(() => {
     if (view === 'va') setSheet('node')
+    if (view === 'ask') setSheet('ask')
   }, [view])
 
   const toggle = (s: Sheet) => setSheet((cur) => (cur === s ? 'none' : s))
@@ -74,12 +81,17 @@ function MobileLayout({ view }: { view: 'node' | 'va' }) {
           <div className="sheet-body">
             {sheet === 'tools' && (
               <>
+                <div className="row">
+                  <a className="btn" href="#/insights">Insights</a>
+                  <a className="btn" href="#/roster">VA roster</a>
+                </div>
                 <PathFinder />
                 <FilterBar />
                 <StatusBar />
               </>
             )}
             {sheet === 'node' && (view === 'va' ? <VaView /> : <NodePanel />)}
+            {sheet === 'ask' && <AskPanel />}
           </div>
         </div>
       )}
@@ -93,8 +105,10 @@ function MobileLayout({ view }: { view: 'node' | 'va' }) {
         <button className={sheet === 'node' ? 'active' : ''} disabled={!selected} onClick={() => toggle('node')}>
           {selectedName ? <span className="ellipsis">{selectedName}</span> : 'Node'}
         </button>
+        <button className={sheet === 'ask' ? 'active' : ''} onClick={() => toggle('ask')}>
+          Ask
+        </button>
         <a href="#/roster">Roster</a>
-        <a href="#/insights">Insights</a>
       </nav>
     </div>
   )

@@ -141,6 +141,42 @@ export interface NeighborOpts {
   limit?: number
 }
 
+export type AskEvent =
+  | { type: 'session'; id: string; model: string; resumed: boolean }
+  | { type: 'tool_call'; name: string; args: Record<string, unknown> }
+  | { type: 'tool_error'; name: string; message: string }
+  | { type: 'canvas'; payload: GraphPayload & { select?: string } }
+  | { type: 'cards'; title: string; cards: { node: GNode; caption: string }[] }
+  | { type: 'answer'; text: string }
+  | { type: 'error'; message: string }
+  | { type: 'done'; usage: { prompt_tokens: number; completion_tokens: number } }
+
+/** POST /api/ask and yield server-sent events as they arrive. */
+export async function* ask(message: string, sessionId: string | null, signal?: AbortSignal): AsyncGenerator<AskEvent> {
+  const res = await fetch(BASE + '/api/ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, session_id: sessionId }),
+    signal,
+  })
+  if (!res.ok || !res.body) throw new Error(`${res.status}: ${res.statusText}`)
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    let idx
+    while ((idx = buf.indexOf('\n\n')) >= 0) {
+      const chunk = buf.slice(0, idx)
+      buf = buf.slice(idx + 2)
+      const line = chunk.split('\n').find((l) => l.startsWith('data: '))
+      if (line) yield JSON.parse(line.slice(6)) as AskEvent
+    }
+  }
+}
+
 export const api = {
   search: (q: string, limit = 8) =>
     req<{ query: string; results: Partial<Record<Label, GNode[]>> }>(`/api/search${qs({ q, limit })}`),
@@ -159,6 +195,7 @@ export const api = {
   roster: (o: { only_watched?: boolean; main_only?: boolean; lang?: string | null; min_characters?: number; q?: string; limit?: number }) =>
     req<{ people: RosterEntry[] }>(`/api/roster${qs(o)}`),
   user: () => req<UserSummary>('/api/user'),
+  askStatus: () => req<{ configured: boolean; model: string | null }>('/api/ask/status'),
   insightsList: () => req<{ anime: ListAnime[] }>('/api/insights/list'),
   insightsPeople: (kind: string, statuses: string[], lang: string | null, min_anime = 2, limit = 40) =>
     req<{ kind: string; people: RankedPerson[] }>(`/api/insights/people${qs({ kind, statuses: statuses.join(','), lang, min_anime, limit })}`),

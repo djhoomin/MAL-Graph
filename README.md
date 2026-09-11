@@ -80,6 +80,12 @@ Nodes without `fetched_at` are **stubs** (known only by id/title); the UI draws 
 - **Insights** (`#/insights`): KPI tiles, a seasonal timeline of your list (stacked by status, or
   highlighting one person's / studio's / genre's anime), ranked voice actors / directors / composers /
   studios / genres, and "gaps" — sequels and prequels of anime you've seen that aren't on your list.
+- **Ask the graph** (button in the header / Ask tab on mobile): a tool-using LLM agent that answers
+  natural-language questions by exploring the graph — search, neighbours, shortest paths, voice roles,
+  rankings, gaps and read-only Cypher — and can draw results on the canvas or present them as cards
+  ("pick a VA with 3 main roles I've seen and give me 3 characters from different genres"). Runs through
+  OpenRouter: set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` (any tool-capable model id) in `.env`.
+  Conversations are kept in memory for follow-ups.
 - **Sync list** (status bar) re-fetches your MAL list and then fetches any newly added anime from
   MAL in the background, showing progress — the same as `malgraph sync-list && malgraph expand-list`.
 - **VA roster** (`#/roster`, or the link in the header) is a URL-addressable card view: voice actors

@@ -22,7 +22,7 @@ interface State {
   user: UserSummary | null
   busy: string | null
   error: string | null
-  view: 'node' | 'va'
+  view: 'node' | 'va' | 'ask'
   layoutTick: number
 
   mergePayload: (p: GraphPayload, opts?: { select?: string }) => void
@@ -36,7 +36,7 @@ interface State {
   toggleLabel: (l: Label) => void
   toggleRel: (r: RelType) => void
   toggleStatus: (st: ListStatus) => void
-  setView: (v: 'node' | 'va') => void
+  setView: (v: 'node' | 'va' | 'ask') => void
   relayout: () => void
   loadNeighbors: (id: string) => Promise<void>
   fetchFromMal: (id: string) => Promise<void>
