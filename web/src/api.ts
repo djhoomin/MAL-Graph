@@ -61,6 +61,41 @@ export interface NodeDetail {
   node: GNode
   degrees: { type: RelType; label: Label; n: number }[]
 }
+export interface ListAnime {
+  mal_id: number
+  title: string
+  title_english: string | null
+  image_url: string | null
+  type: string | null
+  year: number | null
+  season: string | null
+  aired_from: string | null
+  episodes: number | null
+  score: number | null
+  members: number | null
+  status: ListStatus
+  my_score: number
+  episodes_watched: number
+  updated_at: string | null
+  studios: { mal_id: number; name: string }[]
+  genres: { mal_id: number; name: string; kind: string }[]
+}
+export interface RankedPerson {
+  person: GNode
+  anime_ids: number[]
+  characters: number
+  avg_my_score: number | null
+}
+export interface Gap {
+  mal_id: number
+  title: string
+  image_url: string | null
+  score: number | null
+  type: string | null
+  year: number | null
+  fetched: boolean
+  via: { relation: string; mal_id: number; title: string; my_score: number; status: ListStatus }[]
+}
 export interface SyncStatus {
   running: boolean
   total: number
@@ -124,6 +159,10 @@ export const api = {
   roster: (o: { only_watched?: boolean; main_only?: boolean; lang?: string | null; min_characters?: number; q?: string; limit?: number }) =>
     req<{ people: RosterEntry[] }>(`/api/roster${qs(o)}`),
   user: () => req<UserSummary>('/api/user'),
+  insightsList: () => req<{ anime: ListAnime[] }>('/api/insights/list'),
+  insightsPeople: (kind: string, statuses: string[], lang: string | null, min_anime = 2, limit = 40) =>
+    req<{ kind: string; people: RankedPerson[] }>(`/api/insights/people${qs({ kind, statuses: statuses.join(','), lang, min_anime, limit })}`),
+  insightsGaps: (statuses: string[]) => req<{ gaps: Gap[] }>(`/api/insights/gaps${qs({ statuses: statuses.join(',') })}`),
   sync: () => req<{ synced: number; unfetched: number; expanding: boolean }>('/api/sync', { method: 'POST' }),
   syncStatus: () => req<SyncStatus>('/api/sync/status'),
   stats: () => req<Record<string, number>>('/api/stats'),

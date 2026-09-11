@@ -16,6 +16,7 @@ export function RosterPage({ personId }: { personId?: string }) {
       <header className="roster-head">
         <a href="#/" className="back">← graph</a>
         <h1>Voice actor roster</h1>
+        <a href="#/insights" className="nav">Insights</a>
         <label className="row">
           <input type="checkbox" checked={onlyWatched} onChange={(e) => setOnlyWatched(e.target.checked)} /> only anime I've seen
         </label>

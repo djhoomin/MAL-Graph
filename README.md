@@ -77,6 +77,9 @@ Nodes without `fetched_at` are **stubs** (known only by id/title); the UI draws 
 - **Phone**: below 900 px the canvas fills the screen with the search on top and a bottom tab bar
   that opens the tools / node panels as sheets; long-press a node for the context menu. The page is
   installable (web manifest), so Chrome's "Add to Home screen" opens it full-screen.
+- **Insights** (`#/insights`): KPI tiles, a seasonal timeline of your list (stacked by status, or
+  highlighting one person's / studio's / genre's anime), ranked voice actors / directors / composers /
+  studios / genres, and "gaps" — sequels and prequels of anime you've seen that aren't on your list.
 - **Sync list** (status bar) re-fetches your MAL list and then fetches any newly added anime from
   MAL in the background, showing progress — the same as `malgraph sync-list && malgraph expand-list`.
 - **VA roster** (`#/roster`, or the link in the header) is a URL-addressable card view: voice actors

@@ -18,12 +18,13 @@ export const REL_COLORS: Record<RelType, string> = {
   PRODUCED_BY: '#26c6a2',
   HAS_GENRE: '#8d99ae',
 }
+// Validated categorical palette for the dark surface (dataviz checks: lightness band, chroma, CVD, contrast).
 export const STATUS_COLORS: Record<ListStatus, string> = {
-  completed: '#3ddc84',
-  watching: '#4f8cff',
-  on_hold: '#ffd166',
-  plan_to_watch: '#8d99ae',
-  dropped: '#ff4f6a',
+  completed: '#199e70',
+  watching: '#3987e5',
+  on_hold: '#c98500',
+  plan_to_watch: '#9085e9',
+  dropped: '#e66767',
   none: '#5c6270',
 }
 export const REL_LABELS: Record<RelType, string> = {

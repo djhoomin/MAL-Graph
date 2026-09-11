@@ -7,6 +7,7 @@ import { SearchBar } from './components/SearchBar'
 import { StatusBar } from './components/StatusBar'
 import { VaView } from './components/VaView'
 import { RosterPage } from './components/RosterPage'
+import { InsightsPage } from './insights/InsightsPage'
 import { useStore } from './store'
 import { useHashRoute } from './useHashRoute'
 import { useIsMobile } from './useMediaQuery'
@@ -18,6 +19,7 @@ export default function App() {
   const route = useHashRoute()
   const isMobile = useIsMobile()
   if (route[0] === 'roster') return <RosterPage personId={route[1]} />
+  if (route[0] === 'insights') return <InsightsPage />
   return isMobile ? <MobileLayout view={view} /> : <DesktopLayout view={view} />
 }
 
@@ -27,6 +29,7 @@ function DesktopLayout({ view }: { view: 'node' | 'va' }) {
       <aside className="sidebar left">
         <h1>
           MAL·Graph <a href="#/roster" className="nav">VA roster</a>
+          <a href="#/insights" className="nav">Insights</a>
         </h1>
         <SearchBar />
         <PathFinder />
@@ -91,6 +94,7 @@ function MobileLayout({ view }: { view: 'node' | 'va' }) {
           {selectedName ? <span className="ellipsis">{selectedName}</span> : 'Node'}
         </button>
         <a href="#/roster">Roster</a>
+        <a href="#/insights">Insights</a>
       </nav>
     </div>
   )

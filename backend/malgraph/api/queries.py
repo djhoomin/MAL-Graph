@@ -94,3 +94,47 @@ ROSTER = """
     ORDER BY characters DESC, anime DESC, p.name
     LIMIT $limit
 """
+
+# ---- insights -------------------------------------------------------------
+INSIGHTS_LIST = """
+    MATCH (u:User)-[l:LISTED]->(a:Anime)
+    OPTIONAL MATCH (a)-[:PRODUCED_BY]->(s:Studio)
+    WITH a, l, collect(DISTINCT {mal_id: s.mal_id, name: s.name}) AS studios
+    OPTIONAL MATCH (a)-[:HAS_GENRE]->(g:Genre)
+    RETURN a.mal_id AS mal_id, a.title AS title, a.title_english AS title_english, a.image_url AS image_url,
+           a.type AS type, a.year AS year, a.season AS season, a.aired_from AS aired_from,
+           a.episodes AS episodes, a.score AS score, a.members AS members,
+           l.status AS status, l.score AS my_score, l.episodes_watched AS episodes_watched, l.updated_at AS updated_at,
+           [s IN studios WHERE s.mal_id IS NOT NULL] AS studios,
+           collect(DISTINCT {mal_id: g.mal_id, name: g.name, kind: g.kind}) AS genres
+"""
+
+# People ranked by how many listed anime they touch. kind = 'va' (VOICES via characters) or a staff position.
+INSIGHTS_VA = """
+    MATCH (u:User)-[l:LISTED]->(a:Anime)-[:HAS_CHARACTER]->(c:Character)<-[v:VOICES]-(p:Person)
+    WHERE l.status IN $statuses AND ($lang IS NULL OR v.language = $lang)
+    WITH p, collect(DISTINCT a.mal_id) AS anime_ids, count(DISTINCT c) AS characters,
+         avg(CASE WHEN l.score > 0 THEN toFloat(l.score) END) AS avg_my_score
+    WHERE size(anime_ids) >= $min
+    RETURN p, anime_ids, characters, avg_my_score
+    ORDER BY size(anime_ids) DESC, characters DESC, p.name LIMIT $limit
+"""
+INSIGHTS_STAFF = """
+    MATCH (u:User)-[l:LISTED]->(a:Anime)<-[w:WORKED_ON]-(p:Person)
+    WHERE l.status IN $statuses AND $position IN w.positions
+    WITH p, collect(DISTINCT a.mal_id) AS anime_ids, 0 AS characters,
+         avg(CASE WHEN l.score > 0 THEN toFloat(l.score) END) AS avg_my_score
+    WHERE size(anime_ids) >= $min
+    RETURN p, anime_ids, characters, avg_my_score
+    ORDER BY size(anime_ids) DESC, p.name LIMIT $limit
+"""
+
+# Related anime (sequels etc.) of listed anime that are not on the list.
+INSIGHTS_GAPS = """
+    MATCH (u:User)-[l:LISTED]->(a:Anime)-[r:RELATED_TO]->(b:Anime)
+    WHERE l.status IN $statuses AND r.relation IN $relations AND NOT (u)-[:LISTED]->(b)
+    RETURN b.mal_id AS mal_id, b.title AS title, b.image_url AS image_url, b.score AS score, b.type AS type,
+           b.year AS year, b.fetched_at IS NOT NULL AS fetched,
+           collect({relation: r.relation, mal_id: a.mal_id, title: a.title, my_score: l.score, status: l.status}) AS via
+    ORDER BY size(via) DESC, mal_id
+"""

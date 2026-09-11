@@ -190,6 +190,50 @@ def stats() -> dict[str, Any]:
     return ingest.stats()
 
 
+# --------------------------------------------------------------------------- insights
+
+ALL_STATUSES = ["completed", "watching", "on_hold", "dropped", "plan_to_watch"]
+GAP_RELATIONS = ["Sequel", "Prequel", "Side Story", "Spin-Off", "Alternative Version", "Parent Story", "Alternative Setting"]
+
+
+def _statuses(statuses: str | None) -> list[str]:
+    return [s for s in (statuses or "").split(",") if s in ALL_STATUSES] or ALL_STATUSES
+
+
+@router.get("/insights/list")
+def insights_list() -> dict[str, Any]:
+    """Every anime on the list with the fields the insights page charts."""
+    return {"anime": [r.data() for r in _records(Q.INSIGHTS_LIST)]}
+
+
+@router.get("/insights/people")
+def insights_people(
+    kind: str = "va",
+    statuses: str | None = None,
+    lang: str | None = "Japanese",
+    min_anime: int = Query(2, ge=1),
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Ranked people: kind='va' (voice actors) or a staff position such as 'Director' or 'Music'."""
+    if kind == "va":
+        recs = _records(Q.INSIGHTS_VA, statuses=_statuses(statuses), lang=lang or None, min=min_anime, limit=limit)
+    else:
+        recs = _records(Q.INSIGHTS_STAFF, statuses=_statuses(statuses), position=kind, min=min_anime, limit=limit)
+    return {
+        "kind": kind,
+        "people": [
+            {"person": node_payload(r["p"]), "anime_ids": r["anime_ids"], "characters": r["characters"], "avg_my_score": r["avg_my_score"]}
+            for r in recs
+        ],
+    }
+
+
+@router.get("/insights/gaps")
+def insights_gaps(statuses: str | None = "completed,watching,on_hold", relations: str | None = None) -> dict[str, Any]:
+    rels = [r for r in (relations or "").split(",") if r] or GAP_RELATIONS
+    return {"gaps": [r.data() for r in _records(Q.INSIGHTS_GAPS, statuses=_statuses(statuses), relations=rels)]}
+
+
 # --------------------------------------------------------------------------- list sync
 
 class _SyncJob:
