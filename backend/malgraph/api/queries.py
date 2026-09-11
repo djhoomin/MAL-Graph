@@ -48,6 +48,7 @@ SHORTEST_PATH = """
     MATCH (a:%s {mal_id: $from_id}), (b:%s {mal_id: $to_id})
     MATCH p = (a)-[*BFS ..%d (r, n |
         NOT labels(n)[0] IN $exclude
+        AND type(r) IN $rels
         AND (NOT $only_watched OR NOT n:Anime OR coalesce(n.watched, false))
         AND ($lang IS NULL OR type(r) <> 'VOICES' OR r.language = $lang)
     )]-(b)
@@ -57,6 +58,7 @@ ALL_SHORTEST_PATHS = """
     MATCH (a:%s {mal_id: $from_id}), (b:%s {mal_id: $to_id})
     MATCH p = (a)-[*ALLSHORTEST ..%d (r, n | 1) w (r, n |
         NOT labels(n)[0] IN $exclude
+        AND type(r) IN $rels
         AND (NOT $only_watched OR NOT n:Anime OR coalesce(n.watched, false))
         AND ($lang IS NULL OR type(r) <> 'VOICES' OR r.language = $lang)
     )]-(b)

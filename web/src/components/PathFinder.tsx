@@ -10,16 +10,23 @@ export function PathFinder() {
   const { setPathEnd, mergePayload, setHighlight, run } = useStore.getState()
   const [maxHops, setMaxHops] = useState(8)
   const [onlyWatched, setOnlyWatched] = useState(false)
-  const [viaGenre, setViaGenre] = useState(false)
-  const [viaStudio, setViaStudio] = useState(true)
+  const [via, setVia] = useState({ va: true, staff: true, related: true, studio: true, genre: false })
+  const toggleVia = (k: keyof typeof via) => setVia((v) => ({ ...v, [k]: !v[k] }))
   const [allPaths, setAllPaths] = useState(false)
   const [result, setResult] = useState<PathResult | null>(null)
 
   const find = async () => {
     if (!pathFrom || !pathTo) return
-    const exclude = ['User', ...(viaGenre ? [] : ['Genre']), ...(viaStudio ? [] : ['Studio'])].join(',')
+    const exclude = ['User', ...(via.genre ? [] : ['Genre']), ...(via.studio ? [] : ['Studio'])].join(',')
+    const rels = [
+      ...(via.va ? ['VOICES', 'HAS_CHARACTER'] : []),
+      ...(via.staff ? ['WORKED_ON'] : []),
+      ...(via.related ? ['RELATED_TO'] : []),
+      ...(via.studio ? ['PRODUCED_BY'] : []),
+      ...(via.genre ? ['HAS_GENRE'] : []),
+    ].join(',')
     const r = await run('Finding path…', () =>
-      api.path(pathFrom, pathTo, { max_hops: maxHops, only_watched: onlyWatched, exclude, lang: filters.lang, all_paths: allPaths, limit: 10 }),
+      api.path(pathFrom, pathTo, { max_hops: maxHops, only_watched: onlyWatched, exclude, rels, lang: filters.lang, all_paths: allPaths, limit: 10 }),
     )
     if (!r) return
     setResult(r)
@@ -49,17 +56,27 @@ export function PathFinder() {
       <label className="row">
         <input type="checkbox" checked={onlyWatched} onChange={(e) => setOnlyWatched(e.target.checked)} /> only via anime I've seen
       </label>
-      <label className="row">
-        <input type="checkbox" checked={viaStudio} onChange={(e) => setViaStudio(e.target.checked)} /> allow studios
-      </label>
-      <label className="row">
-        <input type="checkbox" checked={viaGenre} onChange={(e) => setViaGenre(e.target.checked)} /> allow genres
-      </label>
+      <div className="row muted" style={{ marginBottom: 0 }}>hop via</div>
+      <div className="chips">
+        {(
+          [
+            ['va', 'voice actors'],
+            ['staff', 'staff'],
+            ['related', 'related anime'],
+            ['studio', 'studios'],
+            ['genre', 'genres'],
+          ] as const
+        ).map(([k, label]) => (
+          <button key={k} className={`chip ${via[k] ? '' : 'off'}`} onClick={() => toggleVia(k)}>
+            {label}
+          </button>
+        ))}
+      </div>
       <label className="row">
         <input type="checkbox" checked={allPaths} onChange={(e) => setAllPaths(e.target.checked)} /> all shortest paths (max 10)
       </label>
       <div className="row">
-        <button disabled={!pathFrom || !pathTo} onClick={() => void find()}>
+        <button disabled={!pathFrom || !pathTo || !Object.values(via).some(Boolean)} onClick={() => void find()}>
           Find
         </button>
         {result && (

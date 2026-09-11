@@ -98,7 +98,7 @@ export const api = {
       `/api/expand/${id}${qs({ only_watched: o.only_watched, lang: o.lang })}`,
       { method: 'POST' },
     ),
-  path: (from: string, to: string, o: { max_hops?: number; only_watched?: boolean; exclude?: string; lang?: string | null; all_paths?: boolean; limit?: number }) =>
+  path: (from: string, to: string, o: { max_hops?: number; only_watched?: boolean; exclude?: string; rels?: string; lang?: string | null; all_paths?: boolean; limit?: number }) =>
     req<PathResult>(`/api/path${qs({ from, to, ...o })}`),
   vaRoles: (malId: number, only_watched: boolean, lang: string | null) =>
     req<VaResult>(`/api/person/${malId}/characters${qs({ only_watched, lang })}`),

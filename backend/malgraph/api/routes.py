@@ -106,6 +106,7 @@ def path(
     max_hops: int = Query(8, ge=1, le=15),
     only_watched: bool = False,
     exclude: str = "User,Genre",
+    rels: str = ",".join(Q.REL_TYPES),
     lang: str | None = None,
     all_paths: bool = False,
     limit: int = 10,
@@ -118,7 +119,8 @@ def path(
     query = template % (a_label, b_label, max_hops)
     recs = _records(
         query, from_id=a_key, to_id=b_key,
-        exclude=[e for e in exclude.split(",") if e], only_watched=only_watched, lang=lang or None, limit=limit,
+        exclude=[e for e in exclude.split(",") if e], rels=[r for r in rels.split(",") if r],
+        only_watched=only_watched, lang=lang or None, limit=limit,
     )
     paths = [r["p"] for r in recs]
     builder = PayloadBuilder()
