@@ -1,9 +1,10 @@
 import { create } from 'zustand'
-import { api, LABELS, REL_TYPES, type GEdge, type GNode, type GraphPayload, type Label, type RelType, type UserSummary } from './api'
+import { api, LABELS, LIST_STATUSES, REL_TYPES, type GEdge, type GNode, type GraphPayload, type Label, type ListStatus, type RelType, type UserSummary } from './api'
 
 export interface Filters {
   labels: Record<Label, boolean>
   rels: Record<RelType, boolean>
+  statuses: Record<ListStatus, boolean> // visibility of Anime nodes by my list status
   lang: string | null // null = all languages
   onlyWatched: boolean
   highlightNeighbors: boolean // dim everything except the selected node's neighbourhood
@@ -34,6 +35,7 @@ interface State {
   setFilter: (patch: Partial<Filters>) => void
   toggleLabel: (l: Label) => void
   toggleRel: (r: RelType) => void
+  toggleStatus: (st: ListStatus) => void
   setView: (v: 'node' | 'va') => void
   relayout: () => void
   loadNeighbors: (id: string) => Promise<void>
@@ -53,7 +55,7 @@ export const useStore = create<State>((set, get) => ({
   pathFrom: null,
   pathTo: null,
   highlight: new Set(),
-  filters: { labels: { ...allTrue(LABELS), Genre: false, User: false }, rels: { ...allTrue(REL_TYPES), WORKED_ON: false, HAS_GENRE: false }, lang: 'Japanese', onlyWatched: false, highlightNeighbors: true, expandOnClick: false },
+  filters: { labels: { ...allTrue(LABELS), Genre: false, User: false }, rels: { ...allTrue(REL_TYPES), WORKED_ON: false, HAS_GENRE: false }, statuses: allTrue(LIST_STATUSES), lang: 'Japanese', onlyWatched: false, highlightNeighbors: true, expandOnClick: false },
   user: null,
   busy: null,
   error: null,
@@ -102,6 +104,7 @@ export const useStore = create<State>((set, get) => ({
   setFilter: (patch) => set((s) => ({ filters: { ...s.filters, ...patch } })),
   toggleLabel: (l) => set((s) => ({ filters: { ...s.filters, labels: { ...s.filters.labels, [l]: !s.filters.labels[l] } } })),
   toggleRel: (r) => set((s) => ({ filters: { ...s.filters, rels: { ...s.filters.rels, [r]: !s.filters.rels[r] } } })),
+  toggleStatus: (st) => set((s) => ({ filters: { ...s.filters, statuses: { ...s.filters.statuses, [st]: !s.filters.statuses[st] } } })),
   setView: (view) => set({ view }),
   relayout: () => set((s) => ({ layoutTick: s.layoutTick + 1 })),
 

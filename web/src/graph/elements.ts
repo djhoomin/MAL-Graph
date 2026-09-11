@@ -12,6 +12,7 @@ export function nodeElement(n: GNode): ElementDefinition {
       color: LABEL_COLORS[n.label],
       image: n.image_url ?? undefined,
       watched: n.watched ?? false,
+      status: n.label === 'Anime' ? n.list_status ?? 'none' : null,
       stub: !n.fetched,
     },
   }

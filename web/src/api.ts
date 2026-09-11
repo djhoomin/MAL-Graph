@@ -2,6 +2,17 @@
 export type Label = 'Anime' | 'Character' | 'Person' | 'Studio' | 'Genre' | 'User'
 export type RelType = 'LISTED' | 'HAS_CHARACTER' | 'VOICES' | 'WORKED_ON' | 'RELATED_TO' | 'PRODUCED_BY' | 'HAS_GENRE'
 
+export type ListStatus = 'completed' | 'watching' | 'on_hold' | 'plan_to_watch' | 'dropped' | 'none'
+export const LIST_STATUSES: ListStatus[] = ['completed', 'watching', 'on_hold', 'plan_to_watch', 'dropped', 'none']
+export const LIST_STATUS_LABELS: Record<ListStatus, string> = {
+  completed: 'completed',
+  watching: 'watching',
+  on_hold: 'on hold',
+  plan_to_watch: 'plan to watch',
+  dropped: 'dropped',
+  none: 'not on my list',
+}
+
 export const LABELS: Label[] = ['Anime', 'Character', 'Person', 'Studio', 'Genre', 'User']
 export const REL_TYPES: RelType[] = ['LISTED', 'HAS_CHARACTER', 'VOICES', 'WORKED_ON', 'RELATED_TO', 'PRODUCED_BY', 'HAS_GENRE']
 

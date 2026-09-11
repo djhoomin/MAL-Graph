@@ -1,4 +1,4 @@
-import type { Label, RelType } from '../api'
+import type { Label, ListStatus, RelType } from '../api'
 import type { StylesheetJson } from 'cytoscape'
 
 export const LABEL_COLORS: Record<Label, string> = {
@@ -17,6 +17,14 @@ export const REL_COLORS: Record<RelType, string> = {
   RELATED_TO: '#4f8cff',
   PRODUCED_BY: '#26c6a2',
   HAS_GENRE: '#8d99ae',
+}
+export const STATUS_COLORS: Record<ListStatus, string> = {
+  completed: '#3ddc84',
+  watching: '#4f8cff',
+  on_hold: '#ffd166',
+  plan_to_watch: '#8d99ae',
+  dropped: '#ff4f6a',
+  none: '#5c6270',
 }
 export const REL_LABELS: Record<RelType, string> = {
   LISTED: 'on my list',
@@ -54,7 +62,12 @@ export const stylesheet: StylesheetJson = [
   { selector: 'node[label = "Anime"]', style: { shape: 'round-rectangle', width: 36, height: 48 } },
   { selector: 'node[label = "Studio"], node[label = "Genre"]', style: { shape: 'diamond', width: 24, height: 24 } },
   { selector: 'node[label = "User"]', style: { shape: 'star', width: 40, height: 40 } },
-  { selector: 'node[?watched]', style: { 'border-color': '#3ddc84', 'border-width': 4 } },
+  // ring colour = my list status (matches the status chips in the sidebar)
+  { selector: 'node[status = "completed"]', style: { 'border-color': STATUS_COLORS.completed, 'border-width': 4 } },
+  { selector: 'node[status = "watching"]', style: { 'border-color': STATUS_COLORS.watching, 'border-width': 4 } },
+  { selector: 'node[status = "on_hold"]', style: { 'border-color': STATUS_COLORS.on_hold, 'border-width': 4 } },
+  { selector: 'node[status = "dropped"]', style: { 'border-color': STATUS_COLORS.dropped, 'border-width': 4 } },
+  { selector: 'node[status = "plan_to_watch"]', style: { 'border-color': STATUS_COLORS.plan_to_watch, 'border-width': 4 } },
   { selector: 'node[?stub]', style: { 'border-style': 'dashed', opacity: 0.75 } },
   { selector: 'node:selected', style: { 'border-color': '#ffffff', 'border-width': 4, 'z-index': 10 } },
   { selector: 'node.pathFrom', style: { 'border-color': '#3ddc84', 'border-width': 5 } },

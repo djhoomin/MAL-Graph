@@ -151,7 +151,9 @@ export function GraphCanvas() {
     if (!cy) return
     cy.batch(() => {
       cy.nodes().forEach((n) => {
-        n.toggleClass('hidden', !filters.labels[n.data('label') as keyof typeof filters.labels])
+        const status = n.data('status') as keyof typeof filters.statuses | null
+        const hidden = !filters.labels[n.data('label') as keyof typeof filters.labels] || (status !== null && !filters.statuses[status])
+        n.toggleClass('hidden', hidden)
       })
       cy.edges().forEach((e) => {
         const type = e.data('type') as keyof typeof filters.rels

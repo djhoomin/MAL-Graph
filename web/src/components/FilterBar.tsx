@@ -1,5 +1,5 @@
-import { LABELS, REL_TYPES } from '../api'
-import { LABEL_COLORS, REL_COLORS, REL_LABELS } from '../graph/style'
+import { LABELS, LIST_STATUSES, LIST_STATUS_LABELS, REL_TYPES } from '../api'
+import { LABEL_COLORS, REL_COLORS, REL_LABELS, STATUS_COLORS } from '../graph/style'
 import { useStore } from '../store'
 
 const LANGS = ['Japanese', 'English', 'Korean', 'Mandarin', 'Spanish', 'French', 'German', 'Italian', 'Portuguese (BR)']
@@ -7,7 +7,7 @@ const LANGS = ['Japanese', 'English', 'Korean', 'Mandarin', 'Spanish', 'French',
 export function FilterBar() {
   const filters = useStore((s) => s.filters)
   const user = useStore((s) => s.user)
-  const { toggleLabel, toggleRel, setFilter, relayout, clear, loadNeighbors } = useStore.getState()
+  const { toggleLabel, toggleRel, toggleStatus, setFilter, relayout, clear, loadNeighbors } = useStore.getState()
   return (
     <div className="section">
       <h3>Show</h3>
@@ -15,6 +15,13 @@ export function FilterBar() {
         {LABELS.map((l) => (
           <button key={l} className={`chip ${filters.labels[l] ? '' : 'off'}`} style={{ borderColor: LABEL_COLORS[l] }} onClick={() => toggleLabel(l)}>
             <i style={{ background: LABEL_COLORS[l] }} /> {l}
+          </button>
+        ))}
+      </div>
+      <div className="chips" title="Anime visibility by my list status">
+        {LIST_STATUSES.map((st) => (
+          <button key={st} className={`chip status ${filters.statuses[st] ? '' : 'off'}`} style={{ borderColor: STATUS_COLORS[st] }} onClick={() => toggleStatus(st)}>
+            <i style={{ background: STATUS_COLORS[st] }} /> {LIST_STATUS_LABELS[st]}
           </button>
         ))}
       </div>
