@@ -8,7 +8,7 @@ const SHOWN_PROPS = ['title_english', 'title_japanese', 'type', 'episodes', 'yea
 export function NodePanel() {
   const selected = useStore((s) => s.selected)
   const node = useStore((s) => (s.selected ? s.nodes[s.selected] : undefined))
-  const { loadNeighbors, fetchFromMal, setPathEnd, setView, removeNode } = useStore.getState()
+  const { loadNeighbors, fetchFromMal, setPathEnd, setView, removeNode, collapseNode } = useStore.getState()
   const [detail, setDetail] = useState<NodeDetail | null>(null)
 
   useEffect(() => {
@@ -47,6 +47,9 @@ export function NodePanel() {
 
       <div className="actions">
         <button onClick={() => void loadNeighbors(node.id)}>Expand neighbours</button>
+        <button onClick={() => collapseNode(node.id)} title="Remove neighbours that aren't connected to anything else">
+          Collapse
+        </button>
         {expandable && <button onClick={() => void fetchFromMal(node.id)}>{node.fetched ? 'Refetch from MAL' : 'Fetch from MAL'}</button>}
         {node.label === 'Person' && <button onClick={() => setView('va')}>Voice roles</button>}
         <button onClick={() => setPathEnd('from', node.id)}>Path start</button>

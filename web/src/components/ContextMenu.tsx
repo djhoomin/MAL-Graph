@@ -9,7 +9,7 @@ export interface MenuState {
 }
 
 export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) {
-  const { loadNeighbors, fetchFromMal, setPathEnd, removeNode, select, setView } = useStore.getState()
+  const { loadNeighbors, fetchFromMal, setPathEnd, removeNode, collapseNode, select, setView } = useStore.getState()
   const expandable = menu.label === 'Anime' || menu.label === 'Person' || menu.label === 'Character'
   const item = (text: string, fn: () => void, disabled = false) => (
     <button
@@ -26,6 +26,7 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
     <div className="ctx-menu" style={{ left: menu.x, top: menu.y }}>
       {item('Expand neighbours (from DB)', () => void loadNeighbors(menu.id))}
       {item('Fetch from MAL (Jikan)', () => void fetchFromMal(menu.id), !expandable)}
+      {item('Collapse (remove leaf neighbours)', () => collapseNode(menu.id))}
       {menu.label === 'Person' &&
         item('Show voice roles', () => {
           select(menu.id)

@@ -7,15 +7,15 @@ SEARCH = {
     "Anime": """
         MATCH (n:Anime)
         WHERE toLower(n.title) CONTAINS $q OR toLower(coalesce(n.title_english, '')) CONTAINS $q
-        RETURN n ORDER BY n.watched DESC, n.members DESC LIMIT $limit
+        RETURN n ORDER BY coalesce(n.watched, false) DESC, coalesce(n.members, 0) DESC LIMIT $limit
     """,
     "Character": """
         MATCH (n:Character) WHERE toLower(n.name) CONTAINS $q
-        RETURN n ORDER BY n.favorites DESC LIMIT $limit
+        RETURN n ORDER BY coalesce(n.favorites, 0) DESC LIMIT $limit
     """,
     "Person": """
         MATCH (n:Person) WHERE toLower(n.name) CONTAINS $q
-        RETURN n ORDER BY n.favorites DESC LIMIT $limit
+        RETURN n ORDER BY coalesce(n.favorites, 0) DESC LIMIT $limit
     """,
     "Studio": "MATCH (n:Studio) WHERE toLower(n.name) CONTAINS $q RETURN n LIMIT $limit",
     "Genre": "MATCH (n:Genre) WHERE toLower(n.name) CONTAINS $q RETURN n LIMIT $limit",
@@ -69,7 +69,7 @@ VA_ROLES = """
     WHERE (NOT $only_watched OR coalesce(a.watched, false))
       AND ($lang IS NULL OR v.language = $lang)
     RETURN p, v, c, h, a
-    ORDER BY a.watched DESC, a.members DESC
+    ORDER BY coalesce(a.watched, false) DESC, coalesce(a.members, 0) DESC
 """
 
 USER_SUMMARY = """

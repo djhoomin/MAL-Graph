@@ -24,6 +24,7 @@ interface State {
 
   mergePayload: (p: GraphPayload, opts?: { select?: string }) => void
   removeNode: (id: string) => void
+  collapseNode: (id: string) => number
   clear: () => void
   select: (id: string | null) => void
   setPathEnd: (end: 'from' | 'to', id: string | null) => void
@@ -48,7 +49,7 @@ export const useStore = create<State>((set, get) => ({
   pathFrom: null,
   pathTo: null,
   highlight: new Set(),
-  filters: { labels: { ...allTrue(LABELS), Genre: false, User: false }, rels: allTrue(REL_TYPES), lang: 'Japanese', onlyWatched: false },
+  filters: { labels: { ...allTrue(LABELS), Genre: false, User: false }, rels: { ...allTrue(REL_TYPES), WORKED_ON: false, HAS_GENRE: false }, lang: 'Japanese', onlyWatched: false },
   user: null,
   busy: null,
   error: null,
@@ -70,6 +71,26 @@ export const useStore = create<State>((set, get) => ({
       const edges = Object.fromEntries(Object.entries(s.edges).filter(([, e]) => e.source !== id && e.target !== id))
       return { nodes, edges, selected: s.selected === id ? null : s.selected }
     }),
+  // Remove neighbours of `id` that are connected to nothing else on the canvas (leaf nodes),
+  // so anything reachable another way — e.g. a path you've built — survives.
+  collapseNode: (id) => {
+    const s = get()
+    const degree: Record<string, number> = {}
+    for (const e of Object.values(s.edges)) {
+      degree[e.source] = (degree[e.source] ?? 0) + 1
+      degree[e.target] = (degree[e.target] ?? 0) + 1
+    }
+    const leaves = new Set<string>()
+    for (const e of Object.values(s.edges)) {
+      const other = e.source === id ? e.target : e.target === id ? e.source : null
+      if (other && other !== id && degree[other] === 1 && other !== s.pathFrom && other !== s.pathTo) leaves.add(other)
+    }
+    if (leaves.size === 0) return 0
+    const nodes = Object.fromEntries(Object.entries(s.nodes).filter(([k]) => !leaves.has(k)))
+    const edges = Object.fromEntries(Object.entries(s.edges).filter(([, e]) => !leaves.has(e.source) && !leaves.has(e.target)))
+    set({ nodes, edges, selected: s.selected && leaves.has(s.selected) ? id : s.selected })
+    return leaves.size
+  },
   clear: () => set({ nodes: {}, edges: {}, selected: null, highlight: new Set(), pathFrom: null, pathTo: null }),
   select: (id) => set({ selected: id, view: 'node' }),
   setPathEnd: (end, id) => set(end === 'from' ? { pathFrom: id } : { pathTo: id }),

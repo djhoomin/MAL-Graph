@@ -14,7 +14,7 @@ const LAYOUT: FcoseLayoutOptions = {
   animate: true,
   animationDuration: 500,
   randomize: false,
-  fit: false,
+  fit: true,
   nodeRepulsion: () => 6000,
   idealEdgeLength: () => 70,
   gravity: 0.25,
@@ -84,12 +84,7 @@ export function GraphCanvas() {
         n.position({ x: base.x + (Math.random() - 0.5) * 80, y: base.y + (Math.random() - 0.5) * 80 })
       })
     })
-    if (newNodes.length > 0) {
-      const firstLoad = cy.nodes().length === newNodes.length
-      const layout = cy.layout({ ...LAYOUT, fit: firstLoad } as FcoseLayoutOptions)
-      layout.run()
-      if (!firstLoad) layout.on('layoutstop', () => cy.animate({ fit: { eles: cy.elements(), padding: 40 }, duration: 300 }))
-    }
+    if (newNodes.length > 0) cy.layout({ ...LAYOUT, fit: true } as FcoseLayoutOptions).run()
   }, [nodes, edges])
 
   useEffect(() => {
