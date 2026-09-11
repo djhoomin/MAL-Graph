@@ -69,6 +69,8 @@ Nodes without `fetched_at` are **stubs** (known only by id/title); the UI draws 
   optionally restricted to anime you've seen and excluding hub nodes (genres, your User node).
 - **Voice roles** (Person) lists every character they voice, grouped by anime, filtered to your
   list by default.
+- **Sync list** (status bar) re-fetches your MAL list and then fetches any newly added anime from
+  MAL in the background, showing progress — the same as `malgraph sync-list && malgraph expand-list`.
 - **VA roster** (`#/roster`, or the link in the header) is a URL-addressable card view: voice actors
   ranked by how many distinct characters they play in anime you've seen (`#/roster/<person id>`
   shows one VA's characters with role, anime and watch status, plus a random pick of three).

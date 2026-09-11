@@ -61,6 +61,13 @@ export interface NodeDetail {
   node: GNode
   degrees: { type: RelType; label: Label; n: number }[]
 }
+export interface SyncStatus {
+  running: boolean
+  total: number
+  done: number
+  failed: { mal_id: number; error: string }[]
+  current: number | null
+}
 export interface UserSummary {
   username: string | null
   by_status: Record<string, number>
@@ -116,5 +123,7 @@ export const api = {
   roster: (o: { only_watched?: boolean; main_only?: boolean; lang?: string | null; min_characters?: number; q?: string; limit?: number }) =>
     req<{ people: RosterEntry[] }>(`/api/roster${qs(o)}`),
   user: () => req<UserSummary>('/api/user'),
+  sync: () => req<{ synced: number; unfetched: number; expanding: boolean }>('/api/sync', { method: 'POST' }),
+  syncStatus: () => req<SyncStatus>('/api/sync/status'),
   stats: () => req<Record<string, number>>('/api/stats'),
 }

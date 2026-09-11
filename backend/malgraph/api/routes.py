@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import time
 from typing import Any, Literal
 
@@ -8,6 +9,8 @@ from starlette.concurrency import run_in_threadpool
 
 from .. import db, ingest
 from ..jikan import JikanClient, JikanError
+from ..mal import MalError, iter_user_animelist
+from ..config import settings
 from . import queries as Q
 from .serialize import PayloadBuilder, node_payload
 
@@ -185,3 +188,67 @@ def user_summary() -> dict[str, Any]:
 @router.get("/stats")
 def stats() -> dict[str, Any]:
     return ingest.stats()
+
+
+# --------------------------------------------------------------------------- list sync
+
+class _SyncJob:
+    """Background expansion of newly listed anime; one at a time."""
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.thread: threading.Thread | None = None
+        self.total = 0
+        self.done = 0
+        self.failed: list[dict[str, Any]] = []
+        self.current: int | None = None
+
+    @property
+    def running(self) -> bool:
+        return self.thread is not None and self.thread.is_alive()
+
+    def start(self, ids: list[int]) -> None:
+        with self.lock:
+            if self.running:
+                return
+            self.total, self.done, self.failed, self.current = len(ids), 0, [], None
+            self.thread = threading.Thread(target=self._run, args=(ids,), daemon=True)
+            self.thread.start()
+
+    def _run(self, ids: list[int]) -> None:
+        j = jikan()
+        for mal_id in ids:
+            self.current = mal_id
+            try:
+                ingest.expand_anime(j, mal_id)
+            except JikanError as e:
+                self.failed.append({"mal_id": mal_id, "error": str(e)})
+            self.done += 1
+        self.current = None
+
+    def status(self) -> dict[str, Any]:
+        return {"running": self.running, "total": self.total, "done": self.done, "failed": self.failed, "current": self.current}
+
+
+_sync = _SyncJob()
+
+
+@router.post("/sync")
+async def sync_list(expand: bool = True) -> dict[str, Any]:
+    """Re-fetch the user's MAL list, then (optionally) expand any anime not yet fetched, in the background."""
+    if _sync.running:
+        raise HTTPException(409, "a sync is already running")
+    username = settings.mal_username
+    try:
+        n = await run_in_threadpool(lambda: ingest.upsert_user_list(username, iter_user_animelist(username)))
+    except MalError as e:
+        raise HTTPException(502, str(e))
+    stubs = ingest.listed_stub_ids(username)
+    if expand and stubs:
+        _sync.start(stubs)
+    return {"synced": n, "unfetched": len(stubs), "expanding": expand and bool(stubs)}
+
+
+@router.get("/sync/status")
+def sync_status() -> dict[str, Any]:
+    return _sync.status()
