@@ -14,12 +14,19 @@ const LAYOUT: FcoseLayoutOptions = {
   animate: true,
   animationDuration: 500,
   randomize: false,
-  fit: true,
+  fit: false,
   nodeRepulsion: () => 6000,
   idealEdgeLength: () => 70,
   gravity: 0.25,
   numIter: 1500,
   padding: 40,
+}
+
+/** Run fcose and fit the viewport once the animation has finished (fcose's own `fit` uses pre-animation positions). */
+function runLayout(cy: Core, randomize: boolean) {
+  const layout = cy.layout({ ...LAYOUT, randomize } as FcoseLayoutOptions)
+  layout.one('layoutstop', () => cy.animate({ fit: { eles: cy.elements(), padding: 40 }, duration: 250 }))
+  layout.run()
 }
 
 export function GraphCanvas() {
@@ -84,22 +91,33 @@ export function GraphCanvas() {
         n.position({ x: base.x + (Math.random() - 0.5) * 80, y: base.y + (Math.random() - 0.5) * 80 })
       })
     })
-    if (newNodes.length > 0) cy.layout({ ...LAYOUT, fit: true } as FcoseLayoutOptions).run()
+    if (newNodes.length > 0) runLayout(cy, false)
   }, [nodes, edges])
 
   useEffect(() => {
     const cy = cyRef.current
     if (!cy || cy.nodes().length === 0) return
-    cy.layout({ ...LAYOUT, randomize: true, fit: true } as FcoseLayoutOptions).run()
+    runLayout(cy, true)
   }, [layoutTick])
 
-  // Selection sync.
+  // Selection sync + neighbourhood emphasis.
   useEffect(() => {
     const cy = cyRef.current
     if (!cy) return
-    cy.elements(':selected').unselect()
-    if (selected) cy.getElementById(selected).select()
-  }, [selected])
+    cy.batch(() => {
+      cy.elements(':selected').unselect()
+      cy.elements().removeClass('nbr dim')
+      const node = selected ? cy.getElementById(selected) : cy.collection()
+      if (node.nonempty()) {
+        node.select()
+        if (filters.highlightNeighbors) {
+          const hood = node.closedNeighborhood()
+          cy.elements().not(hood).addClass('dim')
+          hood.not(node).addClass('nbr')
+        }
+      }
+    })
+  }, [selected, filters.highlightNeighbors, nodes, edges])
 
   // Path endpoints.
   useEffect(() => {

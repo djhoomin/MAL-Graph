@@ -82,5 +82,9 @@ export const stylesheet: StylesheetJson = [
   { selector: '.path', style: { 'z-index': 20 } },
   { selector: 'node.path', style: { 'border-color': '#ffffff', 'border-width': 4 } },
   { selector: '.faded', style: { opacity: 0.15, 'text-opacity': 0 } },
+  // selected node's neighbourhood
+  { selector: '.dim', style: { opacity: 0.2, 'text-opacity': 0.15 } },
+  { selector: 'node.nbr', style: { 'border-color': '#ffffff', 'border-width': 3, 'z-index': 15 } },
+  { selector: 'edge.nbr', style: { opacity: 1, width: 3, 'text-opacity': 1, 'z-index': 15 } },
   { selector: '.hidden', style: { display: 'none' } },
 ]

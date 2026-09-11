@@ -6,6 +6,7 @@ export interface Filters {
   rels: Record<RelType, boolean>
   lang: string | null // null = all languages
   onlyWatched: boolean
+  highlightNeighbors: boolean // dim everything except the selected node's neighbourhood
 }
 
 interface State {
@@ -49,7 +50,7 @@ export const useStore = create<State>((set, get) => ({
   pathFrom: null,
   pathTo: null,
   highlight: new Set(),
-  filters: { labels: { ...allTrue(LABELS), Genre: false, User: false }, rels: { ...allTrue(REL_TYPES), WORKED_ON: false, HAS_GENRE: false }, lang: 'Japanese', onlyWatched: false },
+  filters: { labels: { ...allTrue(LABELS), Genre: false, User: false }, rels: { ...allTrue(REL_TYPES), WORKED_ON: false, HAS_GENRE: false }, lang: 'Japanese', onlyWatched: false, highlightNeighbors: true },
   user: null,
   busy: null,
   error: null,

@@ -38,6 +38,10 @@ export function FilterBar() {
         <input type="checkbox" checked={filters.onlyWatched} onChange={(e) => setFilter({ onlyWatched: e.target.checked })} />
         only load anime I've seen
       </label>
+      <label className="row">
+        <input type="checkbox" checked={filters.highlightNeighbors} onChange={(e) => setFilter({ highlightNeighbors: e.target.checked })} />
+        highlight neighbours of selection
+      </label>
       <div className="row">
         <button onClick={relayout}>Re-layout</button>
         <button onClick={clear}>Clear canvas</button>
