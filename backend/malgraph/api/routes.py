@@ -342,6 +342,39 @@ class AskBody(BaseModel):
     session_id: str | None = None
 
 
+@router.get("/conversations")
+def conversations() -> dict[str, Any]:
+    return {"conversations": agent.list_conversations()}
+
+
+@router.get("/conversations/{cid}")
+def conversation(cid: str) -> dict[str, Any]:
+    try:
+        conv = agent.load_conversation(cid)
+    except ValueError:
+        raise HTTPException(400, "bad id")
+    if conv is None:
+        raise HTTPException(404, "conversation not found")
+    return {k: conv[k] for k in ("id", "title", "model", "created_at", "updated_at", "turns")}
+
+
+class RenameBody(BaseModel):
+    title: str
+
+
+@router.patch("/conversations/{cid}")
+def rename(cid: str, body: RenameBody) -> dict[str, Any]:
+    conv = agent.rename_conversation(cid, body.title)
+    if conv is None:
+        raise HTTPException(404, "conversation not found")
+    return {"id": cid, "title": conv["title"]}
+
+
+@router.delete("/conversations/{cid}")
+def delete(cid: str) -> dict[str, Any]:
+    return {"deleted": agent.delete_conversation(cid)}
+
+
 @router.get("/ask/status")
 def ask_status() -> dict[str, Any]:
     return {"configured": agent.configured(), "model": settings.openrouter_model if agent.configured() else None}

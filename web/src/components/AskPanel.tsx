@@ -1,6 +1,6 @@
 import { marked } from 'marked'
 import { useEffect, useRef, useState } from 'react'
-import { api, ask, type AskEvent, type GNode } from '../api'
+import { api, ask, type AskEvent, type ConversationSummary, type GNode } from '../api'
 import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
@@ -9,9 +9,15 @@ interface Turn {
   text: string
   steps: { name: string; args: Record<string, unknown>; error?: string }[]
   cards: { title: string; cards: { node: GNode; caption: string }[] }[]
-  usage?: { prompt_tokens: number; completion_tokens: number }
-  error?: string
+  usage?: { prompt_tokens: number; completion_tokens: number; cached_tokens?: number } | null
+  error?: string | null
   notice?: string
+}
+
+const when = (t: number) => {
+  const d = new Date(t * 1000)
+  const days = (Date.now() - d.getTime()) / 86400000
+  return days < 1 ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : days < 7 ? d.toLocaleDateString([], { weekday: 'short' }) : d.toLocaleDateString()
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -46,6 +52,9 @@ export function AskPanel() {
   const [turns, setTurns] = useState<Turn[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [history, setHistory] = useState<ConversationSummary[] | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const [title, setTitle] = useState('')
   const sessionRef = useRef<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const bottom = useRef<HTMLDivElement>(null)
@@ -55,6 +64,37 @@ export function AskPanel() {
   useEffect(() => {
     api.askStatus().then(setStatus).catch(() => setStatus({ configured: false, model: null }))
   }, [])
+  const refreshHistory = () => api.conversations().then((r) => setHistory(r.conversations)).catch(() => {})
+  useEffect(() => {
+    if (showHistory) void refreshHistory()
+  }, [showHistory])
+
+  const openConversation = async (id: string) => {
+    const c = await api.conversation(id)
+    sessionRef.current = c.id
+    setTitle(c.title)
+    setTurns(c.turns.map((t) => ({ ...t, usage: t.usage ?? undefined, error: t.error ?? undefined })))
+    setShowHistory(false)
+  }
+  const newChat = () => {
+    setTurns([])
+    setTitle('')
+    sessionRef.current = null
+    setShowHistory(false)
+  }
+  const rename = async () => {
+    const id = sessionRef.current
+    if (!id) return
+    const next = window.prompt('Conversation title', title)
+    if (next == null) return
+    const r = await api.renameConversation(id, next)
+    setTitle(r.title)
+  }
+  const remove = async (id: string) => {
+    await api.deleteConversation(id)
+    if (sessionRef.current === id) newChat()
+    void refreshHistory()
+  }
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' })
   }, [turns])
@@ -82,13 +122,14 @@ export function AskPanel() {
     } finally {
       setBusy(false)
       abortRef.current = null
+      if (!title) setTitle(q.slice(0, 80))
     }
   }
 
   const handle = (ev: AskEvent, update: (fn: (a: Turn) => void) => void) => {
     switch (ev.type) {
       case 'session':
-        if (sessionRef.current && !ev.resumed) update((a) => (a.notice = 'earlier context was lost (server restarted) — answering from scratch'))
+        if (sessionRef.current && !ev.resumed) update((a) => (a.notice = 'earlier context was lost — answering from scratch'))
         sessionRef.current = ev.id
         break
       case 'tool_call':
@@ -138,6 +179,40 @@ export function AskPanel() {
 
   return (
     <div className="ask">
+      <div className="ask-head">
+        <button className="small" onClick={() => setShowHistory((v) => !v)} title="Saved conversations">
+          {showHistory ? '← back' : 'history'}
+        </button>
+        {!showHistory && turns.length > 0 && (
+          <>
+            <button className="link ask-title" onClick={() => void rename()} title="Rename">
+              {title || 'untitled'}
+            </button>
+            <button className="small" onClick={newChat}>
+              new chat
+            </button>
+          </>
+        )}
+      </div>
+      {showHistory ? (
+        <div className="ask-log">
+          {history === null && <div className="muted">loading…</div>}
+          {history?.length === 0 && <div className="muted">No saved conversations yet — every chat is saved automatically.</div>}
+          {history?.map((c) => (
+            <div key={c.id} className={`conv ${c.id === sessionRef.current ? 'active' : ''}`}>
+              <button className="link conv-title" onClick={() => void openConversation(c.id)}>
+                {c.title}
+              </button>
+              <span className="muted">
+                {when(c.updated_at)} · {Math.floor(c.turns / 2)} q
+              </span>
+              <button className="small" onClick={() => void remove(c.id)} title="Delete">
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="ask-log">
         {turns.length === 0 && (
           <div className="ask-empty">
@@ -197,7 +272,8 @@ export function AskPanel() {
               {!t.text && !t.error && t.steps.length === 0 && busy && i === turns.length - 1 && <div className="muted">thinking…</div>}
               {t.usage && (
                 <div className="usage muted">
-                  {t.usage.prompt_tokens.toLocaleString()} in · {t.usage.completion_tokens.toLocaleString()} out
+                  {t.usage.prompt_tokens.toLocaleString()} in
+                  {t.usage.cached_tokens ? ` (${Math.round((100 * t.usage.cached_tokens) / Math.max(1, t.usage.prompt_tokens))}% cached)` : ''} · {t.usage.completion_tokens.toLocaleString()} out
                 </div>
               )}
             </div>
@@ -205,6 +281,7 @@ export function AskPanel() {
         )}
         <div ref={bottom} />
       </div>
+      )}
       <form
         className="ask-input"
         onSubmit={(e) => {
@@ -231,18 +308,6 @@ export function AskPanel() {
         ) : (
           <button type="submit" disabled={!input.trim()}>
             ask
-          </button>
-        )}
-        {turns.length > 0 && !busy && (
-          <button
-            type="button"
-            className="small"
-            onClick={() => {
-              setTurns([])
-              sessionRef.current = null
-            }}
-          >
-            new chat
           </button>
         )}
       </form>

@@ -238,3 +238,10 @@ tr.clickable:hover { background: #20242f; }
 .ask-input { display: flex; gap: 6px; align-items: flex-end; padding-top: 8px; border-top: 1px solid var(--border); }
 .ask-input textarea { flex: 1; resize: none; font-size: 13px; }
 .sheet .ask { height: 100%; }
+
+.ask-head { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-bottom: 6px; min-height: 26px; }
+.ask-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-weight: 600; font-size: 13px; }
+.conv { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.conv.active { background: rgba(57, 135, 229, 0.12); border-radius: 6px; }
+.conv-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.conv .small { padding: 0 6px; }

@@ -90,7 +90,9 @@ Nodes without `fetched_at` are **stubs** (known only by id/title); the UI draws 
   rankings, gaps and read-only Cypher — and can draw results on the canvas or present them as cards
   ("pick a VA with 3 main roles I've seen and give me 3 characters from different genres"). Runs through
   OpenRouter: set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` (any tool-capable model id) in `.env`.
-  Conversations are kept in memory for follow-ups.
+  Conversations are saved automatically under `data/conversations/` (history / rename / delete in the
+  panel) and the conversation id is sent as OpenRouter's `session_id`, so requests stick to one provider
+  and prompt caching works — the panel shows the cached share of each answer's input tokens.
 - **Sync list** (status bar) re-fetches your MAL list and then fetches any newly added anime from
   MAL in the background, showing progress — the same as `malgraph sync-list && malgraph expand-list`.
 - **VA roster** (`#/roster`, or the link in the header) is a URL-addressable card view: voice actors

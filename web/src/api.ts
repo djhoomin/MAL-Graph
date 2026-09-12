@@ -147,6 +147,30 @@ export interface NeighborOpts {
   limit?: number
 }
 
+export interface ConversationSummary {
+  id: string
+  title: string
+  model: string | null
+  updated_at: number
+  turns: number
+}
+export interface ConversationTurn {
+  role: 'user' | 'assistant'
+  text: string
+  steps: { name: string; args: Record<string, unknown>; error?: string }[]
+  cards: { title: string; cards: { node: GNode; caption: string }[] }[]
+  usage?: { prompt_tokens: number; completion_tokens: number; cached_tokens?: number } | null
+  error?: string | null
+}
+export interface Conversation {
+  id: string
+  title: string
+  model: string | null
+  created_at: number
+  updated_at: number
+  turns: ConversationTurn[]
+}
+
 export type AskEvent =
   | { type: 'session'; id: string; model: string; resumed: boolean }
   | { type: 'tool_call'; name: string; args: Record<string, unknown> }
@@ -155,7 +179,7 @@ export type AskEvent =
   | { type: 'cards'; title: string; cards: { node: GNode; caption: string }[] }
   | { type: 'answer'; text: string }
   | { type: 'error'; message: string }
-  | { type: 'done'; usage: { prompt_tokens: number; completion_tokens: number } }
+  | { type: 'done'; usage: { prompt_tokens: number; completion_tokens: number; cached_tokens?: number } }
 
 /** POST /api/ask and yield server-sent events as they arrive. */
 export async function* ask(message: string, sessionId: string | null, signal?: AbortSignal): AsyncGenerator<AskEvent> {
@@ -202,6 +226,11 @@ export const api = {
     req<{ people: RosterEntry[] }>(`/api/roster${qs(o)}`),
   user: () => req<UserSummary>('/api/user'),
   askStatus: () => req<{ configured: boolean; model: string | null }>('/api/ask/status'),
+  conversations: () => req<{ conversations: ConversationSummary[] }>('/api/conversations'),
+  conversation: (id: string) => req<Conversation>(`/api/conversations/${id}`),
+  renameConversation: (id: string, title: string) =>
+    req<{ id: string; title: string }>(`/api/conversations/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }),
+  deleteConversation: (id: string) => req<{ deleted: boolean }>(`/api/conversations/${id}`, { method: 'DELETE' }),
   insightsList: () => req<{ anime: ListAnime[] }>('/api/insights/list'),
   insightsPeople: (kind: string, statuses: string[], lang: string | null, min_anime = 2, limit = 40) =>
     req<{ kind: string; people: RankedPerson[] }>(`/api/insights/people${qs({ kind, statuses: statuses.join(','), lang, min_anime, limit })}`),

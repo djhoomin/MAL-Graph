@@ -6,6 +6,7 @@ import json
 import re
 import time
 import uuid
+from pathlib import Path
 from typing import Any, AsyncIterator
 
 from openai import AsyncOpenAI
@@ -300,17 +301,81 @@ def execute_tool(name: str, args: dict[str, Any], ctx: ToolContext) -> Any:
 
 # --------------------------------------------------------------------------- sessions + loop
 
-_sessions: dict[str, dict[str, Any]] = {}
+CONV_DIR = settings.cache_dir.parent / "conversations"
+_sessions: dict[str, dict[str, Any]] = {}  # hot cache of conversations, backed by CONV_DIR/<id>.json
 
 
-def _session(session_id: str | None) -> tuple[str, dict[str, Any]]:
+def _conv_path(cid: str) -> Path:
+    if not re.fullmatch(r"[0-9a-f]{32}", cid):
+        raise ValueError("bad conversation id")
+    return CONV_DIR / f"{cid}.json"
+
+
+def _new_conversation(cid: str) -> dict[str, Any]:
     now = time.time()
-    for sid in [s for s, v in _sessions.items() if now - v["updated"] > 3 * 3600]:
-        del _sessions[sid]
-    sid = session_id or uuid.uuid4().hex
-    sess = _sessions.setdefault(sid, {"messages": [], "updated": now})
-    sess["updated"] = now
-    return sid, sess
+    return {"id": cid, "title": "", "model": settings.openrouter_model, "created_at": now, "updated_at": now, "messages": [], "turns": []}
+
+
+def load_conversation(cid: str) -> dict[str, Any] | None:
+    if cid in _sessions:
+        return _sessions[cid]
+    path = _conv_path(cid)
+    if path.exists():
+        conv = json.loads(path.read_text())
+        _sessions[cid] = conv
+        return conv
+    return None
+
+
+def save_conversation(conv: dict[str, Any]) -> None:
+    CONV_DIR.mkdir(parents=True, exist_ok=True)
+    conv["updated_at"] = time.time()
+    tmp = _conv_path(conv["id"]).with_suffix(".tmp")
+    tmp.write_text(json.dumps(conv, ensure_ascii=False, default=str))
+    tmp.replace(_conv_path(conv["id"]))
+    _sessions[conv["id"]] = conv
+
+
+def list_conversations() -> list[dict[str, Any]]:
+    out = []
+    if CONV_DIR.exists():
+        for path in CONV_DIR.glob("*.json"):
+            try:
+                c = json.loads(path.read_text())
+            except json.JSONDecodeError:
+                continue
+            out.append({"id": c["id"], "title": c.get("title") or "(untitled)", "model": c.get("model"), "updated_at": c["updated_at"], "turns": len(c.get("turns", []))})
+    return sorted(out, key=lambda c: -c["updated_at"])
+
+
+def delete_conversation(cid: str) -> bool:
+    _sessions.pop(cid, None)
+    path = _conv_path(cid)
+    if path.exists():
+        path.unlink()
+        return True
+    return False
+
+
+def rename_conversation(cid: str, title: str) -> dict[str, Any] | None:
+    conv = load_conversation(cid)
+    if conv is None:
+        return None
+    conv["title"] = title.strip()[:120]
+    save_conversation(conv)
+    return conv
+
+
+def _session(session_id: str | None) -> tuple[str, dict[str, Any], bool]:
+    """Returns (id, conversation, resumed). Unknown ids start a fresh conversation under a new id."""
+    if session_id:
+        conv = load_conversation(session_id)
+        if conv is not None:
+            return session_id, conv, bool(conv["messages"])
+    cid = uuid.uuid4().hex
+    conv = _new_conversation(cid)
+    _sessions[cid] = conv
+    return cid, conv, False
 
 
 def configured() -> bool:
@@ -322,30 +387,41 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
     if not configured():
         yield {"type": "error", "message": "OPENROUTER_API_KEY is not configured on the server"}
         return
-    sid, sess = _session(session_id)
-    # If the client sent a session id we no longer have (restart / expiry), say so — the model starts fresh.
-    yield {"type": "session", "id": sid, "model": settings.openrouter_model, "resumed": bool(session_id) and sid == session_id and bool(sess["messages"])}
+    sid, conv, resumed = _session(session_id)
+    # Unknown/expired session ids start a new conversation; the UI shows a notice when that happens mid-chat.
+    yield {"type": "session", "id": sid, "model": settings.openrouter_model, "resumed": resumed}
     client = AsyncOpenAI(api_key=settings.openrouter_api_key, base_url=settings.openrouter_base,
                          default_headers={"HTTP-Referer": "https://github.com/djhoomin/MAL-Graph", "X-Title": "MAL-Graph"})
     system = SYSTEM_PROMPT.format(username=settings.mal_username or "the user")
-    messages: list[dict[str, Any]] = sess["messages"]
+    messages: list[dict[str, Any]] = conv["messages"]
     messages.append({"role": "user", "content": user_message})
+    if not conv["title"]:
+        conv["title"] = user_message.strip()[:80]
+    turn: dict[str, Any] = {"role": "assistant", "text": "", "steps": [], "cards": [], "usage": None, "error": None}
+    conv["turns"].append({"role": "user", "text": user_message, "steps": [], "cards": []})
+    conv["turns"].append(turn)
     ctx = ToolContext()
-    usage = {"prompt_tokens": 0, "completion_tokens": 0}
+    usage = {"prompt_tokens": 0, "completion_tokens": 0, "cached_tokens": 0}
+    # OpenRouter sticky sessions: route every request of a conversation to the same provider so prompt caching
+    # (automatic on DeepSeek/OpenAI; cache_control breakpoints on Anthropic) actually hits.
+    extra_body = {"session_id": sid, "cache_control": {"type": "ephemeral"}}
 
     try:
         for _ in range(MAX_STEPS):
             resp = await client.chat.completions.create(
                 model=settings.openrouter_model, messages=[{"role": "system", "content": system}, *messages],
-                tools=TOOLS, tool_choice="auto", max_tokens=4000,
+                tools=TOOLS, tool_choice="auto", max_tokens=4000, extra_body=extra_body,
             )
             if resp.usage:
                 usage["prompt_tokens"] += resp.usage.prompt_tokens or 0
                 usage["completion_tokens"] += resp.usage.completion_tokens or 0
+                details = getattr(resp.usage, "prompt_tokens_details", None)
+                usage["cached_tokens"] += (getattr(details, "cached_tokens", None) or 0) if details else 0
             msg = resp.choices[0].message
             messages.append({"role": "assistant", "content": msg.content or "", **({"tool_calls": [tc.model_dump() for tc in msg.tool_calls]} if msg.tool_calls else {})})
             if not msg.tool_calls:
-                yield {"type": "answer", "text": msg.content or ""}
+                turn["text"] = msg.content or ""
+                yield {"type": "answer", "text": turn["text"]}
                 break
             for tc in msg.tool_calls:
                 name = tc.function.name
@@ -353,6 +429,8 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
                     args = json.loads(tc.function.arguments or "{}")
                 except json.JSONDecodeError:
                     args = {}
+                step = {"name": name, "args": args}
+                turn["steps"].append(step)
                 yield {"type": "tool_call", "name": name, "args": args}
                 try:
                     result = await asyncio.to_thread(execute_tool, name, args, ctx)
@@ -361,19 +439,26 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
                         content = content[:60_000] + '... (truncated)"}'
                 except Exception as e:  # noqa: BLE001 - report tool failures to the model
                     content = json.dumps({"error": str(e)})
+                    step["error"] = str(e)
                     yield {"type": "tool_error", "name": name, "message": str(e)}
                 messages.append({"role": "tool", "tool_call_id": tc.id, "content": content})
                 while ctx.canvas:
                     yield {"type": "canvas", "payload": ctx.canvas.pop(0)}
                 while ctx.cards:
-                    yield {"type": "cards", **ctx.cards.pop(0)}
+                    group = ctx.cards.pop(0)
+                    turn["cards"].append(group)
+                    yield {"type": "cards", **group}
         else:
-            yield {"type": "answer", "text": "I ran out of steps before finishing — try a narrower question."}
+            turn["text"] = "I ran out of steps before finishing — try a narrower question."
+            yield {"type": "answer", "text": turn["text"]}
     except Exception as e:  # noqa: BLE001
-        yield {"type": "error", "message": f"{type(e).__name__}: {e}"}
-    # keep the transcript bounded
+        turn["error"] = f"{type(e).__name__}: {e}"
+        yield {"type": "error", "message": turn["error"]}
+    # keep the model transcript bounded (the rendered turns are kept in full)
     if len(messages) > 60:
         del messages[: len(messages) - 60]
         while messages and messages[0]["role"] != "user":
             del messages[0]
+    turn["usage"] = usage
+    save_conversation(conv)
     yield {"type": "done", "usage": usage}
