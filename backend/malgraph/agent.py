@@ -301,7 +301,7 @@ def execute_tool(name: str, args: dict[str, Any], ctx: ToolContext) -> Any:
 
 # --------------------------------------------------------------------------- sessions + loop
 
-CONV_DIR = settings.cache_dir.parent / "conversations"
+CONV_DIR = settings.conversations_dir
 _sessions: dict[str, dict[str, Any]] = {}  # hot cache of conversations, backed by CONV_DIR/<id>.json
 
 

@@ -59,7 +59,8 @@ services:
     environment:
       - MEMGRAPH_URI=bolt://memgraph:7687
       - JIKAN_BASE=http://jikan:8080/v4
-      - CACHE_DIR=data/cache
+      - CACHE_DIR=/app/data/cache
+      - CONVERSATIONS_DIR=/app/data/conversations
     volumes:
       - ./data/cache:/app/data/cache
       - ./data/conversations:/app/data/conversations
