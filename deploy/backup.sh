@@ -6,6 +6,7 @@
 # on the server. If deploy/backup.env exists, each backup is also uploaded to Object Storage, where a lifecycle
 # rule deletes it after 30 days. The upload key may only write objects, so this server can't delete old backups.
 set -euo pipefail
+umask 077  # backups hold every user's list: root only
 cd "$(dirname "$0")/.."
 
 COMPOSE="docker compose -f docker-compose.prod.yml"
