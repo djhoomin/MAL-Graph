@@ -7,6 +7,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from .. import agent, auth, db, ingest, users
 from ..config import settings
 from . import auth_routes, golf_routes
+from .ratelimit import RateLimitMiddleware
 from .routes import router
 
 
@@ -39,6 +40,8 @@ class UserMiddleware:
 
 
 app = FastAPI(title="MAL-Graph API", version="0.1.0")
+# Starlette runs the last-added middleware first, so the limiter (added first) sees the user UserMiddleware sets.
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(UserMiddleware)
 if not settings.public_url.startswith("https://"):
     # Local development only: lets a UI on another port call the API directly. In production the UI and the API

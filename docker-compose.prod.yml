@@ -2,11 +2,12 @@
 # Usage: docker compose -f docker-compose.prod.yml up -d --build
 services:
   memgraph:
+    # memory-limit (MiB) makes Memgraph refuse work past 2 GiB instead of letting the 4 GB server run out.
     # Pinned to Memgraph 3.13.0. The Ask privacy guard reads its query plans, and its startup self-test
     # (agent.guard_self_test) must pass before you move to a newer image.
     image: memgraph/memgraph-mage@sha256:cc33431b088c6b9580528d8d5aff92f3b958de1af5d40126f831ab8512eb855a
     restart: unless-stopped
-    command: ["--log-level=WARNING", "--storage-snapshot-interval-sec=300", "--storage-wal-enabled=true", "--query-execution-timeout-sec=30"]
+    command: ["--log-level=WARNING", "--storage-snapshot-interval-sec=300", "--storage-wal-enabled=true", "--query-execution-timeout-sec=30", "--memory-limit=2048"]
     volumes:
       - mg_lib:/var/lib/memgraph
       - mg_log:/var/log/memgraph

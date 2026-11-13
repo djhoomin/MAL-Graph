@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
-from typing import Any, Literal
+from contextlib import contextmanager
+from typing import Any, Iterator, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from starlette.concurrency import run_in_threadpool
@@ -17,6 +19,24 @@ from .serialize import PayloadBuilder, node_payload
 
 router = APIRouter(prefix="/api")
 Label = Literal["Anime", "Character", "Person", "Studio", "Genre", "User"]
+
+
+# Server-wide caps on slow work, so a burst of requests can't tie up every worker thread. A request waits up to
+# SLOT_WAIT seconds for a free slot, then gets a 503.
+SLOT_WAIT = 10
+_path_slots = threading.BoundedSemaphore(4)  # Memgraph path searches (each can run up to the 30 s query timeout)
+_fetch_slots = threading.BoundedSemaphore(6)  # on-demand MAL fetches, which mostly wait on Jikan's rate limit
+
+
+@contextmanager
+def _slot(sem: threading.BoundedSemaphore, busy: str) -> Iterator[None]:
+    """For sync routes, which already run on a worker thread."""
+    if not sem.acquire(timeout=SLOT_WAIT):
+        raise HTTPException(503, busy)
+    try:
+        yield
+    finally:
+        sem.release()
 
 
 def jikan() -> JikanClient:
@@ -84,6 +104,7 @@ def neighbors(
     limit: int = 500,
 ) -> dict[str, Any]:
     label, key = _parse_ref(ref)
+    limit = max(1, min(int(limit), 2000))
     if label == "User":
         recs = _records(Q.NEIGHBORS_USER, id=key, only_watched=only_watched, limit=limit)
     else:
@@ -102,7 +123,13 @@ async def expand(ref: str, only_watched: bool = False, lang: str | None = None) 
         raise HTTPException(400, f"{label} nodes cannot be expanded from MAL")
     t0 = time.time()
     try:
-        summary = await run_in_threadpool(fn, jikan(), key)
+        # Wait for a slot on a worker thread, not the event loop.
+        if not await run_in_threadpool(_fetch_slots.acquire, True, SLOT_WAIT):
+            raise HTTPException(503, "Many people are fetching from MyAnimeList right now. Try again in a moment.")
+        try:
+            summary = await run_in_threadpool(fn, jikan(), key)
+        finally:
+            _fetch_slots.release()
     except JikanError as e:
         raise HTTPException(502, str(e))
     payload = neighbors(ref, only_watched=only_watched, lang=lang)
@@ -125,14 +152,16 @@ def path(
     b_label, b_key = _parse_ref(to)
     if "User" in (a_label, b_label):
         raise HTTPException(400, "paths from/to User are not supported")
+    limit = max(1, min(int(limit), 50))
     template = Q.ALL_SHORTEST_PATHS if all_paths else Q.SHORTEST_PATH
     query = template % (a_label, b_label, max_hops)
-    recs = _records(
-        query, from_id=a_key, to_id=b_key,
-        # Paths never pass through user nodes, so they can't link two people's lists.
-        exclude=list({"User", *(e for e in exclude.split(",") if e)}), rels=[r for r in rels.split(",") if r and r != "LISTED"],
-        only_watched=only_watched, lang=lang or None, limit=limit,
-    )
+    with _slot(_path_slots, "The server is busy finding other paths. Try again in a moment."):
+        recs = _records(
+            query, from_id=a_key, to_id=b_key,
+            # Paths never pass through user nodes, so they can't link two people's lists.
+            exclude=list({"User", *(e for e in exclude.split(",") if e)}), rels=[r for r in rels.split(",") if r and r != "LISTED"],
+            only_watched=only_watched, lang=lang or None, limit=limit,
+        )
     paths = [r["p"] for r in recs]
     builder = PayloadBuilder()
     for p in paths:

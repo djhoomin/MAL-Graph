@@ -7,4 +7,5 @@ RUN pip install --no-cache-dir .
 RUN mkdir -p /app/data/cache
 WORKDIR /app
 EXPOSE 8000
-CMD ["uvicorn", "malgraph.api.main:app", "--app-dir", "backend", "--host", "0.0.0.0", "--port", "8000"]
+# Caddy is the only thing that can reach the API (no published port), so trust the client IP it passes on.
+CMD ["uvicorn", "malgraph.api.main:app", "--app-dir", "backend", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
