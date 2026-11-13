@@ -47,6 +47,20 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       a spicy mode with one famous character and two obscure ones.
 - [ ] **Guess the voice actor.** Show three characters and ask who voices all of them.
 - [ ] **Pass-the-phone Kiss Marry Kill** for groups, revealing where players agreed.
+- [ ] **Odd one out.** Four characters, three of which share a hidden link (voice actor, studio, creator or season).
+      Pick the one that doesn't belong. The graph guarantees exactly one answer. Cheap to build and works as a daily.
+- [ ] **Mystery character.** Guess a character from clues revealed one at a time from the graph, for example "voiced
+      by someone who also played X", "from a Fall 2019 anime" or "made by the studio behind Y". Fewer clues score more.
+      Fits a daily format with an anonymous tally.
+- [ ] **Who's the link.** Two anime, and the player names a person who worked on both using search. Rarer answers
+      score more, so a much-cast voice actor is worth less than the shared sound director.
+- [ ] **Voice chain.** Build the longest chain alternating character, voice actor, character through anime you've
+      seen, with no repeats. An endurance version of Graph Golf.
+- [ ] **Theme draft.** Two to four friends take turns drafting characters for a Kiss Marry Kill roulette theme, then
+      vote on the best team. Reuses the existing theme pools.
+- [ ] **Taste match.** Compare two people's lists for a compatibility score with reasons: shared favourite voice
+      actors, studios both rate highly, and what one should watch next because of the other. Both people must agree
+      through an invite link before anything is compared.
 
 ## Checks not done yet
 
