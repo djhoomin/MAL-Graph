@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useGolf } from '../golf'
 import { useStore } from '../store'
 import { MenuIcon } from './icons'
 import { useDismiss } from './useDismiss'
@@ -63,6 +64,7 @@ function MenuBody({ close }: { close: () => void }) {
       )}
 
       <section className="menu-list">
+        <button onClick={act(() => void useGolf.getState().start('daily'))}>Graph Golf</button>
         <a href="#/insights" onClick={close}>Insights</a>
         <a href="#/roster" onClick={close}>VA roster</a>
       </section>

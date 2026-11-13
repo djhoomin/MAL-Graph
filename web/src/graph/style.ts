@@ -96,6 +96,12 @@ export const stylesheet: StylesheetJson = [
   { selector: '.path', style: { 'z-index': 20 } },
   { selector: 'node.path', style: { 'border-color': '#ffffff', 'border-width': 4 } },
   { selector: '.faded', style: { opacity: 0.15, 'text-opacity': 0 } },
+  // Graph Golf: the player's trail, where they stand, and (after the round) the shortest route in green
+  { selector: 'node.trail', style: { 'border-color': '#ffffff', 'border-width': 4, 'z-index': 15 } },
+  { selector: 'edge.trail', style: { 'line-color': '#ffffff', 'target-arrow-color': '#ffffff', opacity: 1, width: 3, 'text-opacity': 1, 'z-index': 15 } },
+  { selector: 'node.current', style: { 'border-color': '#ffd23f', 'border-width': 6, 'z-index': 16 } },
+  { selector: 'edge.solution', style: { 'line-color': '#3ddc84', 'target-arrow-color': '#3ddc84', 'line-style': 'dashed', opacity: 1, width: 3, 'text-opacity': 1, 'z-index': 14 } },
+  { selector: 'node.solution', style: { 'border-color': '#3ddc84', 'border-width': 4 } },
   // selected node's neighbourhood
   { selector: '.dim', style: { opacity: 0.2, 'text-opacity': 0.15 } },
   { selector: 'node.nbr', style: { 'border-color': '#ffffff', 'border-width': 3, 'z-index': 15 } },

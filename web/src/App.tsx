@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { AppMenu } from './components/AppMenu'
 import { AskPanel } from './components/AskPanel'
 import { FiltersButton } from './components/FiltersButton'
+import { GolfPanel } from './components/GolfPanel'
 import { GraphCanvas } from './components/GraphCanvas'
 import { ChatIcon, CloseIcon, FitIcon } from './components/icons'
 import { NodeCard } from './components/NodeCard'
@@ -9,6 +10,7 @@ import { PathBar } from './components/PathBar'
 import { RosterPage } from './components/RosterPage'
 import { SearchBar } from './components/SearchBar'
 import { SyncPill, Welcome } from './components/Welcome'
+import { useGolf } from './golf'
 import { InsightsPage } from './insights/InsightsPage'
 import { useStore } from './store'
 import { useHashRoute } from './useHashRoute'
@@ -26,6 +28,8 @@ function GraphPage() {
   const busy = useStore((s) => s.busy)
   const error = useStore((s) => s.error)
   const syncRunning = useStore((s) => !!s.sync?.running)
+  // Graph Golf takes over the canvas: only the golf panel and the fit button stay.
+  const golfing = useGolf((s) => !!s.golf || s.starting || !!s.startError)
   // A visitor who hasn't signed in (only when the server has MAL sign-in configured).
   const showWelcome = useStore((s) => !!s.me?.sign_in && !s.me.username)
   const { setAskOpen, fit, relayout, refreshUser, pollSync, loadMe } = useStore.getState()
@@ -58,16 +62,19 @@ function GraphPage() {
   }
 
   return (
-    <div className={`shell ${askOpen ? 'ask-open' : ''} ${selected ? 'has-card' : ''} ${showWelcome ? 'welcoming' : ''}`}>
+    <div className={`shell ${askOpen ? 'ask-open' : ''} ${selected ? 'has-card' : ''} ${showWelcome ? 'welcoming' : ''} ${golfing ? 'golfing' : ''}`}>
       <GraphCanvas />
 
-      <div className="top-bar">
-        <SearchBar />
-        <AppMenu />
-      </div>
+      {!golfing && (
+        <div className="top-bar">
+          <SearchBar />
+          <AppMenu />
+        </div>
+      )}
 
       {showWelcome && <Welcome />}
-      {!showWelcome && <SyncPill />}
+      {!showWelcome && !golfing && <SyncPill />}
+      {golfing && !showWelcome && <GolfPanel />}
 
       {(busy || error) && !showWelcome && (
         <div className={`toast ${error ? 'error' : ''}`} onClick={() => error && useStore.setState({ error: null })} title={error ? 'Dismiss' : undefined}>
@@ -75,22 +82,24 @@ function GraphPage() {
         </div>
       )}
 
-      {selected && <NodeCard />}
+      {selected && !golfing && <NodeCard />}
 
       <div className="bottom-bar">
-        <FiltersButton />
-        <PathBar />
+        {!golfing && <FiltersButton />}
+        {!golfing && <PathBar />}
         <div className="bottom-right">
           <button className="fab" onPointerDown={fitDown} onPointerUp={fitUp} onPointerLeave={() => hold.current && clearTimeout(hold.current)} aria-label="Fit graph to view" title="Fit to view (hold to re-layout)">
             <FitIcon />
           </button>
-          <button className={`fab ${askOpen ? 'on' : ''}`} onClick={() => setAskOpen(!askOpen)} aria-label="Ask the graph" title="Ask the graph">
-            <ChatIcon />
-          </button>
+          {!golfing && (
+            <button className={`fab ${askOpen ? 'on' : ''}`} onClick={() => setAskOpen(!askOpen)} aria-label="Ask the graph" title="Ask the graph">
+              <ChatIcon />
+            </button>
+          )}
         </div>
       </div>
 
-      {askOpen && (
+      {askOpen && !golfing && (
         <aside className="drawer">
           <button className="icon-btn ghost drawer-close" onClick={() => setAskOpen(false)} aria-label="Close">
             <CloseIcon />

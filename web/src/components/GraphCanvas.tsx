@@ -2,6 +2,7 @@ import cytoscape, { type Core, type NodeSingular } from 'cytoscape'
 import type { FcoseLayoutOptions } from 'cytoscape-fcose'
 import fcose from 'cytoscape-fcose'
 import { useEffect, useRef, useState } from 'react'
+import { golfMarks, sortOptions, useGolf } from '../golf'
 import { useStore } from '../store'
 import { edgeElement, nodeElement } from '../graph/elements'
 import { stylesheet } from '../graph/style'
@@ -27,6 +28,61 @@ function runLayout(cy: Core, randomize: boolean) {
   const layout = cy.layout({ ...LAYOUT, randomize } as FcoseLayoutOptions)
   layout.one('layoutstop', () => cy.animate({ fit: { eles: cy.elements(), padding: 40 }, duration: 250, complete: () => keepSelectedClear(cy) }))
   layout.run()
+}
+
+/** Graph Golf layout: where you stand in the middle, your moves in rings around it (likeliest moves on the inside),
+ *  the trail so far running off to the left and the hole on the right. */
+function golfLayout(cy: Core) {
+  const g = useGolf.getState().golf
+  if (!g) return
+  if (g.result) {
+    // The finished round reads left to right: the shortest route on top, your own detours on a row below.
+    const pos: Record<string, { x: number; y: number }> = {}
+    ;(g.result.solution.paths[0] ?? []).forEach((id, i) => (pos[id] = { x: i * 170, y: 0 }))
+    g.moves.forEach((id, i) => (pos[id] = pos[id] ?? { x: i * 170, y: 150 }))
+    if (!pos[g.hole.end.id]) pos[g.hole.end.id] = { x: Math.max(1, g.moves.length) * 170, y: 0 }
+    cy.layout({ name: 'preset', positions: (n: NodeSingular) => pos[n.id()] ?? { x: 0, y: 300 }, fit: false } as cytoscape.LayoutOptions).run()
+    fitBesidePanel(cy)
+    return
+  }
+  const here = g.moves[g.moves.length - 1]
+  const pos: Record<string, { x: number; y: number }> = { [here]: { x: 0, y: 0 } }
+  let ring = 0
+  let radius = 150
+  let placed = 0
+  let capacity = Math.floor((2 * Math.PI * radius) / 48)
+  for (const o of sortOptions(g.options)) {
+    if (o.node.id === here || cy.getElementById(o.node.id).empty()) continue
+    if (placed >= capacity) {
+      ring += 1
+      radius += 80
+      placed = 0
+      capacity = Math.floor((2 * Math.PI * radius) / 48)
+    }
+    const angle = (2 * Math.PI * placed) / capacity + ring * 0.35
+    pos[o.node.id] = { x: radius * Math.cos(angle), y: radius * Math.sin(angle) }
+    placed += 1
+  }
+  const outer = radius + 160
+  if (!pos[g.hole.end.id]) pos[g.hole.end.id] = { x: outer, y: 0 }
+  const trail = g.moves.slice(0, -1).reverse().filter((id, i, all) => all.indexOf(id) === i && !pos[id])
+  trail.forEach((id, i) => (pos[id] = { x: -outer - i * 120, y: (i % 2 ? 40 : -40) }))
+  cy.layout({ name: 'preset', positions: (n: NodeSingular) => pos[n.id()] ?? { x: 0, y: outer }, fit: false } as cytoscape.LayoutOptions).run()
+  fitBesidePanel(cy)
+}
+
+/** Fit the graph into the space the golf panel leaves free: right of it when wide, above it on phones. */
+function fitBesidePanel(cy: Core) {
+  const bb = cy.elements().boundingBox()
+  const phone = window.matchMedia('(max-width: 700px)').matches
+  const pad = 30
+  const left = phone ? 0 : 370
+  const w = cy.width() - left - 2 * pad
+  const h = (phone ? cy.height() * 0.48 : cy.height()) - 2 * pad
+  const zoom = Math.min(w / Math.max(bb.w, 1), h / Math.max(bb.h, 1), 1.5)
+  const cx = left + pad + w / 2
+  const cyy = pad + h / 2
+  cy.viewport({ zoom, pan: { x: cx - zoom * (bb.x1 + bb.w / 2), y: cyy - zoom * (bb.y1 + bb.h / 2) } })
 }
 
 /** Pan so the selected node isn't hidden under the node card (right edge when wide, bottom sheet on phones). */
@@ -59,12 +115,14 @@ export function GraphCanvas() {
   const pathTo = useStore((s) => s.pathTo)
   const layoutTick = useStore((s) => s.layoutTick)
   const fitTick = useStore((s) => s.fitTick)
+  const golf = useGolf((s) => s.golf)
 
   // Create the Cytoscape instance once.
   useEffect(() => {
     if (!ref.current) return
     const cy = cytoscape({ container: ref.current, style: stylesheet, wheelSensitivity: 0.2, minZoom: 0.05, maxZoom: 4 })
     cyRef.current = cy
+    if (import.meta.env.DEV) (window as unknown as { cy: Core }).cy = cy // for poking at the canvas in dev tools
     const { select, expandNode } = useStore.getState()
 
     const closeMenu = () => setMenu(null)
@@ -75,6 +133,11 @@ export function GraphCanvas() {
     cy.on('tapstart', () => (held = false))
     cy.on('tap', 'node', (ev) => {
       const id = (ev.target as NodeSingular).id()
+      // Playing golf: a tap is a move.
+      if (useGolf.getState().golf) {
+        if (!held) void useGolf.getState().move(id)
+        return
+      }
       const st = useStore.getState()
       // In path mode a tap picks the destination instead of selecting.
       if (st.pathPicking && !held) {
@@ -93,6 +156,7 @@ export function GraphCanvas() {
       if (!useStore.getState().filters.expandOnClick) void expandNode((ev.target as NodeSingular).id())
     })
     const openMenu = (ev: cytoscape.EventObject) => {
+      if (useGolf.getState().golf) return // no expanding or path-finding mid-round
       const n = ev.target as NodeSingular
       const pos = ev.renderedPosition
       // keep the menu inside the canvas on small screens
@@ -146,7 +210,8 @@ export function GraphCanvas() {
         n.position({ x: base.x + (Math.random() - 0.5) * 80, y: base.y + (Math.random() - 0.5) * 80 })
       })
     })
-    if (newNodes.length > 0) runLayout(cy, false)
+    if (useGolf.getState().golf) golfLayout(cy)
+    else if (newNodes.length > 0) runLayout(cy, false)
   }, [nodes, edges])
 
   useEffect(() => {
@@ -158,6 +223,7 @@ export function GraphCanvas() {
   useEffect(() => {
     const cy = cyRef.current
     if (!cy || cy.nodes().length === 0) return
+    if (useGolf.getState().golf) return fitBesidePanel(cy)
     cy.animate({ fit: { eles: cy.elements(':visible'), padding: 60 }, duration: 250 })
   }, [fitTick])
 
@@ -206,10 +272,29 @@ export function GraphCanvas() {
     })
   }, [highlight, nodes, edges])
 
-  // Visibility filters.
+  // Graph Golf marks.
   useEffect(() => {
     const cy = cyRef.current
     if (!cy) return
+    const { trail, current, solution } = golfMarks(golf)
+    cy.batch(() => {
+      cy.elements().removeClass('trail current solution')
+      cy.elements().forEach((el) => {
+        if (trail.has(el.id())) el.addClass('trail')
+        if (solution.has(el.id())) el.addClass('solution')
+      })
+      if (current) cy.getElementById(current).addClass('current')
+    })
+  }, [golf, nodes, edges])
+
+  // Visibility filters (not while playing golf, where every move must stay visible).
+  useEffect(() => {
+    const cy = cyRef.current
+    if (!cy) return
+    if (golf) {
+      cy.elements().removeClass('hidden')
+      return
+    }
     cy.batch(() => {
       cy.nodes().forEach((n) => {
         const status = n.data('status') as keyof typeof filters.statuses | null
@@ -222,7 +307,7 @@ export function GraphCanvas() {
         e.toggleClass('hidden', !filters.rels[type] || !langOk)
       })
     })
-  }, [filters, nodes, edges])
+  }, [filters, nodes, edges, golf])
 
   return (
     <div className="canvas-wrap">

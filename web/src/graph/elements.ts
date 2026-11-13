@@ -18,7 +18,7 @@ export function nodeElement(n: GNode): ElementDefinition {
   }
 }
 
-function edgeLabel(e: GEdge): string {
+export function edgeLabel(e: GEdge): string {
   const p = e.props
   switch (e.type) {
     case 'RELATED_TO':

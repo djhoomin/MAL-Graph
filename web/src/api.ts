@@ -270,3 +270,41 @@ export const api = {
   syncStatus: () => req<SyncStatus>('/api/sync/status'),
   stats: () => req<Record<string, number>>('/api/stats'),
 }
+
+// --------------------------------------------------------------------------- Graph Golf
+export interface GolfHole {
+  date: string | null // set for the daily hole
+  par: number
+  start: GNode
+  end: GNode
+}
+export interface GolfRound {
+  strokes: number
+  mulligans: number
+  gave_up: boolean
+  moves: string[]
+}
+export interface GolfSummary {
+  players: number
+  finished: number
+  by_score: { to_par: number; players: number }[]
+  rank: number | null
+}
+export interface GolfResult {
+  round?: GolfRound
+  first_round?: boolean
+  shortest: number | null
+  summary?: GolfSummary
+  solution: GraphPayload & { paths: string[][] }
+}
+export type DailyResponse = GolfHole & Partial<GolfResult> & { round?: GolfRound }
+
+export const golfApi = {
+  daily: () => req<DailyResponse>('/api/golf/daily'),
+  practice: () => req<GolfHole>('/api/golf/practice'),
+  moves: (ref: string) => req<GraphPayload>(`/api/golf/moves/${ref}`),
+  finishDaily: (moves: string[], mulligans: number, gave_up: boolean) =>
+    req<GolfResult & { par: number }>('/api/golf/daily', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ moves, mulligans, gave_up }) }),
+  finishPractice: (start: string, end: string, moves: string[], mulligans: number, gave_up: boolean) =>
+    req<GolfResult>('/api/golf/practice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start, end, moves, mulligans, gave_up }) }),
+}

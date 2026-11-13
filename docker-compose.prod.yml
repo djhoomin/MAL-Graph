@@ -63,9 +63,11 @@ services:
       - JIKAN_BASE=http://jikan:8080/v4
       - CACHE_DIR=/app/data/cache
       - CONVERSATIONS_DIR=/app/data/conversations
+      - GOLF_DIR=/app/data/golf
     volumes:
       - ./data/cache:/app/data/cache
       - ./data/conversations:/app/data/conversations
+      - ./data/golf:/app/data/golf
     depends_on:
       memgraph:
         condition: service_healthy
