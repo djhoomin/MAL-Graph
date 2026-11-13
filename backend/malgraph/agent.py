@@ -11,7 +11,7 @@ from typing import Any, AsyncIterator
 
 from openai import AsyncOpenAI
 
-from . import db, ingest, mal
+from . import db, ingest, mal, users
 from .config import settings
 from .api import queries as Q
 from .api import routes as R
@@ -26,13 +26,15 @@ The user is {username}. Answer their questions by exploring the graph with the t
 
 Graph model (all ids are MAL ids; node refs look like "Anime:5114", "Character:12", "Person:8", "Studio:4", "Genre:1"):
   (:User {{username}})-[:LISTED {{status, score, episodes_watched}}]->(:Anime)
-  (:Anime {{mal_id, title, title_english, type, episodes, year, season, score, members, list_status, my_score, watched, fetched_at}})
+  (:Anime {{mal_id, title, title_english, type, episodes, year, season, score, members, fetched_at}})
   (:Anime)-[:HAS_CHARACTER {{role: 'Main'|'Supporting'}}]->(:Character {{mal_id, name, image_url, favorites}})
   (:Person {{mal_id, name, image_url}})-[:VOICES {{language, anime_ids}}]->(:Character)
   (:Person)-[:WORKED_ON {{positions: [..]}}]->(:Anime)      e.g. positions contain 'Director', 'Music', 'Character Design'
   (:Anime)-[:RELATED_TO {{relation: 'Sequel'|'Prequel'|'Side Story'|...}}]->(:Anime)
   (:Anime)-[:PRODUCED_BY]->(:Studio {{mal_id, name}})      (:Anime)-[:HAS_GENRE]->(:Genre {{mal_id, name, kind}})
-List statuses: completed, watching, on_hold, dropped, plan_to_watch. "watched"/"seen" means status <> plan_to_watch (Anime.watched = true).
+List statuses: completed, watching, on_hold, dropped, plan_to_watch. "watched"/"seen" means LISTED.status <> 'plan_to_watch'.
+The graph is shared by several users, so the user's list exists only as their LISTED edges. In cypher_read, always start
+from (u:User {{username: $user}}); the $user parameter is filled in for you. Anime nodes carry no personal fields.
 Anime with fetched_at IS NULL are stubs known only by title (sequels etc. not on the list); persons/characters can be stubs too.
 Only anime on the user's list have been fully fetched, so a voice actor's roles are only known for those anime.
 
@@ -129,7 +131,7 @@ def cypher_read(query: str, params: dict[str, Any] | None = None) -> dict[str, A
         raise ValueError("only read queries are allowed (no CREATE/MERGE/SET/DELETE/...)")
     rows = []
     with db.get_driver().session() as session:
-        for rec in session.run(query, **(params or {})):
+        for rec in session.run(query, **{**(params or {}), **users.params_for(query)}):
             rows.append({k: _cypher_value(v) for k, v in rec.items()})
             if len(rows) >= MAX_ROWS:
                 break
@@ -155,14 +157,12 @@ def _subgraph(refs: list[str]) -> dict[str, Any]:
 
 
 def _annotate_on_list(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    ids = [i["mal_id"] for i in items]
-    rows = db.run("MATCH (u:User)-[l:LISTED]->(a:Anime) WHERE a.mal_id IN $ids RETURN a.mal_id AS id, l.status AS status, l.score AS my_score", ids=ids)
-    status = {r["id"]: (r["status"], r["my_score"]) for r in rows}
+    ul = users.user_list()
     for i in items:
-        st = status.get(i["mal_id"])
-        i["on_list"] = st[0] if st else None
-        if st and st[1]:
-            i["my_score"] = st[1]
+        status, score = ul.personal(i["mal_id"])
+        i["on_list"] = status
+        if score:
+            i["my_score"] = score
     return items
 
 
@@ -208,18 +208,18 @@ def taste_profile() -> dict[str, Any]:
     for key, kind in (("voice_actors", "va"), ("directors", "Director"), ("composers", "Music"), ("character_designers", "Character Design"), ("original_creators", "Original Creator")):
         r = R.insights_people(kind=kind, statuses=statuses, lang="Japanese" if kind == "va" else None, min_anime=2, limit=8)
         out[key] = [{"ref": x["person"]["id"], "name": x["person"]["name"], "anime": len(x["anime_ids"]), "avg_my_score": round(x["avg_my_score"], 1) if x["avg_my_score"] else None} for x in r["people"]]
-    out["studios"] = db.run("""
-        MATCH (u:User)-[l:LISTED]->(a:Anime)-[:PRODUCED_BY]->(s:Studio) WHERE l.status <> 'plan_to_watch'
+    out["studios"] = users.run("""
+        MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)-[:PRODUCED_BY]->(s:Studio) WHERE l.status <> 'plan_to_watch'
         WITH s, count(DISTINCT a) AS n, avg(CASE WHEN l.score > 0 THEN toFloat(l.score) END) AS avg
         RETURN s.name AS name, n AS anime, round(avg * 10) / 10 AS avg_my_score ORDER BY n DESC LIMIT 8""")
-    out["genres"] = db.run("""
-        MATCH (u:User)-[l:LISTED]->(a:Anime)-[:HAS_GENRE]->(g:Genre) WHERE l.status <> 'plan_to_watch' AND g.kind <> 'explicit'
+    out["genres"] = users.run("""
+        MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)-[:HAS_GENRE]->(g:Genre) WHERE l.status <> 'plan_to_watch' AND g.kind <> 'explicit'
         WITH g, count(DISTINCT a) AS n, avg(CASE WHEN l.score > 0 THEN toFloat(l.score) END) AS avg
         RETURN g.name AS name, n AS anime, round(avg * 10) / 10 AS avg_my_score ORDER BY n DESC LIMIT 12""")
-    out["top_rated"] = db.run("""
-        MATCH (u:User)-[l:LISTED]->(a:Anime) WHERE l.score >= 9
+    out["top_rated"] = users.run("""
+        MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) WHERE l.score >= 9
         RETURN 'Anime:' + toString(a.mal_id) AS ref, a.title AS title, l.score AS my_score, a.year AS year ORDER BY l.score DESC, a.members DESC LIMIT 20""")
-    out["counts"] = db.run("MATCH (u:User)-[l:LISTED]->(a:Anime) RETURN l.status AS status, count(*) AS n ORDER BY n DESC")
+    out["counts"] = users.run("MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) RETURN l.status AS status, count(*) AS n ORDER BY n DESC")
     return out
 
 
@@ -392,7 +392,7 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
     yield {"type": "session", "id": sid, "model": settings.openrouter_model, "resumed": resumed}
     client = AsyncOpenAI(api_key=settings.openrouter_api_key, base_url=settings.openrouter_base,
                          default_headers={"HTTP-Referer": "https://github.com/djhoomin/MAL-Graph", "X-Title": "MAL-Graph"})
-    system = SYSTEM_PROMPT.format(username=settings.mal_username or "the user")
+    system = SYSTEM_PROMPT.format(username=users.current_username() or "the user")
     messages: list[dict[str, Any]] = conv["messages"]
     messages.append({"role": "user", "content": user_message})
     if not conv["title"]:

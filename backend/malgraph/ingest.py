@@ -5,7 +5,7 @@ import re
 import time
 from typing import Any, Iterable
 
-from . import db
+from . import db, users
 from .jikan import JikanClient
 
 # --------------------------------------------------------------------------- helpers
@@ -393,7 +393,7 @@ def upsert_user_list(username: str, entries: Iterable[dict[str, Any]]) -> int:
         """
         MATCH (u:User {username: $u})-[l:LISTED]->(a:Anime)
         WHERE NOT a.mal_id IN $ids
-        DELETE l SET a.list_status = null, a.watched = null
+        DELETE l
         """,
         u=username, ids=[r["mal_id"] for r in rows],
     )
@@ -408,24 +408,21 @@ def upsert_user_list(username: str, entries: Iterable[dict[str, Any]]) -> int:
                            a.image_url = coalesce(a.image_url, row.props.image_url),
                            a.type = coalesce(a.type, row.props.type)
             MERGE (u)-[l:LISTED]->(a) SET l += row.list
-            SET a.list_status = row.list.status, a.my_score = row.list.score,
-                a.watched = row.list.status <> 'plan_to_watch'
             """,
             u=username, rows=rows[i:i + 500],
         )
-    mark_seen_franchise()
+    users.invalidate(username)
     return len(rows)
 
 
-def mark_seen_franchise() -> int:
-    """Flag every anime in the same franchise (sequel/prequel/side-story chains) as anything on the list.
-    Recommendations exclude these; direct ones are shown as gaps. Cheap (Memgraph BFS), so run after any ingest."""
-    db.run("MATCH (a:Anime) WHERE a.seen_franchise REMOVE a.seen_franchise")
+def drop_legacy_user_props() -> int:
+    """One-off cleanup: per-user flags (watched, list_status, my_score, seen_franchise) used to live on the shared
+    Anime nodes. They now come from each user's LISTED edges, so remove the stale copies. Idempotent."""
     rows = db.run("""
-        MATCH (u:User)-[:LISTED]->(x:Anime)
-        MATCH (x)-[:RELATED_TO *BFS 0..6 (r, n | r.relation <> 'Character')]-(f:Anime)
-        WITH DISTINCT f SET f.seen_franchise = true
-        RETURN count(f) AS n
+        MATCH (a:Anime)
+        WHERE a.watched IS NOT NULL OR a.list_status IS NOT NULL OR a.my_score IS NOT NULL OR a.seen_franchise IS NOT NULL
+        REMOVE a.watched, a.list_status, a.my_score, a.seen_franchise
+        RETURN count(a) AS n
     """)
     return rows[0]["n"] if rows else 0
 
@@ -435,6 +432,7 @@ def listed_stub_ids(username: str | None = None, limit: int | None = None) -> li
     q = """
         MATCH (u:User)-[:LISTED]->(a:Anime)
         WHERE ($u IS NULL OR u.username = $u) AND a.fetched_at IS NULL
+        WITH DISTINCT a
         RETURN a.mal_id AS id ORDER BY id
     """
     if limit:
@@ -454,23 +452,23 @@ def stats() -> dict[str, Any]:
 
 # --------------------------------------------------------------------------- enrichment (beyond the list)
 
-def top_people_ids(kind: str, top: int, lang: str = "Japanese") -> list[int]:
-    """Unexpanded people ranked by presence in watched anime. kind='va' or a staff position."""
+def top_people_ids(kind: str, top: int, lang: str = "Japanese", username: str | None = None) -> list[int]:
+    """Unexpanded people ranked by presence in the user's watched anime. kind='va' or a staff position."""
     if kind == "va":
         q = """
-            MATCH (u:User)-[l:LISTED]->(a:Anime)-[:HAS_CHARACTER]->(c:Character)<-[v:VOICES]-(p:Person)
+            MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)-[:HAS_CHARACTER]->(c:Character)<-[v:VOICES]-(p:Person)
             WHERE l.status <> 'plan_to_watch' AND v.language = $lang
             WITH p, count(DISTINCT a) AS n WHERE p.fetched_at IS NULL
             RETURN p.mal_id AS id ORDER BY n DESC LIMIT $top
         """
     else:
         q = """
-            MATCH (u:User)-[l:LISTED]->(a:Anime)<-[w:WORKED_ON]-(p:Person)
+            MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)<-[w:WORKED_ON]-(p:Person)
             WHERE l.status <> 'plan_to_watch' AND $kind IN w.positions
             WITH p, count(DISTINCT a) AS n WHERE p.fetched_at IS NULL
             RETURN p.mal_id AS id ORDER BY n DESC LIMIT $top
         """
-    return [r["id"] for r in db.run(q, lang=lang, kind=kind, top=top)]
+    return [r["id"] for r in db.run(q, lang=lang, kind=kind, top=top, user=username or users.current_username())]
 
 
 def linked_stub_ids(min_links: int, limit: int) -> list[int]:

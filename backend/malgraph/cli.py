@@ -61,7 +61,6 @@ def expand_list(
             except JikanError as e:
                 failed.append((mal_id, str(e)))
             progress.advance(task)
-    ingest.mark_seen_franchise()
     rprint(f"done. jikan requests={j.stats['requests']} cache hits={j.stats['hits']}")
     if failed:
         rprint(f"[yellow]{len(failed)} failed (re-run to retry):[/yellow]")
@@ -76,6 +75,7 @@ def enrich(
     min_links: int = typer.Option(2, help="Then fetch metadata for unseen anime connected to at least this many of those people"),
     max_anime: int = typer.Option(1500, help="Cap on anime to fetch"),
     lang: str = typer.Option("Japanese"),
+    username: str = typer.Option(None, help="Whose favourite people to follow. Defaults to MAL_USERNAME"),
 ) -> None:
     """Grow the graph beyond your list: your people's full filmographies + metadata of the anime they share (for recommendations)."""
     db.ensure_schema()
@@ -83,7 +83,7 @@ def enrich(
     kinds = ["va", "Director", "Music", "Character Design", "Original Creator", "Series Composition"]
     people: list[int] = []
     for kind in kinds:
-        ids = ingest.top_people_ids(kind, top_va if kind == "va" else top_staff, lang)
+        ids = ingest.top_people_ids(kind, top_va if kind == "va" else top_staff, lang, username or settings.mal_username)
         people += [i for i in ids if i not in people]
     failed: list[tuple[int, str]] = []
     with Progress() as progress:
@@ -103,10 +103,15 @@ def enrich(
             except JikanError as e:
                 failed.append((mal_id, str(e)))
             progress.advance(task)
-    n = ingest.mark_seen_franchise()
-    rprint(f"done. jikan requests={j.stats['requests']} cache hits={j.stats['hits']}; {n} anime flagged as seen franchises")
+    rprint(f"done. jikan requests={j.stats['requests']} cache hits={j.stats['hits']}")
     if failed:
         rprint(f"[yellow]{len(failed)} failed (re-run to retry):[/yellow] {failed[:10]}")
+
+
+@app.command()
+def migrate() -> None:
+    """Remove per-user flags that older versions stored on shared Anime nodes (safe to re-run)."""
+    rprint(f"[green]cleaned {ingest.drop_legacy_user_props()} anime nodes[/green]")
 
 
 @app.command()

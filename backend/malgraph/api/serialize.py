@@ -5,8 +5,12 @@ from typing import Any, Iterable
 
 from neo4j.graph import Node, Path, Relationship
 
+from ..users import user_list
+
 LABEL_ORDER = ["Anime", "Character", "Person", "Studio", "Genre", "User"]
 HEAVY_PROPS = {"synopsis", "about"}  # only sent on /node detail
+# Per-user flags older versions stored on Anime nodes; ignored if still present (see ingest.drop_legacy_user_props).
+LEGACY_USER_PROPS = {"watched", "list_status", "my_score", "seen_franchise"}
 
 
 def node_id(n: Node) -> str:
@@ -18,15 +22,23 @@ def node_id(n: Node) -> str:
 
 def node_payload(n: Node, *, full: bool = False) -> dict[str, Any]:
     label = node_id(n).split(":", 1)[0]
-    props = {k: v for k, v in n.items() if full or k not in HEAVY_PROPS}
+    props = {k: v for k, v in n.items() if (full or k not in HEAVY_PROPS) and k not in LEGACY_USER_PROPS}
+    status = score = None
+    if label == "Anime":
+        # Personal state comes from the current user's list, never from the shared node.
+        status, score = user_list().personal(n.get("mal_id"))
+        if status:
+            props["list_status"] = status
+            if score:
+                props["my_score"] = score
     return {
         "id": node_id(n),
         "label": label,
         "mal_id": n.get("mal_id"),
         "name": n.get("title") or n.get("name") or n.get("username"),
         "image_url": n.get("image_url"),
-        "watched": bool(n.get("watched")) if label == "Anime" else None,
-        "list_status": n.get("list_status") if label == "Anime" else None,
+        "watched": bool(status and status != "plan_to_watch") if label == "Anime" else None,
+        "list_status": status if label == "Anime" else None,
         "fetched": n.get("fetched_at") is not None if label in ("Anime", "Person", "Character") else True,
         "props": props,
     }

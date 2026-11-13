@@ -8,7 +8,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Query
 from starlette.concurrency import run_in_threadpool
 
-from .. import db, ingest
+from .. import db, ingest, users
 from ..jikan import JikanClient, JikanError
 from ..mal import MalError, iter_user_animelist
 from ..config import settings
@@ -28,8 +28,9 @@ def jikan() -> JikanClient:
 
 
 def _records(query: str, **params: Any) -> list[Any]:
+    """Run a query; $user / $watched / $franchise are filled in for the current user."""
     with db.get_driver().session() as session:
-        return list(session.run(query, **params))
+        return list(session.run(query, **{**users.params_for(query), **params}))
 
 
 def _parse_ref(ref: str) -> tuple[str, Any]:
@@ -182,7 +183,7 @@ def roster(
 def user_summary() -> dict[str, Any]:
     rows = [r.data() for r in _records(Q.USER_SUMMARY)]
     return {
-        "username": rows[0]["username"] if rows else None,
+        "username": rows[0]["username"] if rows else users.current_username(),
         "by_status": {r["status"]: r["n"] for r in rows},
         "total": sum(r["n"] for r in rows),
         "unfetched": sum(r["unfetched"] for r in rows),
@@ -280,15 +281,15 @@ class _SyncJob:
     def running(self) -> bool:
         return self.thread is not None and self.thread.is_alive()
 
-    def start(self, ids: list[int]) -> None:
+    def start(self, username: str, ids: list[int]) -> None:
         with self.lock:
             if self.running:
                 return
             self.total, self.done, self.failed, self.current = len(ids), 0, [], None
-            self.thread = threading.Thread(target=self._run, args=(ids,), daemon=True)
+            self.thread = threading.Thread(target=self._run, args=(username, ids), daemon=True)
             self.thread.start()
 
-    def _run(self, ids: list[int]) -> None:
+    def _run(self, username: str, ids: list[int]) -> None:
         j = jikan()
         for mal_id in ids:
             self.current = mal_id
@@ -298,7 +299,7 @@ class _SyncJob:
                 self.failed.append({"mal_id": mal_id, "error": str(e)})
             self.done += 1
         self.current = None
-        ingest.mark_seen_franchise()
+        users.invalidate(username)  # newly fetched relations can widen the franchise set
 
     def status(self) -> dict[str, Any]:
         return {"running": self.running, "total": self.total, "done": self.done, "failed": self.failed, "current": self.current}
@@ -312,14 +313,16 @@ async def sync_list(expand: bool = True) -> dict[str, Any]:
     """Re-fetch the user's MAL list, then (optionally) expand any anime not yet fetched, in the background."""
     if _sync.running:
         raise HTTPException(409, "a sync is already running")
-    username = settings.mal_username
+    username = users.current_username()
+    if not username:
+        raise HTTPException(400, "no MAL username: set MAL_USERNAME or send X-MAL-User")
     try:
         n = await run_in_threadpool(lambda: ingest.upsert_user_list(username, iter_user_animelist(username)))
     except MalError as e:
         raise HTTPException(502, str(e))
     stubs = ingest.listed_stub_ids(username)
     if expand and stubs:
-        _sync.start(stubs)
+        _sync.start(username, stubs)
     return {"synced": n, "unfetched": len(stubs), "expanding": expand and bool(stubs)}
 
 
