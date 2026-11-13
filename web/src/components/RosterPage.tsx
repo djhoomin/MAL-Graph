@@ -115,12 +115,20 @@ function PersonRoster({ personId, onlyWatched, mainOnly, lang }: Opts & { person
     }
     return [...byChar.values()].filter((c) => !mainOnly || c.main)
   }, [data, mainOnly])
+  // A pick made before the filters changed may point at characters no longer listed.
+  const [pickedFor, setPickedFor] = useState(cards)
+  if (pickedFor !== cards) {
+    setPickedFor(cards)
+    setPicked(null)
+  }
 
   const person = data?.nodes.find((n) => n.id === `Person:${personId}`)
   const shuffle = () => {
+    // Fix the target first: the pool shrinks as characters are drawn from it.
     const pool = [...cards]
+    const want = Math.min(3, pool.length)
     const chosen = new Set<string>()
-    while (chosen.size < Math.min(3, pool.length)) {
+    while (chosen.size < want) {
       const i = Math.floor(Math.random() * pool.length)
       chosen.add(pool.splice(i, 1)[0].role.character.id)
     }

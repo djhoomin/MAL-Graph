@@ -4,11 +4,19 @@ import { LIST_STATUS_LABELS } from '../api'
 import { STATUS_COLORS } from '../graph/style'
 import { buildBuckets, type Bucket } from './data'
 
+/** Label every Nth year so rotated labels (about 14px apart at 45°) never overlap. */
+const yearStep = (yearWidth: number) => [1, 2, 5, 10].find((n) => n * yearWidth >= 14) ?? 10
+
 const ORDER: ListStatus[] = ['completed', 'watching', 'on_hold', 'dropped', 'plan_to_watch']
 const ACCENT = '#3987e5'
 const DIM = '#3a3f4d'
 const PLOT_H = 180
-const AXIS_H = 26
+const AXIS_H = 48 // room for the season strip and rotated year labels
+const STRIP_Y = 6 // season strip, just under the columns
+const LABEL_Y = 22
+// Winter, spring, summer, fall. Muted, so the strip groups columns without competing with the status colours.
+const SEASON_COLORS = ['#6f9bd1', '#e8a3c0', '#d9c36a', '#cf8a5a']
+const SEASON_NAMES = ['Winter', 'Spring', 'Summer', 'Fall']
 const GAP = 2
 
 export interface Thread {
@@ -38,6 +46,11 @@ export function Timeline({ anime, granularity, thread, onPick, picked }: Props) 
     ro.observe(el)
     return () => ro.disconnect()
   }, [table])
+  // When the chart is wider than the screen (phones), start at the most recent seasons.
+  useEffect(() => {
+    const el = wrap.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [table, granularity, buckets.length])
 
   const max = Math.max(1, ...buckets.map((b) => b.anime.length))
   // Fit all columns into the available width when possible; scroll only below the minimum width.
@@ -46,12 +59,35 @@ export function Timeline({ anime, granularity, thread, onPick, picked }: Props) 
   const yTicks = niceTicks(max)
   const scale = (n: number) => (n / yTicks[yTicks.length - 1]) * PLOT_H
 
+  // Years in view, with where each one starts and ends on the x axis.
+  const years = useMemo(() => {
+    const out: { year: number; x0: number; x1: number }[] = []
+    buckets.forEach((b, i) => {
+      const year = granularity === 'year' ? b.key : Math.floor(b.key / 4)
+      const x = 32 + i * colW
+      const last = out[out.length - 1]
+      if (last && last.year === year) last.x1 = x + colW
+      else out.push({ year, x0: x, x1: x + colW })
+    })
+    return out
+  }, [buckets, granularity, colW])
+  const step = yearStep(granularity === 'year' ? colW : 4 * colW)
+
   if (buckets.length === 0) return <div className="muted">No dated anime in this selection.</div>
 
   return (
     <div className="chart">
       <div className="chart-head">
         <div className="legend">
+          {granularity === 'season' && !table && (
+            <span className="season-legend">
+              {SEASON_NAMES.map((n, i) => (
+                <span key={n}>
+                  <span className="swatch thin" style={{ background: SEASON_COLORS[i] }} /> {n}
+                </span>
+              ))}
+            </span>
+          )}
           {thread ? (
             <>
               <span className="swatch" style={{ background: ACCENT }} /> {thread.label}
@@ -100,6 +136,20 @@ export function Timeline({ anime, granularity, thread, onPick, picked }: Props) 
       ) : (
         <div className="chart-scroll" ref={wrap} onMouseLeave={() => setHover(null)}>
           <svg width={width + 36} height={PLOT_H + AXIS_H + 8} style={{ display: 'block' }}>
+            {/* every other year shaded, so a year's seasons read as one group */}
+            {granularity === 'season' &&
+              years.map((y) =>
+                y.year % 2 === 0 ? <rect key={`band${y.year}`} x={y.x0 - GAP / 2} y={0} width={y.x1 - y.x0} height={PLOT_H + 4} fill="rgba(255,255,255,0.035)" /> : null,
+              )}
+            {/* year labels, rotated and centred under the year */}
+            {years.map((y) =>
+              // A partial first or last year (under two seasons) would crowd its neighbour's label.
+              (y.year % step === 0 || years.length <= 3) && (granularity === 'year' || y.x1 - y.x0 >= 2 * colW) ? (
+                <text key={`y${y.year}`} transform={`translate(${(y.x0 + y.x1) / 2 - GAP / 2},${PLOT_H + LABEL_Y}) rotate(-45)`} textAnchor="end" className="axis">
+                  {y.year}
+                </text>
+              ) : null,
+            )}
             {/* y grid + labels */}
             {yTicks.map((t) => (
               <g key={t} transform={`translate(0,${PLOT_H - scale(t) + 4})`}>
@@ -111,7 +161,6 @@ export function Timeline({ anime, granularity, thread, onPick, picked }: Props) 
             ))}
             {buckets.map((b, i) => {
               const x = 32 + i * colW
-              const yearStart = granularity === 'year' || b.key % 4 === 0
               let y = PLOT_H + 4
               const segments = thread
                 ? [
@@ -121,16 +170,7 @@ export function Timeline({ anime, granularity, thread, onPick, picked }: Props) 
                 : ORDER.map((s) => ({ color: STATUS_COLORS[s], n: b.byStatus[s].length }))
               return (
                 <g key={b.key}>
-                  {yearStart && granularity === 'season' && b.key % 4 === 0 && (
-                    <text x={x} y={PLOT_H + AXIS_H} className="axis">
-                      {Math.floor(b.key / 4)}
-                    </text>
-                  )}
-                  {granularity === 'year' && (i % 2 === 0 || buckets.length < 15) && (
-                    <text x={x + colW / 2} y={PLOT_H + AXIS_H} textAnchor="middle" className="axis">
-                      {b.key}
-                    </text>
-                  )}
+                  {granularity === 'season' && <rect x={x} y={PLOT_H + STRIP_Y} width={colW - GAP} height={3} fill={SEASON_COLORS[b.key % 4]} opacity={0.8} />}
                   {segments.map((seg, j) => {
                     if (!seg.n) return null
                     const h = Math.max(1, scale(seg.n) - GAP)
