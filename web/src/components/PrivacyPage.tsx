@@ -36,7 +36,7 @@ export function PrivacyPage() {
       <article className="doc">
         <h1>Privacy</h1>
         <p>MAL-Graph shows your MyAnimeList anime list as a graph. This page explains what it keeps about you, who can see it, and how to delete it.</p>
-        {me?.contact && <p>MAL-Graph is run by {me.contact}. Write there with any question about your data.</p>}
+        {me?.contact && <p>MAL-Graph is run by {me.contact}.</p>}
 
         <h2>What MAL-Graph keeps when you sign in</h2>
         <ul>
