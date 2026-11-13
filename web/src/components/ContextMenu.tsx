@@ -9,7 +9,7 @@ export interface MenuState {
 }
 
 export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) {
-  const { loadNeighbors, fetchFromMal, setPathEnd, removeNode, collapseNode, select, setView } = useStore.getState()
+  const { expandNode, loadNeighbors, fetchFromMal, startPath, completePath, removeNode, collapseNode, select, setView, pathFrom } = useStore.getState()
   const expandable = menu.label === 'Anime' || menu.label === 'Person' || menu.label === 'Character'
   const item = (text: string, fn: () => void, disabled = false) => (
     <button
@@ -24,16 +24,17 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
   )
   return (
     <div className="ctx-menu" style={{ left: menu.x, top: menu.y }}>
-      {item('Expand neighbours (from DB)', () => void loadNeighbors(menu.id))}
-      {item('Fetch from MAL (Jikan)', () => void fetchFromMal(menu.id), !expandable)}
-      {item('Collapse (remove leaf neighbours)', () => collapseNode(menu.id))}
+      {item('Expand', () => void expandNode(menu.id))}
+      {item('Expand without fetching', () => void loadNeighbors(menu.id))}
+      {item('Refetch from MAL', () => void fetchFromMal(menu.id), !expandable)}
+      {item('Collapse neighbours', () => collapseNode(menu.id))}
       {menu.label === 'Person' &&
-        item('Show voice roles', () => {
+        item('Voice roles', () => {
           select(menu.id)
           setView('va')
         })}
-      {item('Set as path start', () => setPathEnd('from', menu.id))}
-      {item('Set as path end', () => setPathEnd('to', menu.id))}
+      {item('Find path from here', () => startPath(menu.id))}
+      {pathFrom && pathFrom !== menu.id && item('Find path to here', () => void completePath(menu.id))}
       {item('Remove from canvas', () => removeNode(menu.id))}
     </div>
   )

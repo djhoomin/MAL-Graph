@@ -166,6 +166,8 @@ export function AskPanel() {
     mergePayload({ nodes: [n], edges: [] })
     select(n.id)
     if (window.location.hash.startsWith('#/ask')) navigate('/')
+    // On a phone the drawer covers the graph, so get out of the way of the node you opened.
+    if (window.matchMedia('(max-width: 700px)').matches) useStore.getState().setAskOpen(false)
   }
 
   if (status && !status.configured) {

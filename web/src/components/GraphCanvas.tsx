@@ -25,8 +25,24 @@ const LAYOUT: FcoseLayoutOptions = {
 /** Run fcose and fit the viewport once the animation has finished (fcose's own `fit` uses pre-animation positions). */
 function runLayout(cy: Core, randomize: boolean) {
   const layout = cy.layout({ ...LAYOUT, randomize } as FcoseLayoutOptions)
-  layout.one('layoutstop', () => cy.animate({ fit: { eles: cy.elements(), padding: 40 }, duration: 250 }))
+  layout.one('layoutstop', () => cy.animate({ fit: { eles: cy.elements(), padding: 40 }, duration: 250, complete: () => keepSelectedClear(cy) }))
   layout.run()
+}
+
+/** Pan so the selected node isn't hidden under the node card (right edge when wide, bottom sheet on phones). */
+function keepSelectedClear(cy: Core) {
+  const selected = useStore.getState().selected
+  if (!selected) return
+  const node = cy.getElementById(selected)
+  if (node.empty()) return
+  const { x, y } = node.renderedPosition()
+  const w = cy.width()
+  const h = cy.height()
+  if (window.matchMedia('(max-width: 700px)').matches) {
+    if (y > h * 0.42) cy.animate({ panBy: { x: w / 2 - x, y: h * 0.25 - y }, duration: 250 })
+  } else if (x > w - 390) {
+    cy.animate({ panBy: { x: (w - 390) / 2 - x, y: 0 }, duration: 250 })
+  }
 }
 
 export function GraphCanvas() {
@@ -42,6 +58,7 @@ export function GraphCanvas() {
   const pathFrom = useStore((s) => s.pathFrom)
   const pathTo = useStore((s) => s.pathTo)
   const layoutTick = useStore((s) => s.layoutTick)
+  const fitTick = useStore((s) => s.fitTick)
 
   // Create the Cytoscape instance once.
   useEffect(() => {
@@ -50,18 +67,31 @@ export function GraphCanvas() {
     cyRef.current = cy
     const { select, expandNode } = useStore.getState()
 
+    const closeMenu = () => setMenu(null)
+
+    // On touch, lifting the finger after a long-press still fires 'tap'. That tap must neither close
+    // the menu the long-press just opened nor expand (whose layout zoom would close it too).
+    let held = false
+    cy.on('tapstart', () => (held = false))
     cy.on('tap', 'node', (ev) => {
       const id = (ev.target as NodeSingular).id()
+      const st = useStore.getState()
+      // In path mode a tap picks the destination instead of selecting.
+      if (st.pathPicking && !held) {
+        if (id !== st.pathFrom) void st.completePath(id)
+        return
+      }
       select(id)
-      if (useStore.getState().filters.expandOnClick) void expandNode(id)
+      if (!held && useStore.getState().filters.expandOnClick) void expandNode(id)
     })
     cy.on('tap', (ev) => {
-      if (ev.target === cy) {
-        select(null)
-        setMenu(null)
-      }
+      if (ev.target === cy) select(null)
+      if (!held) closeMenu()
     })
-    cy.on('dbltap', 'node', (ev) => void expandNode((ev.target as NodeSingular).id()))
+    // With click-to-expand on, the two taps of a double-tap have already expanded the node.
+    cy.on('dbltap', 'node', (ev) => {
+      if (!useStore.getState().filters.expandOnClick) void expandNode((ev.target as NodeSingular).id())
+    })
     const openMenu = (ev: cytoscape.EventObject) => {
       const n = ev.target as NodeSingular
       const pos = ev.renderedPosition
@@ -71,8 +101,13 @@ export function GraphCanvas() {
       setMenu({ id: n.id(), label: n.data('label'), x: Math.max(0, x), y: Math.max(0, y) })
     }
     cy.on('cxttap', 'node', openMenu) // right-click
-    cy.on('taphold', 'node', openMenu) // long-press on touch
-    cy.on('pan zoom drag', () => setMenu(null))
+    cy.on('taphold', 'node', (ev) => {
+      held = true
+      openMenu(ev)
+    }) // long-press on touch
+    // Close on the user's next gesture only. Programmatic pans (layout, keeping the selection clear
+    // of the card) and the finger drifting after a long-press must not close it.
+    cy.on('tapstart scrollzoom', closeMenu)
     // Keep the renderer in sync with the container (orientation changes, sheets opening).
     let fitTimer: ReturnType<typeof setTimeout> | undefined
     const ro = new ResizeObserver(() => {
@@ -119,6 +154,16 @@ export function GraphCanvas() {
     if (!cy || cy.nodes().length === 0) return
     runLayout(cy, true)
   }, [layoutTick])
+
+  useEffect(() => {
+    const cy = cyRef.current
+    if (!cy || cy.nodes().length === 0) return
+    cy.animate({ fit: { eles: cy.elements(':visible'), padding: 60 }, duration: 250 })
+  }, [fitTick])
+
+  useEffect(() => {
+    if (cyRef.current) keepSelectedClear(cyRef.current)
+  }, [selected])
 
   // Selection sync + neighbourhood emphasis.
   useEffect(() => {
@@ -185,9 +230,10 @@ export function GraphCanvas() {
       {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
       {Object.keys(nodes).length === 0 && (
         <div className="empty-hint">
-          Search for an anime, character or voice actor to start.
-          <br />
-          <small>tap = select · double-tap = expand (fetches stubs from MAL) · right-click / long-press = more</small>
+          <div>
+            Search for an anime, character or voice actor to begin.
+            <small>{filters.expandOnClick ? 'Click a node to expand it.' : 'Double-click a node to expand it.'} Right-click or long-press for more.</small>
+          </div>
         </div>
       )}
     </div>
