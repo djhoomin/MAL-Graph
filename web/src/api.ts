@@ -127,6 +127,7 @@ export const SIGN_IN_URL = BASE + '/api/auth/login'
 export interface Me {
   username: string | null
   sign_in: boolean // false when the server has no MAL sign-in configured (local development)
+  contact?: string | null // who runs the site, for the privacy page
 }
 
 /** Error message without the HTTP status prefix, for showing inline. */
@@ -266,6 +267,9 @@ export const api = {
   insightsGaps: (statuses: string[]) => req<{ gaps: Gap[] }>(`/api/insights/gaps${qs({ statuses: statuses.join(',') })}`),
   me: () => req<Me>('/api/auth/me'),
   signOut: () => fetch(BASE + '/api/auth/logout', { method: 'POST' }),
+  deleteAccount: () => fetch(BASE + '/api/auth/account', { method: 'DELETE' }).then((r) => {
+    if (!r.ok) throw new Error('Your data could not be deleted. Please try again.')
+  }),
   sync: () => req<{ username: string; synced: number; unfetched: number; expanding: boolean }>('/api/sync', { method: 'POST' }),
   syncStatus: () => req<SyncStatus>('/api/sync/status'),
   stats: () => req<Record<string, number>>('/api/stats'),

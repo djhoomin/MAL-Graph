@@ -67,6 +67,7 @@ function MenuBody({ close }: { close: () => void }) {
         <button onClick={act(() => void useGolf.getState().start('daily'))}>Graph Golf</button>
         <a href="#/insights" onClick={close}>Insights</a>
         <a href="#/roster" onClick={close}>VA roster</a>
+        <a href="#/privacy" onClick={close}>Privacy and your data</a>
       </section>
 
       <section className="menu-list">
@@ -94,6 +95,8 @@ function MenuBody({ close }: { close: () => void }) {
           Only load anime I've seen
         </label>
       </section>
+
+      <div className="muted small-text menu-credit">Data from MyAnimeList via the MyAnimeList API and Jikan. Not affiliated with MyAnimeList.</div>
     </div>
   )
 }

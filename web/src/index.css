@@ -375,3 +375,21 @@ button.wide { display: block; width: 100%; margin-top: 8px; }
   .golf-moves { max-height: 22vh; }
   .golf-filter { font-size: 16px; }
 }
+
+/* Privacy and other text pages */
+.doc-page { min-height: 100vh; overflow-y: auto; height: 100vh; }
+.doc-head { padding: 16px 20px 0; }
+.doc { max-width: 680px; margin: 0 auto; padding: 8px 20px 60px; line-height: 1.6; font-size: 15px; }
+.doc h1 { font-size: 28px; margin: 12px 0 8px; }
+.doc h2 { font-size: 17px; margin: 28px 0 6px; }
+.doc ul { padding-left: 20px; }
+.doc li { margin: 4px 0; }
+.doc a, .welcome a:not(.button) { color: var(--accent); }
+.doc-confirm { border: 1px solid #ff4f6a; border-radius: 10px; padding: 12px 14px; }
+.doc-confirm p { margin: 0 0 10px; }
+.doc-actions { display: flex; gap: 8px; }
+.doc-done { color: #3ddc84; }
+button.danger { background: #c9364d; border-color: #c9364d; color: #fff; height: 36px; padding: 0 14px; }
+button.danger:hover:not(:disabled) { filter: brightness(1.1); border-color: #c9364d; }
+.menu-credit { padding: 8px 10px 2px; font-size: 11px; line-height: 1.4; }
+@media (max-width: 700px) { .doc { font-size: 16px; padding: 8px 16px 60px; } }

@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import re
+import shutil
 import time
 import uuid
 from pathlib import Path
@@ -406,6 +407,15 @@ def _conv_path(cid: str) -> Path:
 
 def _key(cid: str) -> tuple[str, str]:
     return (_user_dir().name, cid)
+
+
+def forget_conversations(username: str) -> None:
+    """Delete a user's conversations and Ask usage (the whole folder)."""
+    folder = CONV_DIR / username.lower()
+    for key in [k for k in _sessions if k[0] == folder.name]:
+        _sessions.pop(key, None)
+    if folder.exists():
+        shutil.rmtree(folder)
 
 
 def migrate_conversations() -> int:

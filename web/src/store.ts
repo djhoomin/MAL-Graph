@@ -104,6 +104,13 @@ function savePrefs(f: Filters) {
 }
 
 // A sign-in redirect lands on /?signed_in=1 or /?auth_error=...; read it once at startup and tidy the address bar.
+// The pre-sign-in "remember this username" key isn't used any more.
+try {
+  localStorage.removeItem('malgraph.user')
+} catch {
+  /* storage blocked */
+}
+
 const signInRedirect = (() => {
   const params = new URLSearchParams(window.location.search)
   const out = { signedIn: params.has('signed_in'), authError: params.get('auth_error') }

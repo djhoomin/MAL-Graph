@@ -229,3 +229,18 @@ def summary(day: str, username: str | None, par: int) -> dict[str, Any]:
         "by_score": [{"to_par": k, "players": v} for k, v in sorted(counts.items())],
         "rank": rank,
     }
+
+
+def forget(username: str) -> int:
+    """Remove a user's rounds from every day's scores. Returns how many were removed."""
+    key, removed = username.lower(), 0
+    with _score_lock:
+        for path in _dir("scores").glob("*.json"):
+            try:
+                scores = json.loads(path.read_text())
+            except (OSError, json.JSONDecodeError):
+                continue
+            if scores.pop(key, None) is not None:
+                path.write_text(json.dumps(scores))
+                removed += 1
+    return removed

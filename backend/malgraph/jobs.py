@@ -54,6 +54,14 @@ class FetchQueue:
             self._cv.notify()
             return len(new)
 
+    def cancel(self, username: str) -> None:
+        """Drop a user's pending fetches and progress (used when they delete their data)."""
+        with self._cv:
+            self._pending.pop(username, None)
+            if username in self._order:
+                self._order.remove(username)
+            self._progress.pop(username, None)
+
     def status(self, username: str | None) -> dict[str, Any]:
         with self._cv:
             p = self._progress.get(username or "")
@@ -97,7 +105,9 @@ class FetchQueue:
             error = self._fetch(mal_id)
             with self._cv:
                 self._current = None
-                p = self._progress[username]
+                p = self._progress.get(username)
+                if p is None:  # the user deleted their data mid-fetch
+                    continue
                 p["done"] += 1
                 if error:
                     p["failed"].append({"mal_id": mal_id, "error": error})

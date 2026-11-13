@@ -23,7 +23,11 @@ export function Welcome() {
       <a className="button primary" href={SIGN_IN_URL}>
         Sign in with MyAnimeList
       </a>
-      {authError ? <div className="error">{authError}</div> : <div className="muted small-text">We only read your anime list. Nothing is posted to MyAnimeList.</div>}
+      {authError && <div className="error">{authError}</div>}
+      <div className="muted small-text">
+        MAL-Graph only reads your anime list and never posts to MyAnimeList. By signing in you agree to the <a href="#/privacy">privacy notice</a>.
+      </div>
+      <div className="muted small-text">Data from MyAnimeList. Not affiliated with MyAnimeList.</div>
     </div>
   )
 }

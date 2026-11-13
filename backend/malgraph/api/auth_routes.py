@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from .. import auth, users
+from .. import auth, privacy, users
 from ..config import settings
 from .routes import sync_user
 
@@ -23,7 +23,19 @@ def _home(**params: str) -> RedirectResponse:
 
 @router.get("/me")
 def me() -> dict[str, Any]:
-    return {"username": users.current_username(), "sign_in": settings.sign_in}
+    return {"username": users.current_username(), "sign_in": settings.sign_in, "contact": settings.privacy_contact or None}
+
+
+@router.delete("/account")
+async def delete_account() -> Response:
+    """Delete everything stored about the signed-in user, then sign them out."""
+    username = users.current_username()
+    if not username or not settings.sign_in:
+        raise HTTPException(401, "Sign in to delete your data")
+    await run_in_threadpool(privacy.delete_user, username)
+    resp = Response(status_code=204)
+    resp.delete_cookie(auth.SESSION_COOKIE, path="/")
+    return resp
 
 
 @router.get("/login")

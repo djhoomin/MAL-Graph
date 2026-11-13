@@ -1,5 +1,12 @@
 # Production stack: Caddy (TLS + basic auth + static UI) -> FastAPI -> Memgraph, with a self-hosted Jikan.
 # Usage: docker compose -f docker-compose.prod.yml up -d --build
+# Container logs hold IP addresses (personal data): cap them at 3 x 10 MB per service so old lines are overwritten.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   memgraph:
     # memory-limit (MiB) makes Memgraph refuse work past 2 GiB instead of letting the 4 GB server run out.
@@ -7,6 +14,7 @@ services:
     # (agent.guard_self_test) must pass before you move to a newer image.
     image: memgraph/memgraph-mage@sha256:cc33431b088c6b9580528d8d5aff92f3b958de1af5d40126f831ab8512eb855a
     restart: unless-stopped
+    logging: *logging
     command: ["--log-level=WARNING", "--storage-snapshot-interval-sec=300", "--storage-wal-enabled=true", "--query-execution-timeout-sec=30", "--memory-limit=2048"]
     volumes:
       - mg_lib:/var/lib/memgraph
@@ -20,6 +28,7 @@ services:
   mongodb:
     image: mongo:7
     restart: unless-stopped
+    logging: *logging
     environment:
       - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-jikan}
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:?set MONGO_PASSWORD in .env}
@@ -35,6 +44,7 @@ services:
   jikan:
     image: jikanme/jikan-rest:latest
     restart: unless-stopped
+    logging: *logging
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
@@ -58,6 +68,7 @@ services:
   api:
     build: ./backend
     restart: unless-stopped
+    logging: *logging
     env_file: .env
     environment:
       - MEMGRAPH_URI=bolt://memgraph:7687
@@ -78,6 +89,7 @@ services:
   web:
     build: ./web
     restart: unless-stopped
+    logging: *logging
     ports:
       - "80:80"
       - "443:443"
