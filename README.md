@@ -25,7 +25,9 @@ Jikan v4, self-hosted (:8080) ┘                            :7687         :8000
    ```
 3. **MAL credentials**: copy `.env.example` to `.env`, then register a free app at
    <https://myanimelist.net/apiconfig> (App Type: *other*, any name/redirect) and paste the
-   **Client ID** plus your MAL username. Your anime list must be public.
+   **Client ID** plus your MAL username. Your anime list must be public. To try "Sign in with
+   MyAnimeList" locally, set the app's redirect URL to `http://localhost:5173/api/auth/callback` and set
+   `PUBLIC_URL=http://localhost:5173` and a `SESSION_SECRET` in `.env`.
 4. **Web UI**:
    ```sh
    cd web && npm install

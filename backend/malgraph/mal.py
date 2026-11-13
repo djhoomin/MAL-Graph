@@ -1,4 +1,4 @@
-"""Official MAL API v2: fetch a public user's anime list with a Client ID (no OAuth)."""
+"""Official MAL API v2: a user's anime list, read with the Client ID (public lists) or a signed-in user's token."""
 from __future__ import annotations
 
 from typing import Any, Iterator
@@ -14,24 +14,28 @@ class MalError(RuntimeError):
         self.status = status  # MAL's HTTP status when there was one (403 private list, 404 unknown user)
 
 
-def iter_user_animelist(username: str | None = None, client_id: str | None = None) -> Iterator[dict[str, Any]]:
-    """Yield {node: {...}, list_status: {...}} entries for every anime on the user's list."""
+def iter_user_animelist(username: str | None = None, client_id: str | None = None, token: str | None = None) -> Iterator[dict[str, Any]]:
+    """Yield {node: {...}, list_status: {...}} entries for every anime on the user's list.
+
+    With a token (the user just signed in) this reads their own list, which works even when it is private.
+    """
     username = username or settings.mal_username
     client_id = client_id or settings.mal_client_id
     if not username or not client_id:
         raise MalError("MAL_USERNAME and MAL_CLIENT_ID must be set in .env")
 
-    url: str | None = f"{settings.mal_base}/users/{username}/animelist"
+    url: str | None = f"{settings.mal_base}/users/{'@me' if token else username}/animelist"
+    headers = {"Authorization": f"Bearer {token}"} if token else {"X-MAL-CLIENT-ID": client_id}
     params: dict[str, Any] | None = {
         "fields": "list_status,alternative_titles,media_type,num_episodes,start_season,mean,status,main_picture",
         "limit": 1000,
         "nsfw": "true",
     }
-    with httpx.Client(timeout=30, headers={"X-MAL-CLIENT-ID": client_id}) as http:
+    with httpx.Client(timeout=30, headers=headers) as http:
         while url:
             resp = http.get(url, params=params)
             if resp.status_code == 403:
-                raise MalError(f"{username}'s anime list is private on MyAnimeList", 403)
+                raise MalError(f"{username}'s anime list is private on MyAnimeList. Sign in again to sync a private list.", 403)
             if resp.status_code == 404:
                 raise MalError(f"There is no MyAnimeList user called {username}", 404)
             if resp.status_code != 200:

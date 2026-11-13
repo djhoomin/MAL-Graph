@@ -29,7 +29,8 @@ function MenuBody({ close }: { close: () => void }) {
   const filters = useStore((s) => s.filters)
   const nodeCount = useStore((s) => Object.keys(s.nodes).length)
   const edgeCount = useStore((s) => Object.keys(s.edges).length)
-  const { startSync, setFilter, loadNeighbors, relayout, clear, setWelcomeOpen } = useStore.getState()
+  const me = useStore((s) => s.me)
+  const { startSync, setFilter, loadNeighbors, relayout, clear, signOut } = useStore.getState()
   const act = (fn: () => void) => () => {
     fn()
     close()
@@ -47,17 +48,19 @@ function MenuBody({ close }: { close: () => void }) {
             {user.unfetched > 0 && <div className="muted small-text">{user.unfetched} not fetched from MAL yet</div>}
           </>
         ) : (
-          <div className="muted">No MAL list synced yet</div>
+          <div className="muted">{me?.sign_in ? 'Not signed in' : 'No MAL list synced yet'}</div>
         )}
-        <button className="wide" disabled={!!busy || !!sync?.running} onClick={() => void startSync()} title="Re-fetch your MAL list, then fetch any new anime from MAL">
+        <button className="wide" hidden={!user?.username} disabled={!!busy || !!sync?.running} onClick={() => void startSync()} title="Re-fetch your MAL list, then fetch any new anime from MAL">
           {sync?.running ? `Fetching ${sync.done} of ${sync.total}…` : 'Sync list'}
         </button>
         {syncMsg && <div className="muted small-text">{syncMsg}</div>}
       </section>
 
-      <section className="menu-list">
-        <button onClick={act(() => setWelcomeOpen(true))}>Switch user</button>
-      </section>
+      {me?.sign_in && me.username && (
+        <section className="menu-list">
+          <button onClick={act(() => void signOut())}>Sign out</button>
+        </section>
+      )}
 
       <section className="menu-list">
         <a href="#/insights" onClick={close}>Insights</a>

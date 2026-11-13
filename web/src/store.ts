@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { api, errorText, setUser, LABELS, LIST_STATUSES, REL_TYPES, type GEdge, type GNode, type GraphPayload, type Label, type ListStatus, type PathResult, type RelType, type SyncStatus, type UserSummary } from './api'
+import { api, LABELS, LIST_STATUSES, REL_TYPES, type GEdge, type GNode, type GraphPayload, type Label, type ListStatus, type Me, type PathResult, type RelType, type SyncStatus, type UserSummary } from './api'
 
 export interface Filters {
   labels: Record<Label, boolean>
@@ -40,7 +40,8 @@ interface State {
   pathResult: PathResult | null
   sync: SyncStatus | null // background MAL expansion after a list sync
   syncMsg: string | null
-  welcomeOpen: boolean // the "enter your MAL username" card, opened from the menu or shown when there is no list
+  me: Me | null // who is signed in; null until the first /auth/me answers
+  authError: string | null // from a failed sign-in redirect (?auth_error=...)
 
   mergePayload: (p: GraphPayload, opts?: { select?: string }) => void
   removeNode: (id: string) => void
@@ -61,9 +62,9 @@ interface State {
   relayout: () => void
   fit: () => void
   startSync: () => Promise<void>
-  /** Sync a (possibly new) user's list and switch to them. Returns an error message, or null on success. */
-  switchUser: (username: string) => Promise<string | null>
-  setWelcomeOpen: (open: boolean) => void
+  /** Who is signed in, plus what a sign-in redirect left in the URL. */
+  loadMe: () => Promise<void>
+  signOut: () => Promise<void>
   pollSync: () => Promise<void>
   loadNeighbors: (id: string) => Promise<void>
   fetchFromMal: (id: string) => Promise<void>
@@ -102,6 +103,14 @@ function savePrefs(f: Filters) {
   }
 }
 
+// A sign-in redirect lands on /?signed_in=1 or /?auth_error=...; read it once at startup and tidy the address bar.
+const signInRedirect = (() => {
+  const params = new URLSearchParams(window.location.search)
+  const out = { signedIn: params.has('signed_in'), authError: params.get('auth_error') }
+  if (out.signedIn || out.authError) window.history.replaceState(null, '', window.location.pathname + window.location.hash)
+  return out
+})()
+
 export const useStore = create<State>((set, get) => ({
   nodes: {},
   edges: {},
@@ -123,7 +132,8 @@ export const useStore = create<State>((set, get) => ({
   pathResult: null,
   sync: null,
   syncMsg: null,
-  welcomeOpen: false,
+  me: null,
+  authError: null,
 
   mergePayload: (p, opts) =>
     set((s) => {
@@ -217,27 +227,21 @@ export const useStore = create<State>((set, get) => ({
       void get().pollSync()
     } else set({ syncMsg: `List synced (${r.synced} entries). Nothing new to fetch.` })
   },
-  switchUser: async (username) => {
-    const previous = get().user?.username ?? null
-    setUser(username.trim())
-    set({ busy: 'Reading your MyAnimeList list…', error: null })
+  loadMe: async () => {
+    const { signedIn, authError } = signInRedirect
     try {
-      const r = await api.sync()
-      setUser(r.username) // the stored spelling, if this user already exists in another case
-      get().clear()
-      set({ welcomeOpen: false, syncMsg: null, sync: r.expanding ? { running: true, total: r.unfetched, done: 0, failed: [], current: null, others_in_queue: 0 } : null })
-      await get().refreshUser()
-      if (r.expanding) void get().pollSync()
-      void get().loadNeighbors(`User:${r.username}`)
-      return null
-    } catch (e) {
-      setUser(previous)
-      return errorText(e)
-    } finally {
-      set({ busy: null })
+      const me = await api.me()
+      set({ me, authError })
+      // First thing after signing in: the user's own list on the canvas.
+      if (signedIn && me.username && Object.keys(get().nodes).length === 0) void get().loadNeighbors(`User:${me.username}`)
+    } catch {
+      set({ me: { username: null, sign_in: false }, authError })
     }
   },
-  setWelcomeOpen: (welcomeOpen) => set({ welcomeOpen }),
+  signOut: async () => {
+    await api.signOut()
+    window.location.replace(window.location.pathname) // start over with a clean slate
+  },
   pollSync: async () => {
     try {
       const st = await api.syncStatus()

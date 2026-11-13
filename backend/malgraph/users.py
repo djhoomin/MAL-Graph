@@ -18,11 +18,16 @@ from . import db
 from .config import settings
 
 # Set per request by the API middleware (and inherited by threads started with asyncio.to_thread).
+# None means "not set" (fall back to MAL_USERNAME). The empty string means "nobody is signed in".
 _current: ContextVar[str | None] = ContextVar("malgraph_user", default=None)
 
 
 def current_username() -> str | None:
-    return _current.get() or settings.mal_username or None
+    """The signed-in user. Outside a request (the CLI), or with sign-in off, it is MAL_USERNAME."""
+    username = _current.get()
+    if username is None:
+        return settings.mal_username or None
+    return username or None  # "" is a visitor who has not signed in
 
 
 @contextmanager

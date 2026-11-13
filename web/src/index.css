@@ -330,12 +330,9 @@ button.wide { display: block; width: 100%; margin-top: 8px; }
 .welcome { position: absolute; z-index: 30; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100vw - 2 * var(--gap))); padding: 22px 22px 18px; display: flex; flex-direction: column; gap: 10px; }
 .welcome h2 { margin: 0; font-size: 20px; }
 .welcome p { margin: 0; line-height: 1.45; }
-.welcome form { display: flex; gap: 8px; margin-top: 4px; }
-.welcome input { flex: 1; min-width: 0; height: 38px; padding: 0 12px; font-size: 15px; }
-.welcome button.primary { height: 38px; padding: 0 14px; }
-.welcome .link { align-self: flex-start; color: var(--muted); }
+.welcome a.button { display: flex; align-items: center; justify-content: center; height: 40px; margin-top: 4px; border-radius: 6px; background: var(--accent); color: #fff; font-weight: 600; text-decoration: none; }
+.welcome a.button:hover { filter: brightness(1.1); }
 .shell.welcoming .empty-hint { display: none; }
-@media (max-width: 700px) { .welcome input { font-size: 16px; } }
 
 /* background fetch progress */
 .sync-pill { position: absolute; z-index: 28; top: calc(var(--safe-top) + var(--gap) + 52px); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; padding: 8px 14px; border-radius: 12px; font-size: 12px; max-width: calc(100vw - 2 * var(--gap)); }

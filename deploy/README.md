@@ -22,8 +22,10 @@ git clone https://github.com/djhoomin/MAL-Graph.git /opt/mal-graph
 
 Then on the server, in `/opt/mal-graph`:
 
-1. `.env` — copy `.env.example` and set `MAL_CLIENT_ID`, `MAL_USERNAME`, a random `MONGO_PASSWORD`,
-   and `SITE_ADDRESS=app.mal-graph.eu` (Caddy obtains the Let's Encrypt certificate itself; the DNS
+1. `.env` — copy `.env.example` and set `MAL_CLIENT_ID`, a random `MONGO_PASSWORD`,
+   `PUBLIC_URL=https://app.mal-graph.eu`, a random `SESSION_SECRET` and `SITE_ADDRESS=app.mal-graph.eu`.
+   The MAL app's redirect URL must be `https://app.mal-graph.eu/api/auth/callback`. With
+   sign-in on, `MAL_USERNAME` is only the default user for the CLI commands below (Caddy obtains the Let's Encrypt certificate itself; the DNS
    A record must already point at the server).
 2. `deploy/caddy/users` — one `username bcrypt-hash` per line:
    ```sh

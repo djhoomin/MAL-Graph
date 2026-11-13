@@ -26,6 +26,7 @@ NODE_USER = "MATCH (n:User {username: $id}) RETURN n"
 
 DEGREES = """
     MATCH (n:%s {mal_id: $id})-[r]-(m)
+    WHERE type(r) <> 'LISTED' OR m.username = $user
     RETURN type(r) AS type, labels(m)[0] AS label, count(*) AS n
 """
 
@@ -33,6 +34,7 @@ DEGREES = """
 NEIGHBORS = """
     MATCH (n:%s {mal_id: $id})-[r]-(m)
     WHERE type(r) IN $rels
+      AND (type(r) <> 'LISTED' OR m.username = $user)
       AND (NOT $only_watched OR NOT m:Anime OR m.mal_id IN $watched)
       AND ($lang IS NULL OR type(r) <> 'VOICES' OR r.language = $lang)
     RETURN n, r, m LIMIT $limit

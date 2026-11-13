@@ -1,21 +1,20 @@
-import re
+from http.cookies import SimpleCookie
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from .. import db, ingest, users
+from .. import auth, db, ingest, users
+from ..config import settings
+from . import auth_routes
 from .routes import router
 
 
-MAL_USERNAME = re.compile(r"[A-Za-z0-9_-]{2,16}")
-
-
 class UserMiddleware:
-    """Bind the requesting MAL user for the duration of a request (see users.current_username).
+    """Bind the signed-in MAL user for the duration of a request (see users.current_username).
 
-    Until sign-in exists the user is MAL_USERNAME, or whoever an `X-MAL-User` header names. Every MAL list is
-    public, so naming another user only shows what MAL already shows. Sign-in will replace the header.
+    With sign-in configured (PUBLIC_URL set) the user comes only from the session cookie, and a visitor who has not
+    signed in has no user. Without it, as in local development, every request belongs to MAL_USERNAME.
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -25,8 +24,16 @@ class UserMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        header = dict(scope.get("headers") or []).get(b"x-mal-user", b"").decode(errors="ignore").strip()
-        username = header if MAL_USERNAME.fullmatch(header) else None
+        username: str | None = None  # None falls back to MAL_USERNAME
+        if settings.sign_in:
+            raw = dict(scope.get("headers") or []).get(b"cookie", b"").decode("latin-1")
+            jar = SimpleCookie()
+            try:
+                jar.load(raw)
+            except Exception:
+                pass
+            morsel = jar.get(auth.SESSION_COOKIE)
+            username = auth.session_user(morsel.value if morsel else None) or ""  # "" means nobody
         with users.use_user(username):
             await self.app(scope, receive, send)
 
@@ -36,10 +43,12 @@ app.add_middleware(UserMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 app.include_router(router)
+app.include_router(auth_routes.router)
 
 
 @app.on_event("startup")

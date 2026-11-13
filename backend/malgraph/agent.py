@@ -126,9 +126,16 @@ def _cypher_value(v: Any) -> Any:
     return v
 
 
+# The only way a query may touch user data: the current user's own node and list.
+OWN_LIST = re.compile(r"\(\s*\w*\s*:\s*User\s*\{\s*username\s*:\s*\$user\s*\}\s*\)(\s*-\s*\[\s*\w*\s*:\s*LISTED\s*\]\s*->)?", re.I)
+OTHER_USERS = re.compile(r"\b(User|LISTED|username)\b", re.I)
+
+
 def cypher_read(query: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
     if FORBIDDEN.search(query):
         raise ValueError("only read queries are allowed (no CREATE/MERGE/SET/DELETE/...)")
+    if OTHER_USERS.search(OWN_LIST.sub("", query)):
+        raise ValueError("user lists are private: reach the list only as (u:User {username: $user})-[l:LISTED]->(a:Anime)")
     rows = []
     with db.get_driver().session() as session:
         for rec in session.run(query, **{**(params or {}), **users.params_for(query)}):

@@ -26,15 +26,16 @@ function GraphPage() {
   const busy = useStore((s) => s.busy)
   const error = useStore((s) => s.error)
   const syncRunning = useStore((s) => !!s.sync?.running)
-  // No list yet (a first visit), or "Switch user" from the menu.
-  const showWelcome = useStore((s) => s.welcomeOpen || (s.user !== null && s.user.total === 0))
-  const { setAskOpen, fit, relayout, refreshUser, pollSync } = useStore.getState()
+  // A visitor who hasn't signed in (only when the server has MAL sign-in configured).
+  const showWelcome = useStore((s) => !!s.me?.sign_in && !s.me.username)
+  const { setAskOpen, fit, relayout, refreshUser, pollSync, loadMe } = useStore.getState()
 
-  // List summary for the menu, and pick up a background MAL fetch that's already running.
+  // Who is signed in, the list summary for the menu, and a background MAL fetch that's already running.
   useEffect(() => {
+    void loadMe()
     void refreshUser()
     void pollSync()
-  }, [refreshUser, pollSync])
+  }, [loadMe, refreshUser, pollSync])
   useEffect(() => {
     if (!syncRunning) return
     const t = setInterval(() => void pollSync(), 2000)

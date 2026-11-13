@@ -37,7 +37,16 @@ def _parse_ref(ref: str) -> tuple[str, Any]:
         raise HTTPException(400, f"bad node ref {ref!r}; expected Label:id")
     if label not in Q.NODE_LABELS:
         raise HTTPException(400, f"unknown label {label!r}")
-    return label, (key if label == "User" else int(key))
+    if label == "User":
+        # Lists are private to their owner: the only user node anyone can open is their own.
+        me = users.current_username()
+        if not me or key.lower() != me.lower():
+            raise HTTPException(404, f"User:{key} not found")
+        return label, me
+    try:
+        return label, int(key)
+    except ValueError:
+        raise HTTPException(400, f"bad id {key!r}")
 
 
 def _node(label: str, key: Any) -> Any:
@@ -120,7 +129,8 @@ def path(
     query = template % (a_label, b_label, max_hops)
     recs = _records(
         query, from_id=a_key, to_id=b_key,
-        exclude=[e for e in exclude.split(",") if e], rels=[r for r in rels.split(",") if r],
+        # Paths never pass through user nodes, so they can't link two people's lists.
+        exclude=list({"User", *(e for e in exclude.split(",") if e)}), rels=[r for r in rels.split(",") if r and r != "LISTED"],
         only_watched=only_watched, lang=lang or None, limit=limit,
     )
     paths = [r["p"] for r in recs]
@@ -266,25 +276,33 @@ SYNC_COOLDOWN = 60  # seconds between list syncs for the same user (each one cal
 _last_sync: dict[str, float] = {}
 
 
-@router.post("/sync")
-async def sync_list(expand: bool = True) -> dict[str, Any]:
-    """Re-fetch the user's MAL list, then queue any anime not yet in the graph for background fetching."""
-    username = users.current_username()
-    if not username:
-        raise HTTPException(400, "Enter a MyAnimeList username first")
+def sync_user(username: str, token: str | None = None) -> dict[str, Any]:
+    """Re-read a user's MAL list, then queue any anime not yet in the graph for background fetching.
+
+    Raises HTTPException for the cooldown and for MAL errors. With a token (straight after sign-in) a private list
+    can be read too.
+    """
     # MAL usernames are case-insensitive: reuse an existing user rather than creating a second one.
-    username = await run_in_threadpool(users.canonical, username)
+    username = users.canonical(username)
     wait = SYNC_COOLDOWN - (time.time() - _last_sync.get(username.lower(), 0))
     if wait > 0:
         raise HTTPException(429, f"Your list was synced a moment ago. Try again in {int(wait) + 1} seconds.")
     try:
-        n = await run_in_threadpool(lambda: ingest.upsert_user_list(username, iter_user_animelist(username)))
+        n = ingest.upsert_user_list(username, iter_user_animelist(username, token=token))
     except MalError as e:
         raise HTTPException(e.status if e.status in (403, 404) else 502, str(e))
     _last_sync[username.lower()] = time.time()
     stubs = ingest.listed_stub_ids(username)
-    queued = jobs.queue.enqueue(username, stubs) if expand and stubs else 0
+    queued = jobs.queue.enqueue(username, stubs) if stubs else 0
     return {"username": username, "synced": n, "unfetched": len(stubs), "expanding": queued > 0 or jobs.queue.status(username)["running"]}
+
+
+@router.post("/sync")
+async def sync_list() -> dict[str, Any]:
+    username = users.current_username()
+    if not username:
+        raise HTTPException(401, "Sign in with MyAnimeList first")
+    return await run_in_threadpool(sync_user, username)
 
 
 @router.get("/sync/status")
@@ -347,6 +365,8 @@ def ask_status() -> dict[str, Any]:
 @router.post("/ask")
 async def ask(body: AskBody, request: Request) -> StreamingResponse:
     """Server-sent events: one JSON event per line ("data: {...}\n\n")."""
+    if not users.current_username():
+        raise HTTPException(401, "Sign in with MyAnimeList to ask questions")
 
     async def gen():
         async for ev in agent.run(body.session_id, body.message):

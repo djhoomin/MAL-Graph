@@ -118,39 +118,22 @@ export interface UserSummary {
 }
 
 // Dev talks to uvicorn on :8000; in production Caddy serves the UI and proxies /api on the same origin.
-const BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? 'http://localhost:8000' : '')
+// Dev and production both serve /api on the same origin as the UI (Vite proxies it in dev), so the session
+// cookie is sent with every request.
+const BASE = import.meta.env.VITE_API_BASE ?? ''
 
-// Which MAL user this browser is looking at. Until sign-in exists it is just a remembered username, sent with every
-// request; with none set the server falls back to its configured default.
-const USER_KEY = 'malgraph.user'
-export function getUser(): string | null {
-  try {
-    return localStorage.getItem(USER_KEY)
-  } catch {
-    return null
-  }
-}
-export function setUser(username: string | null) {
-  try {
-    if (username) localStorage.setItem(USER_KEY, username)
-    else localStorage.removeItem(USER_KEY)
-  } catch {
-    /* private mode: the choice lasts until reload */
-  }
-  sessionUser = username
-}
-let sessionUser = getUser()
-const withUser = (init?: RequestInit): RequestInit => {
-  const headers = new Headers(init?.headers)
-  if (sessionUser) headers.set('X-MAL-User', sessionUser)
-  return { ...init, headers }
+/** Full-page navigation target that starts "Sign in with MyAnimeList". */
+export const SIGN_IN_URL = BASE + '/api/auth/login'
+export interface Me {
+  username: string | null
+  sign_in: boolean // false when the server has no MAL sign-in configured (local development)
 }
 
 /** Error message without the HTTP status prefix, for showing inline. */
 export const errorText = (e: unknown) => String((e as Error)?.message ?? e).replace(/^\d+: /, '')
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(BASE + path, withUser(init))
+  const res = await fetch(BASE + path, init)
   if (!res.ok) {
     let detail = res.statusText
     try {
@@ -213,12 +196,12 @@ export type AskEvent =
 
 /** POST /api/ask and yield server-sent events as they arrive. */
 export async function* ask(message: string, sessionId: string | null, signal?: AbortSignal): AsyncGenerator<AskEvent> {
-  const res = await fetch(BASE + '/api/ask', withUser({
+  const res = await fetch(BASE + '/api/ask', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, session_id: sessionId }),
     signal,
-  }))
+  })
   if (!res.ok || !res.body) throw new Error(`${res.status}: ${res.statusText}`)
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
@@ -267,6 +250,8 @@ export const api = {
   insightsRecommendations: (via: 'va' | 'staff' | 'studio', min_score: number | null, types: string, limit = 40) =>
     req<{ via: string; recommendations: Recommendation[] }>(`/api/insights/recommendations${qs({ via, min_score, types, limit })}`),
   insightsGaps: (statuses: string[]) => req<{ gaps: Gap[] }>(`/api/insights/gaps${qs({ statuses: statuses.join(',') })}`),
+  me: () => req<Me>('/api/auth/me'),
+  signOut: () => fetch(BASE + '/api/auth/logout', { method: 'POST' }),
   sync: () => req<{ username: string; synced: number; unfetched: number; expanding: boolean }>('/api/sync', { method: 'POST' }),
   syncStatus: () => req<SyncStatus>('/api/sync/status'),
   stats: () => req<Record<string, number>>('/api/stats'),
