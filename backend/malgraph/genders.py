@@ -4,8 +4,9 @@ AniList anime carry MyAnimeList ids, so for each anime we ask AniList for its ca
 within that one cast. MyAnimeList writes "Last, First" and AniList "First Last", so names are compared as sets of
 words. A sample of 51 main characters matched 100% and 98% had a gender.
 
-A background worker fills genders in for every anime with characters, anime people have seen first, at a polite
-rate (AniList allows about 30 requests a minute). Each anime is marked with genders_at so it is asked once.
+A background worker fills genders in for anime on players' lists (not the whole graph: AniList's terms forbid mass
+collection), seen anime first, at a polite rate (AniList allows about 30 requests a minute). Each anime is marked
+with genders_at so it is asked once, and anime added to a list later are picked up automatically.
 Corrections made by players are stored with gender_source = 'user' and are never overwritten.
 """
 from __future__ import annotations
@@ -94,11 +95,11 @@ def enrich_anime(client: AniList, mal_id: int) -> tuple[int, int]:
     return len(chars), len(updates)
 
 
+# Only anime on someone's list. AniList's terms forbid "hoarding or mass collection", so genders are fetched for
+# what players actually have, not the whole graph. Seen anime first, then plan-to-watch.
 NEXT = """
-    MATCH (a:Anime)-[:HAS_CHARACTER]->(:Character) WHERE a.genders_at IS NULL
-    WITH DISTINCT a
-    OPTIONAL MATCH (:User)-[l:LISTED]->(a) WHERE l.status <> 'plan_to_watch'
-    WITH a, count(l) AS seen
+    MATCH (:User)-[l:LISTED]->(a:Anime) WHERE a.genders_at IS NULL AND (a)-[:HAS_CHARACTER]->()
+    WITH a, sum(CASE WHEN l.status <> 'plan_to_watch' THEN 1 ELSE 0 END) AS seen
     RETURN a.mal_id AS id ORDER BY seen DESC, coalesce(a.members, 0) DESC LIMIT 50
 """
 
