@@ -232,6 +232,8 @@ export const useStore = create<State>((set, get) => ({
     try {
       const me = await api.me()
       set({ me, authError })
+      // Signed in, but reading the list failed: the welcome card isn't shown, so say it in the toast.
+      if (me.username && authError === 'list') set({ error: 'Your list could not be read from MyAnimeList. Try Sync list in the menu.' })
       // First thing after signing in: the user's own list on the canvas.
       if (signedIn && me.username && Object.keys(get().nodes).length === 0) void get().loadNeighbors(`User:${me.username}`)
     } catch {

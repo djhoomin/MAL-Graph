@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { useEffect, useRef, useState } from 'react'
 import { api, ask, type AskEvent, type AskStatus, type ConversationSummary, type GNode } from '../api'
@@ -46,6 +47,17 @@ function argSummary(name: string, args: Record<string, unknown>): string {
   const v = args.q ?? args.ref ?? args.person_id ?? (args.from_ref && `${args.from_ref} → ${args.to_ref}`) ?? args.kind ?? ''
   return String(v)
 }
+
+// Answers are model output, and the model reads text from MAL that anyone could have written. Strip scripts, event
+// handlers, forms and frames before showing it, and open links in a new tab without giving that tab access to us.
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank')
+    node.setAttribute('rel', 'noopener noreferrer')
+  }
+})
+const renderMarkdown = (text: string) =>
+  DOMPurify.sanitize(marked.parse(text, { async: false }) as string, { FORBID_TAGS: ['style', 'form', 'input', 'button', 'iframe'] })
 
 export function AskPanel() {
   const [status, setStatus] = useState<AskStatus | null>(null)
@@ -274,7 +286,7 @@ export function AskPanel() {
                   </div>
                 </div>
               ))}
-              {t.text && <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(t.text, { async: false }) as string }} />}
+              {t.text && <div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(t.text) }} />}
               {t.error && <div className="error">{t.error}</div>}
               {t.notice && <div className="muted" style={{ fontSize: 11 }}>{t.notice}</div>}
               {!t.text && !t.error && t.steps.length === 0 && busy && i === turns.length - 1 && <div className="muted">thinking…</div>}

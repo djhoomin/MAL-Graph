@@ -40,13 +40,16 @@ class UserMiddleware:
 
 app = FastAPI(title="MAL-Graph API", version="0.1.0")
 app.add_middleware(UserMiddleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if not settings.public_url.startswith("https://"):
+    # Local development only: lets a UI on another port call the API directly. In production the UI and the API
+    # share one origin behind Caddy, so no cross-origin access is allowed at all.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 app.include_router(router)
 app.include_router(auth_routes.router)
 
@@ -56,6 +59,7 @@ def _startup() -> None:
     db.ensure_schema()
     ingest.drop_legacy_user_props()
     agent.migrate_conversations()
+    agent.guard_self_test()
 
 
 @app.get("/healthz")

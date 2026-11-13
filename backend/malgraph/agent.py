@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import time
 import uuid
@@ -17,6 +18,7 @@ from .api import queries as Q
 from .api import routes as R
 from .api.serialize import PayloadBuilder, node_payload
 
+log = logging.getLogger(__name__)
 MAX_STEPS = 20
 MAX_ROWS = 200
 FORBIDDEN = re.compile(r"\b(CREATE|MERGE|SET|DELETE|DETACH|REMOVE|DROP|INDEX|CONSTRAINT|LOAD\s+CSV|IMPORT|ALTER|STORAGE\s+MODE|FREE\s+MEMORY|CREATE\s+TRIGGER)\b", re.I)
@@ -159,7 +161,56 @@ def check_private(query: str, params: dict[str, Any]) -> None:
             raise ValueError(f"every node you start from needs a label, and ({var}) has none. " + PRIVACY_HINT)
 
 
+# Queries the guard must refuse and accept. If an upgrade changes how Memgraph words its plans, the self-test
+# notices at startup and free-form Cypher stays off rather than letting the guard fail open.
+_MUST_REFUSE = [
+    "MATCH (n) WHERE n.status IS NOT NULL RETURN n LIMIT 1",
+    "MATCH (a:Anime)-[r]-(x) RETURN properties(r) LIMIT 1",
+    "MATCH (a:Anime)-[*1..2]-(f) RETURN f LIMIT 1",
+    "MATCH p=(a:Anime {mal_id: 1})-[*BFS ..3]-(b:Anime {mal_id: 2}) RETURN p",
+    "MATCH (n) WHERE id(n) = 0 RETURN n",
+    "CALL pagerank.get() YIELD node RETURN node LIMIT 1",
+    "MATCH (a:Anime) RETURN [(a)-[r]-(x) | properties(r)] AS xs LIMIT 1",
+    "MATCH (n) WHERE n:Anime OR n.x IS NOT NULL RETURN n LIMIT 1",
+    "MATCH (a:Anime) WITH count(a) AS c MATCH (a) RETURN a LIMIT 1",
+]
+_MUST_ACCEPT = [
+    "MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) RETURN a.title LIMIT 1",
+    "MATCH (a:Anime)-[:HAS_CHARACTER]->(c)<-[v:VOICES]-(p:Person) RETURN p.name LIMIT 1",
+    "MATCH (a:Anime {mal_id: 1})-[:RELATED_TO *BFS 0..6]-(f:Anime) RETURN f.title LIMIT 1",
+]
+_guard_ok: bool | None = None  # None until the self-test has run
+
+
+def guard_self_test() -> bool:
+    """Check the privacy guard against known queries. Free-form Cypher is only allowed once this has passed."""
+    global _guard_ok
+    params = {"user": "\u0000self-test"}
+    ok = True
+    for q in _MUST_REFUSE:
+        try:
+            check_private(q, params)
+            log.error("Ask privacy guard let through %r; free-form Cypher is off", q)
+            ok = False
+        except ValueError:
+            pass
+        except Exception as e:  # noqa: BLE001 - a query Memgraph can't plan is refused anyway
+            log.debug("self-test query failed to plan: %s", e)
+    for q in _MUST_ACCEPT:
+        try:
+            check_private(q, params)
+        except Exception as e:  # noqa: BLE001
+            log.error("Ask privacy guard refused a safe query %r (%s); free-form Cypher is off", q, e)
+            ok = False
+    _guard_ok = ok
+    return ok
+
+
 def cypher_read(query: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    if _guard_ok is None:
+        guard_self_test()
+    if not _guard_ok:
+        raise ValueError("free-form Cypher is unavailable on this server right now; answer with the other tools")
     if FORBIDDEN.search(query):
         raise ValueError("only read queries are allowed (no CREATE/MERGE/SET/DELETE/...)")
     params = {**(params or {}), **users.params_for(query)}  # the current user's values always win

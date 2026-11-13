@@ -196,9 +196,13 @@ def user_summary() -> dict[str, Any]:
     }
 
 
+PRIVATE_STATS = {"User", "LISTED", "listed_unfetched"}  # totals across users stay private
+
+
 @router.get("/stats")
 def stats() -> dict[str, Any]:
-    return ingest.stats()
+    """Size of the shared graph. The CLI's `stats` command shows the full picture, including users."""
+    return {k: v for k, v in ingest.stats().items() if k not in PRIVATE_STATS}
 
 
 # --------------------------------------------------------------------------- insights

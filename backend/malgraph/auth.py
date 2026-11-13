@@ -39,7 +39,11 @@ if not _secret:
 
 
 class AuthError(RuntimeError):
-    pass
+    """`code` is one of the sign-in error codes the web app knows how to word (see web/src/components/Welcome.tsx)."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
 
 
 # --------------------------------------------------------------------------- signed values
@@ -113,7 +117,7 @@ def finish(code: str, state: str, oauth_cookie: str | None) -> tuple[str, str]:
     """Exchange the authorization code. Returns (MAL username, access token)."""
     attempt = _verify(oauth_cookie, "oauth")
     if not attempt or not hmac.compare_digest(attempt["s"], state):
-        raise AuthError("The sign-in took too long or was started in another tab. Please try again.")
+        raise AuthError("expired")
     data = {
         "client_id": settings.mal_client_id,
         "grant_type": "authorization_code",
@@ -127,9 +131,9 @@ def finish(code: str, state: str, oauth_cookie: str | None) -> tuple[str, str]:
         resp = http.post(TOKEN_URL, data=data)
         if resp.status_code != 200:
             log.warning("MAL token exchange failed: %s %s", resp.status_code, resp.text[:300])
-            raise AuthError("MyAnimeList did not accept the sign-in. Please try again.")
+            raise AuthError("rejected")
         token = resp.json()["access_token"]
         me = http.get(f"{settings.mal_base}/users/@me", headers={"Authorization": f"Bearer {token}"})
         if me.status_code != 200:
-            raise AuthError("MyAnimeList did not return your profile. Please try again.")
+            raise AuthError("profile")
         return me.json()["name"], token
