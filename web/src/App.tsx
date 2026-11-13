@@ -8,6 +8,7 @@ import { NodeCard } from './components/NodeCard'
 import { PathBar } from './components/PathBar'
 import { RosterPage } from './components/RosterPage'
 import { SearchBar } from './components/SearchBar'
+import { SyncPill, Welcome } from './components/Welcome'
 import { InsightsPage } from './insights/InsightsPage'
 import { useStore } from './store'
 import { useHashRoute } from './useHashRoute'
@@ -25,6 +26,8 @@ function GraphPage() {
   const busy = useStore((s) => s.busy)
   const error = useStore((s) => s.error)
   const syncRunning = useStore((s) => !!s.sync?.running)
+  // No list yet (a first visit), or "Switch user" from the menu.
+  const showWelcome = useStore((s) => s.welcomeOpen || (s.user !== null && s.user.total === 0))
   const { setAskOpen, fit, relayout, refreshUser, pollSync } = useStore.getState()
 
   // List summary for the menu, and pick up a background MAL fetch that's already running.
@@ -54,7 +57,7 @@ function GraphPage() {
   }
 
   return (
-    <div className={`shell ${askOpen ? 'ask-open' : ''} ${selected ? 'has-card' : ''}`}>
+    <div className={`shell ${askOpen ? 'ask-open' : ''} ${selected ? 'has-card' : ''} ${showWelcome ? 'welcoming' : ''}`}>
       <GraphCanvas />
 
       <div className="top-bar">
@@ -62,7 +65,10 @@ function GraphPage() {
         <AppMenu />
       </div>
 
-      {(busy || error) && (
+      {showWelcome && <Welcome />}
+      {!showWelcome && <SyncPill />}
+
+      {(busy || error) && !showWelcome && (
         <div className={`toast ${error ? 'error' : ''}`} onClick={() => error && useStore.setState({ error: null })} title={error ? 'Dismiss' : undefined}>
           {error ?? busy}
         </div>

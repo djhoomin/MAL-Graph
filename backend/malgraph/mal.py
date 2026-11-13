@@ -9,7 +9,9 @@ from .config import settings
 
 
 class MalError(RuntimeError):
-    pass
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status  # MAL's HTTP status when there was one (403 private list, 404 unknown user)
 
 
 def iter_user_animelist(username: str | None = None, client_id: str | None = None) -> Iterator[dict[str, Any]]:
@@ -29,11 +31,11 @@ def iter_user_animelist(username: str | None = None, client_id: str | None = Non
         while url:
             resp = http.get(url, params=params)
             if resp.status_code == 403:
-                raise MalError(f"403 from MAL: is {username}'s anime list public?")
+                raise MalError(f"{username}'s anime list is private on MyAnimeList", 403)
             if resp.status_code == 404:
-                raise MalError(f"404 from MAL: user '{username}' not found")
+                raise MalError(f"There is no MyAnimeList user called {username}", 404)
             if resp.status_code != 200:
-                raise MalError(f"MAL HTTP {resp.status_code}: {resp.text[:200]}")
+                raise MalError(f"MAL HTTP {resp.status_code}: {resp.text[:200]}", resp.status_code)
             body = resp.json()
             yield from body.get("data", [])
             url = body.get("paging", {}).get("next")

@@ -108,6 +108,7 @@ export interface SyncStatus {
   done: number
   failed: { mal_id: number; error: string }[]
   current: number | null
+  others_in_queue: number
 }
 export interface UserSummary {
   username: string | null
@@ -119,8 +120,37 @@ export interface UserSummary {
 // Dev talks to uvicorn on :8000; in production Caddy serves the UI and proxies /api on the same origin.
 const BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? 'http://localhost:8000' : '')
 
+// Which MAL user this browser is looking at. Until sign-in exists it is just a remembered username, sent with every
+// request; with none set the server falls back to its configured default.
+const USER_KEY = 'malgraph.user'
+export function getUser(): string | null {
+  try {
+    return localStorage.getItem(USER_KEY)
+  } catch {
+    return null
+  }
+}
+export function setUser(username: string | null) {
+  try {
+    if (username) localStorage.setItem(USER_KEY, username)
+    else localStorage.removeItem(USER_KEY)
+  } catch {
+    /* private mode: the choice lasts until reload */
+  }
+  sessionUser = username
+}
+let sessionUser = getUser()
+const withUser = (init?: RequestInit): RequestInit => {
+  const headers = new Headers(init?.headers)
+  if (sessionUser) headers.set('X-MAL-User', sessionUser)
+  return { ...init, headers }
+}
+
+/** Error message without the HTTP status prefix, for showing inline. */
+export const errorText = (e: unknown) => String((e as Error)?.message ?? e).replace(/^\d+: /, '')
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(BASE + path, init)
+  const res = await fetch(BASE + path, withUser(init))
   if (!res.ok) {
     let detail = res.statusText
     try {
@@ -183,12 +213,12 @@ export type AskEvent =
 
 /** POST /api/ask and yield server-sent events as they arrive. */
 export async function* ask(message: string, sessionId: string | null, signal?: AbortSignal): AsyncGenerator<AskEvent> {
-  const res = await fetch(BASE + '/api/ask', {
+  const res = await fetch(BASE + '/api/ask', withUser({
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, session_id: sessionId }),
     signal,
-  })
+  }))
   if (!res.ok || !res.body) throw new Error(`${res.status}: ${res.statusText}`)
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
@@ -237,7 +267,7 @@ export const api = {
   insightsRecommendations: (via: 'va' | 'staff' | 'studio', min_score: number | null, types: string, limit = 40) =>
     req<{ via: string; recommendations: Recommendation[] }>(`/api/insights/recommendations${qs({ via, min_score, types, limit })}`),
   insightsGaps: (statuses: string[]) => req<{ gaps: Gap[] }>(`/api/insights/gaps${qs({ statuses: statuses.join(',') })}`),
-  sync: () => req<{ synced: number; unfetched: number; expanding: boolean }>('/api/sync', { method: 'POST' }),
+  sync: () => req<{ username: string; synced: number; unfetched: number; expanding: boolean }>('/api/sync', { method: 'POST' }),
   syncStatus: () => req<SyncStatus>('/api/sync/status'),
   stats: () => req<Record<string, number>>('/api/stats'),
 }

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { api, LABELS, LIST_STATUSES, REL_TYPES, type GEdge, type GNode, type GraphPayload, type Label, type ListStatus, type PathResult, type RelType, type SyncStatus, type UserSummary } from './api'
+import { api, errorText, setUser, LABELS, LIST_STATUSES, REL_TYPES, type GEdge, type GNode, type GraphPayload, type Label, type ListStatus, type PathResult, type RelType, type SyncStatus, type UserSummary } from './api'
 
 export interface Filters {
   labels: Record<Label, boolean>
@@ -40,6 +40,7 @@ interface State {
   pathResult: PathResult | null
   sync: SyncStatus | null // background MAL expansion after a list sync
   syncMsg: string | null
+  welcomeOpen: boolean // the "enter your MAL username" card, opened from the menu or shown when there is no list
 
   mergePayload: (p: GraphPayload, opts?: { select?: string }) => void
   removeNode: (id: string) => void
@@ -60,6 +61,9 @@ interface State {
   relayout: () => void
   fit: () => void
   startSync: () => Promise<void>
+  /** Sync a (possibly new) user's list and switch to them. Returns an error message, or null on success. */
+  switchUser: (username: string) => Promise<string | null>
+  setWelcomeOpen: (open: boolean) => void
   pollSync: () => Promise<void>
   loadNeighbors: (id: string) => Promise<void>
   fetchFromMal: (id: string) => Promise<void>
@@ -119,6 +123,7 @@ export const useStore = create<State>((set, get) => ({
   pathResult: null,
   sync: null,
   syncMsg: null,
+  welcomeOpen: false,
 
   mergePayload: (p, opts) =>
     set((s) => {
@@ -207,9 +212,32 @@ export const useStore = create<State>((set, get) => ({
     const r = await run('Syncing MAL list…', api.sync)
     if (!r) return
     await refreshUser()
-    if (r.expanding) set({ sync: { running: true, total: r.unfetched, done: 0, failed: [], current: null } })
-    else set({ syncMsg: `List synced (${r.synced} entries). Nothing new to fetch.` })
+    if (r.expanding) {
+      set({ sync: { running: true, total: r.unfetched, done: 0, failed: [], current: null, others_in_queue: 0 } })
+      void get().pollSync()
+    } else set({ syncMsg: `List synced (${r.synced} entries). Nothing new to fetch.` })
   },
+  switchUser: async (username) => {
+    const previous = get().user?.username ?? null
+    setUser(username.trim())
+    set({ busy: 'Reading your MyAnimeList list…', error: null })
+    try {
+      const r = await api.sync()
+      setUser(r.username) // the stored spelling, if this user already exists in another case
+      get().clear()
+      set({ welcomeOpen: false, syncMsg: null, sync: r.expanding ? { running: true, total: r.unfetched, done: 0, failed: [], current: null, others_in_queue: 0 } : null })
+      await get().refreshUser()
+      if (r.expanding) void get().pollSync()
+      void get().loadNeighbors(`User:${r.username}`)
+      return null
+    } catch (e) {
+      setUser(previous)
+      return errorText(e)
+    } finally {
+      set({ busy: null })
+    }
+  },
+  setWelcomeOpen: (welcomeOpen) => set({ welcomeOpen }),
   pollSync: async () => {
     try {
       const st = await api.syncStatus()

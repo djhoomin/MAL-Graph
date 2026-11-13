@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import json
-import threading
 import time
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from starlette.concurrency import run_in_threadpool
 
-from .. import db, ingest, users
+from .. import db, ingest, jobs, users
+from .. import jikan as jikan_client
 from ..jikan import JikanClient, JikanError
 from ..mal import MalError, iter_user_animelist
 from ..config import settings
@@ -17,14 +17,10 @@ from .serialize import PayloadBuilder, node_payload
 
 router = APIRouter(prefix="/api")
 Label = Literal["Anime", "Character", "Person", "Studio", "Genre", "User"]
-_jikan: JikanClient | None = None
 
 
 def jikan() -> JikanClient:
-    global _jikan
-    if _jikan is None:
-        _jikan = JikanClient()
-    return _jikan
+    return jikan_client.shared()
 
 
 def _records(query: str, **params: Any) -> list[Any]:
@@ -266,69 +262,34 @@ def insights_recommendations(
 
 # --------------------------------------------------------------------------- list sync
 
-class _SyncJob:
-    """Background expansion of newly listed anime; one at a time."""
-
-    def __init__(self) -> None:
-        self.lock = threading.Lock()
-        self.thread: threading.Thread | None = None
-        self.total = 0
-        self.done = 0
-        self.failed: list[dict[str, Any]] = []
-        self.current: int | None = None
-
-    @property
-    def running(self) -> bool:
-        return self.thread is not None and self.thread.is_alive()
-
-    def start(self, username: str, ids: list[int]) -> None:
-        with self.lock:
-            if self.running:
-                return
-            self.total, self.done, self.failed, self.current = len(ids), 0, [], None
-            self.thread = threading.Thread(target=self._run, args=(username, ids), daemon=True)
-            self.thread.start()
-
-    def _run(self, username: str, ids: list[int]) -> None:
-        j = jikan()
-        for mal_id in ids:
-            self.current = mal_id
-            try:
-                ingest.expand_anime(j, mal_id)
-            except JikanError as e:
-                self.failed.append({"mal_id": mal_id, "error": str(e)})
-            self.done += 1
-        self.current = None
-        users.invalidate(username)  # newly fetched relations can widen the franchise set
-
-    def status(self) -> dict[str, Any]:
-        return {"running": self.running, "total": self.total, "done": self.done, "failed": self.failed, "current": self.current}
-
-
-_sync = _SyncJob()
+SYNC_COOLDOWN = 60  # seconds between list syncs for the same user (each one calls the MAL API)
+_last_sync: dict[str, float] = {}
 
 
 @router.post("/sync")
 async def sync_list(expand: bool = True) -> dict[str, Any]:
-    """Re-fetch the user's MAL list, then (optionally) expand any anime not yet fetched, in the background."""
-    if _sync.running:
-        raise HTTPException(409, "a sync is already running")
+    """Re-fetch the user's MAL list, then queue any anime not yet in the graph for background fetching."""
     username = users.current_username()
     if not username:
-        raise HTTPException(400, "no MAL username: set MAL_USERNAME or send X-MAL-User")
+        raise HTTPException(400, "Enter a MyAnimeList username first")
+    # MAL usernames are case-insensitive: reuse an existing user rather than creating a second one.
+    username = await run_in_threadpool(users.canonical, username)
+    wait = SYNC_COOLDOWN - (time.time() - _last_sync.get(username.lower(), 0))
+    if wait > 0:
+        raise HTTPException(429, f"Your list was synced a moment ago. Try again in {int(wait) + 1} seconds.")
     try:
         n = await run_in_threadpool(lambda: ingest.upsert_user_list(username, iter_user_animelist(username)))
     except MalError as e:
-        raise HTTPException(502, str(e))
+        raise HTTPException(e.status if e.status in (403, 404) else 502, str(e))
+    _last_sync[username.lower()] = time.time()
     stubs = ingest.listed_stub_ids(username)
-    if expand and stubs:
-        _sync.start(username, stubs)
-    return {"synced": n, "unfetched": len(stubs), "expanding": expand and bool(stubs)}
+    queued = jobs.queue.enqueue(username, stubs) if expand and stubs else 0
+    return {"username": username, "synced": n, "unfetched": len(stubs), "expanding": queued > 0 or jobs.queue.status(username)["running"]}
 
 
 @router.get("/sync/status")
 def sync_status() -> dict[str, Any]:
-    return _sync.status()
+    return jobs.queue.status(users.current_username())
 
 
 # --------------------------------------------------------------------------- ask the graph (agent)

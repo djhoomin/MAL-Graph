@@ -34,6 +34,12 @@ def use_user(username: str | None) -> Iterator[None]:
         _current.reset(token)
 
 
+def canonical(username: str) -> str:
+    """The stored spelling of a username (MAL usernames are case-insensitive), or the input if it's new."""
+    rows = db.run("MATCH (u:User) WHERE toLower(u.username) = toLower($u) RETURN u.username AS u LIMIT 1", u=username)
+    return rows[0]["u"] if rows else username
+
+
 class UserList:
     """One user's list, loaded once and cached. `franchise` (BFS over RELATED_TO) is computed on first use."""
 

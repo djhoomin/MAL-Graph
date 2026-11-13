@@ -29,7 +29,7 @@ function MenuBody({ close }: { close: () => void }) {
   const filters = useStore((s) => s.filters)
   const nodeCount = useStore((s) => Object.keys(s.nodes).length)
   const edgeCount = useStore((s) => Object.keys(s.edges).length)
-  const { startSync, setFilter, loadNeighbors, relayout, clear } = useStore.getState()
+  const { startSync, setFilter, loadNeighbors, relayout, clear, setWelcomeOpen } = useStore.getState()
   const act = (fn: () => void) => () => {
     fn()
     close()
@@ -53,6 +53,10 @@ function MenuBody({ close }: { close: () => void }) {
           {sync?.running ? `Fetching ${sync.done} of ${sync.total}…` : 'Sync list'}
         </button>
         {syncMsg && <div className="muted small-text">{syncMsg}</div>}
+      </section>
+
+      <section className="menu-list">
+        <button onClick={act(() => setWelcomeOpen(true))}>Switch user</button>
       </section>
 
       <section className="menu-list">

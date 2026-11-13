@@ -122,3 +122,16 @@ class JikanClient:
 
     def character_full(self, mal_id: int) -> dict[str, Any]:
         return self.get(f"characters/{mal_id}/full")["data"]
+
+
+_shared: JikanClient | None = None
+_shared_lock = threading.Lock()
+
+
+def shared() -> JikanClient:
+    """The process-wide client. Interactive fetches and the background queue share one rate limiter."""
+    global _shared
+    with _shared_lock:
+        if _shared is None:
+            _shared = JikanClient()
+        return _shared
