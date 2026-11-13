@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { api, type RosterEntry, type VaRole, type VaResult } from '../api'
+import { api, type KmkCard, type RosterEntry, type VaRole, type VaResult } from '../api'
 import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
+import { KmkRound } from './KmkRound'
 
 const LANGS = ['Japanese', 'English', 'Korean', 'Mandarin', 'Spanish', 'French', 'German', 'Italian', 'Portuguese (BR)']
 
@@ -90,14 +91,14 @@ function RosterList({ onlyWatched, mainOnly, lang }: Opts) {
 function PersonRoster({ personId, onlyWatched, mainOnly, lang }: Opts & { personId: number }) {
   const [data, setData] = useState<VaResult | null>(null)
   const [err, setErr] = useState<string | null>(null)
-  const [picked, setPicked] = useState<Set<string> | null>(null)
+  const [playing, setPlaying] = useState(false)
   const mergePayload = useStore((s) => s.mergePayload)
   const select = useStore((s) => s.select)
 
   useEffect(() => {
     setData(null)
     setErr(null)
-    setPicked(null)
+    setPlaying(false)
     api
       .vaRoles(personId, onlyWatched, lang)
       .then(setData)
@@ -115,25 +116,15 @@ function PersonRoster({ personId, onlyWatched, mainOnly, lang }: Opts & { person
     }
     return [...byChar.values()].filter((c) => !mainOnly || c.main)
   }, [data, mainOnly])
-  // A pick made before the filters changed may point at characters no longer listed.
-  const [pickedFor, setPickedFor] = useState(cards)
-  if (pickedFor !== cards) {
-    setPickedFor(cards)
-    setPicked(null)
+  // A round started before the filters changed would play with characters no longer listed.
+  const [playingFor, setPlayingFor] = useState(cards)
+  if (playingFor !== cards) {
+    setPlayingFor(cards)
+    setPlaying(false)
   }
+  const pool: KmkCard[] = useMemo(() => cards.map((c) => ({ character: c.role.character, anime: c.anime.map((a) => a.name), main: c.main })), [cards])
 
   const person = data?.nodes.find((n) => n.id === `Person:${personId}`)
-  const shuffle = () => {
-    // Fix the target first: the pool shrinks as characters are drawn from it.
-    const pool = [...cards]
-    const want = Math.min(3, pool.length)
-    const chosen = new Set<string>()
-    while (chosen.size < want) {
-      const i = Math.floor(Math.random() * pool.length)
-      chosen.add(pool.splice(i, 1)[0].role.character.id)
-    }
-    setPicked(chosen)
-  }
   const openInGraph = () => {
     if (!data) return
     mergePayload(data)
@@ -153,17 +144,16 @@ function PersonRoster({ personId, onlyWatched, mainOnly, lang }: Opts & { person
           </a>
         )}
         <span className="muted">{cards.length} characters</span>
-        <button disabled={cards.length < 2} onClick={shuffle}>Pick 3 at random</button>
-        {picked && <button onClick={() => setPicked(null)}>Show all</button>}
+        <button disabled={cards.length < 3 || playing} onClick={() => setPlaying(true)}>Play Kiss Marry Kill</button>
         <button disabled={!data} onClick={openInGraph}>Open in graph</button>
       </div>
       {err && <div className="error">{err}</div>}
       {data && cards.length === 0 && <div className="muted">No characters match these filters.</div>}
-      <div className="roster-grid">
+      {playing && person && <KmkRound title={`Voiced by ${person.name}`} pool={pool} onClose={() => setPlaying(false)} />}
+      <div className="roster-grid" hidden={playing}>
         {cards
-          .filter((c) => !picked || picked.has(c.role.character.id))
           .map(({ role, anime, main }) => (
-            <div key={role.character.id} className={`card ${picked ? 'picked' : ''}`}>
+            <div key={role.character.id} className="card">
               {role.character.image_url ? <img src={role.character.image_url} alt="" /> : <div className="noimg" />}
               <div className="card-body">
                 <strong>{role.character.name}</strong>

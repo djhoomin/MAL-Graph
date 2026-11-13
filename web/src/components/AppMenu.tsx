@@ -65,6 +65,7 @@ function MenuBody({ close }: { close: () => void }) {
 
       <section className="menu-list">
         <button onClick={act(() => void useGolf.getState().start('daily'))}>Graph Golf</button>
+        <a href="#/kmk" onClick={close}>Kiss Marry Kill</a>
         <a href="#/insights" onClick={close}>Insights</a>
         <a href="#/roster" onClick={close}>VA roster</a>
         <a href="#/privacy" onClick={close}>Privacy and your data</a>

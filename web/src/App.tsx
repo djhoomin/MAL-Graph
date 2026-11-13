@@ -8,6 +8,7 @@ import { ChatIcon, CloseIcon, FitIcon } from './components/icons'
 import { NodeCard } from './components/NodeCard'
 import { PathBar } from './components/PathBar'
 import { PrivacyPage } from './components/PrivacyPage'
+import { KmkPage } from './components/KmkPage'
 import { RosterPage } from './components/RosterPage'
 import { SearchBar } from './components/SearchBar'
 import { SyncPill, Welcome } from './components/Welcome'
@@ -21,6 +22,7 @@ export default function App() {
   if (route[0] === 'roster') return <RosterPage personId={route[1]} />
   if (route[0] === 'insights') return <InsightsPage />
   if (route[0] === 'privacy') return <PrivacyPage />
+  if (route[0] === 'kmk') return <KmkPage />
   return <GraphPage />
 }
 

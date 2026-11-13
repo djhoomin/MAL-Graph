@@ -396,3 +396,32 @@ button.danger:hover:not(:disabled) { filter: brightness(1.1); border-color: #c93
 
 .season-legend { display: inline-flex; gap: 10px; margin-right: 16px; padding-right: 16px; border-right: 1px solid var(--border); }
 .swatch.thin { height: 3px; vertical-align: middle; }
+
+/* Kiss Marry Kill */
+.kmk-page { max-width: 900px; margin: 0 auto; padding: 0 20px 60px; }
+.kmk-page h1 { margin: 12px 0 4px; }
+.kmk { margin: 16px 0 24px; }
+.kmk-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.kmk-head h2 { margin: 0 0 12px; font-size: 20px; }
+.kmk-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.kmk-card { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px; border: 2px solid var(--border); border-radius: 14px; background: var(--panel, #1a1d26); text-align: center; min-width: 0; }
+.kmk-card img, .kmk-card .noimg { width: 100%; max-width: 200px; aspect-ratio: 225 / 330; object-fit: cover; border-radius: 10px; background: #20242f; }
+.kmk-card strong { font-size: 15px; overflow-wrap: anywhere; }
+.kmk-card .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.kmk-verdict { font-size: 26px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.kmk-choices { display: flex; gap: 6px; width: 100%; margin-top: 4px; }
+.kmk-choices button { flex: 1; height: 34px; font-weight: 600; }
+.kmk-choices button.on { color: #111; }
+.kmk-reroll { align-self: center; font-size: 12px; }
+.kmk-reroll:disabled { color: var(--muted); }
+.kmk-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.kmk-actions button { height: 38px; padding: 0 16px; }
+@media (max-width: 700px) {
+  .kmk-page { padding: 0 12px 60px; }
+  .kmk-cards { gap: 8px; }
+  .kmk-card { padding: 8px 6px; }
+  .kmk-card strong { font-size: 13px; }
+  .kmk-choices { flex-direction: column; }
+  .kmk-choices button { height: 32px; }
+  .kmk-verdict { font-size: 18px; }
+}

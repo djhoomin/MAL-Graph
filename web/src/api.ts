@@ -312,3 +312,19 @@ export const golfApi = {
   finishPractice: (start: string, end: string, moves: string[], mulligans: number, gave_up: boolean) =>
     req<GolfResult>('/api/golf/practice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start, end, moves, mulligans, gave_up }) }),
 }
+
+// --------------------------------------------------------------------------- Kiss Marry Kill
+export interface KmkCard {
+  character: GNode
+  anime: string[] // titles, up to three
+  main: boolean
+}
+export interface KmkTheme {
+  kind: string
+  key: string | number
+  title: string
+  pool: KmkCard[]
+}
+export const kmkApi = {
+  theme: (o: { avoid?: string; kind?: string; key?: string | number } = {}) => req<KmkTheme>(`/api/kmk/theme${qs(o)}`),
+}
