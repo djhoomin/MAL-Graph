@@ -314,23 +314,32 @@ def sync_status() -> dict[str, Any]:
 
 from fastapi import Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from .. import agent
+from .. import agent, limits
 
 
 class AskBody(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=2000)
     session_id: str | None = None
+
+
+def _require_user() -> str:
+    username = users.current_username()
+    if not username:
+        raise HTTPException(401, "Sign in with MyAnimeList to ask questions")
+    return username
 
 
 @router.get("/conversations")
 def conversations() -> dict[str, Any]:
+    _require_user()
     return {"conversations": agent.list_conversations()}
 
 
 @router.get("/conversations/{cid}")
 def conversation(cid: str) -> dict[str, Any]:
+    _require_user()
     try:
         conv = agent.load_conversation(cid)
     except ValueError:
@@ -341,12 +350,16 @@ def conversation(cid: str) -> dict[str, Any]:
 
 
 class RenameBody(BaseModel):
-    title: str
+    title: str = Field(max_length=200)
 
 
 @router.patch("/conversations/{cid}")
 def rename(cid: str, body: RenameBody) -> dict[str, Any]:
-    conv = agent.rename_conversation(cid, body.title)
+    _require_user()
+    try:
+        conv = agent.rename_conversation(cid, body.title)
+    except ValueError:
+        raise HTTPException(400, "bad id")
     if conv is None:
         raise HTTPException(404, "conversation not found")
     return {"id": cid, "title": conv["title"]}
@@ -354,24 +367,43 @@ def rename(cid: str, body: RenameBody) -> dict[str, Any]:
 
 @router.delete("/conversations/{cid}")
 def delete(cid: str) -> dict[str, Any]:
-    return {"deleted": agent.delete_conversation(cid)}
+    _require_user()
+    try:
+        return {"deleted": agent.delete_conversation(cid)}
+    except ValueError:
+        raise HTTPException(400, "bad id")
 
 
 @router.get("/ask/status")
 def ask_status() -> dict[str, Any]:
-    return {"configured": agent.configured(), "model": settings.openrouter_model if agent.configured() else None}
+    username = users.current_username()
+    return {
+        "configured": agent.configured(),
+        "model": settings.openrouter_model if agent.configured() else None,
+        "remaining_today": limits.remaining(username) if username else None,  # None means no cap
+    }
 
 
 @router.post("/ask")
 async def ask(body: AskBody, request: Request) -> StreamingResponse:
     """Server-sent events: one JSON event per line ("data: {...}\n\n")."""
-    if not users.current_username():
-        raise HTTPException(401, "Sign in with MyAnimeList to ask questions")
+    username = _require_user()
+    slot = limits.ask_slot(username)
+    try:
+        tokens = slot.__enter__()  # counts the question; released when the stream ends
+    except limits.LimitReached as e:
+        raise HTTPException(429, str(e))
 
     async def gen():
-        async for ev in agent.run(body.session_id, body.message):
-            if await request.is_disconnected():
-                break
-            yield f"data: {json.dumps(ev, ensure_ascii=False, default=str)}\n\n"
+        try:
+            async for ev in agent.run(body.session_id, body.message):
+                if ev.get("type") == "done":
+                    tokens["prompt_tokens"] += ev["usage"].get("prompt_tokens", 0)
+                    tokens["completion_tokens"] += ev["usage"].get("completion_tokens", 0)
+                if await request.is_disconnected():
+                    break
+                yield f"data: {json.dumps(ev, ensure_ascii=False, default=str)}\n\n"
+        finally:
+            slot.__exit__(None, None, None)
 
     return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

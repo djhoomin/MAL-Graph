@@ -14,7 +14,8 @@ NODE_LABELS = ["Anime", "Character", "Person", "Studio", "Genre"]
 @lru_cache(maxsize=1)
 def get_driver() -> Driver:
     auth = (settings.memgraph_user, settings.memgraph_password) if settings.memgraph_user else None
-    return GraphDatabase.driver(settings.memgraph_uri, auth=auth)
+    # Check each pooled connection before reuse (one cheap round trip), so a Memgraph restart doesn't fail the next query.
+    return GraphDatabase.driver(settings.memgraph_uri, auth=auth, liveness_check_timeout=0)
 
 
 def run(query: str, **params: Any) -> list[dict[str, Any]]:

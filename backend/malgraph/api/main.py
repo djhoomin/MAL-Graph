@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from .. import auth, db, ingest, users
+from .. import agent, auth, db, ingest, users
 from ..config import settings
 from . import auth_routes
 from .routes import router
@@ -55,6 +55,7 @@ app.include_router(auth_routes.router)
 def _startup() -> None:
     db.ensure_schema()
     ingest.drop_legacy_user_props()
+    agent.migrate_conversations()
 
 
 @app.get("/healthz")

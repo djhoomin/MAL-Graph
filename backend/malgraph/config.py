@@ -30,6 +30,8 @@ class Settings:
     mal_base: str = "https://api.myanimelist.net/v2"
     openrouter_api_key: str = os.getenv("OPENROUTER_API_KEY", "")
     openrouter_model: str = os.getenv("OPENROUTER_MODEL", "anthropic/claude-sonnet-5")
+    ask_daily_limit: int = int(os.getenv("ASK_DAILY_LIMIT", "30"))  # questions per user per day; 0 means no cap
+    ask_unlimited_users: str = os.getenv("ASK_UNLIMITED_USERS", "")  # comma list; MAL_USERNAME is always unlimited
     openrouter_base: str = os.getenv("OPENROUTER_BASE", "https://openrouter.ai/api/v1")
 
     @property

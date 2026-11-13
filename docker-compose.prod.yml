@@ -4,7 +4,7 @@ services:
   memgraph:
     image: memgraph/memgraph-mage:latest
     restart: unless-stopped
-    command: ["--log-level=WARNING", "--storage-snapshot-interval-sec=300", "--storage-wal-enabled=true"]
+    command: ["--log-level=WARNING", "--storage-snapshot-interval-sec=300", "--storage-wal-enabled=true", "--query-execution-timeout-sec=30"]
     volumes:
       - mg_lib:/var/lib/memgraph
       - mg_log:/var/log/memgraph

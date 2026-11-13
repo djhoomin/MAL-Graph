@@ -160,6 +160,12 @@ export interface NeighborOpts {
   limit?: number
 }
 
+export interface AskStatus {
+  configured: boolean
+  model: string | null
+  remaining_today: number | null // questions left today; null means no daily cap
+}
+
 export interface ConversationSummary {
   id: string
   title: string
@@ -202,7 +208,15 @@ export async function* ask(message: string, sessionId: string | null, signal?: A
     body: JSON.stringify({ message, session_id: sessionId }),
     signal,
   })
-  if (!res.ok || !res.body) throw new Error(`${res.status}: ${res.statusText}`)
+  if (!res.ok || !res.body) {
+    let detail = res.statusText
+    try {
+      detail = (await res.json()).detail ?? detail
+    } catch {
+      /* not JSON */
+    }
+    throw new Error(detail)
+  }
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ''
@@ -238,7 +252,7 @@ export const api = {
   roster: (o: { only_watched?: boolean; main_only?: boolean; lang?: string | null; min_characters?: number; q?: string; limit?: number }) =>
     req<{ people: RosterEntry[] }>(`/api/roster${qs(o)}`),
   user: () => req<UserSummary>('/api/user'),
-  askStatus: () => req<{ configured: boolean; model: string | null }>('/api/ask/status'),
+  askStatus: () => req<AskStatus>('/api/ask/status'),
   conversations: () => req<{ conversations: ConversationSummary[] }>('/api/conversations'),
   conversation: (id: string) => req<Conversation>(`/api/conversations/${id}`),
   renameConversation: (id: string, title: string) =>

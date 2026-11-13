@@ -33,8 +33,10 @@ Graph model (all ids are MAL ids; node refs look like "Anime:5114", "Character:1
   (:Anime)-[:RELATED_TO {{relation: 'Sequel'|'Prequel'|'Side Story'|...}}]->(:Anime)
   (:Anime)-[:PRODUCED_BY]->(:Studio {{mal_id, name}})      (:Anime)-[:HAS_GENRE]->(:Genre {{mal_id, name, kind}})
 List statuses: completed, watching, on_hold, dropped, plan_to_watch. "watched"/"seen" means LISTED.status <> 'plan_to_watch'.
-The graph is shared by several users, so the user's list exists only as their LISTED edges. In cypher_read, always start
-from (u:User {{username: $user}}); the $user parameter is filled in for you. Anime nodes carry no personal fields.
+The graph is shared by several users, so the user's list exists only as their LISTED edges. Other users' lists are private.
+cypher_read enforces three rules: reach the list only as (u:User {{username: $user}})-[l:LISTED]->(a:Anime) (the $user
+parameter is filled in for you), give every node you start from a label, and give every relationship a type, also in
+variable-length and BFS patterns. Anime nodes carry no personal fields.
 Anime with fetched_at IS NULL are stubs known only by title (sequels etc. not on the list); persons/characters can be stubs too.
 Only anime on the user's list have been fully fetched, so a voice actor's roles are only known for those anime.
 
@@ -126,19 +128,45 @@ def _cypher_value(v: Any) -> Any:
     return v
 
 
-# The only way a query may touch user data: the current user's own node and list.
+# Lists are private, but the graph is shared, so the agent's free-form Cypher is checked in two layers.
+# 1. The text may name users or lists only as the current user's own anchor pattern below.
 OWN_LIST = re.compile(r"\(\s*\w*\s*:\s*User\s*\{\s*username\s*:\s*\$user\s*\}\s*\)(\s*-\s*\[\s*\w*\s*:\s*LISTED\s*\]\s*->)?", re.I)
 OTHER_USERS = re.compile(r"\b(User|LISTED|username)\b", re.I)
+# 2. The query plan may not reach a user node any other way. User nodes connect only through LISTED, so it is enough
+#    that every scan has a label, every relationship step has a type, and nothing looks nodes up by internal id or
+#    calls a procedure (procedures can return any node).
+PLAN_FORBIDDEN = re.compile(r"\b(ScanAllById|ScanAllByEdgeId|CallProcedure)\b")
+PLAN_STEP = re.compile(r"\b(Expand|ExpandVariable|BFSExpand|DFSExpand|WeightedShortestPath|AllShortestPath|ScanAllByEdge\w*)\b")
+PLAN_SCAN = re.compile(r"\bScanAll \((\w+)\)")
+PRIVACY_HINT = ("Write MATCH patterns with a label on every node you start from, e.g. (a:Anime), and a type on every "
+                "relationship, e.g. -[:HAS_CHARACTER]->. Reach the user's list only as (u:User {username: $user})-[l:LISTED]->(a:Anime).")
+
+
+def check_private(query: str, params: dict[str, Any]) -> None:
+    """Raise ValueError unless the query can only see the current user's list (see the two layers above)."""
+    if OTHER_USERS.search(OWN_LIST.sub("", query)):
+        raise ValueError("user lists are private. " + PRIVACY_HINT)
+    plan = [str(list(r.values())[0]) for r in db.run("EXPLAIN " + query, **params)]
+    for line in plan:
+        if PLAN_FORBIDDEN.search(line):
+            raise ValueError("lookups by internal id and procedure calls are not allowed. " + PRIVACY_HINT)
+        if PLAN_STEP.search(line) and not re.search(r"\[\w+:\w", line):
+            raise ValueError("every relationship needs a type. " + PRIVACY_HINT)
+    for var in set(PLAN_SCAN.findall("\n".join(plan))):
+        scans = sum(line.count(f"ScanAll ({var})") for line in plan)
+        labelled = sum(1 for line in plan if re.search(rf"\bFilter\b.*\({re.escape(var)} :\w", line))
+        if labelled < scans:
+            raise ValueError(f"every node you start from needs a label, and ({var}) has none. " + PRIVACY_HINT)
 
 
 def cypher_read(query: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
     if FORBIDDEN.search(query):
         raise ValueError("only read queries are allowed (no CREATE/MERGE/SET/DELETE/...)")
-    if OTHER_USERS.search(OWN_LIST.sub("", query)):
-        raise ValueError("user lists are private: reach the list only as (u:User {username: $user})-[l:LISTED]->(a:Anime)")
+    params = {**(params or {}), **users.params_for(query)}  # the current user's values always win
+    check_private(query, params)
     rows = []
     with db.get_driver().session() as session:
-        for rec in session.run(query, **{**(params or {}), **users.params_for(query)}):
+        for rec in session.run(query, **params):
             rows.append({k: _cypher_value(v) for k, v in rec.items()})
             if len(rows) >= MAX_ROWS:
                 break
@@ -308,14 +336,38 @@ def execute_tool(name: str, args: dict[str, Any], ctx: ToolContext) -> Any:
 
 # --------------------------------------------------------------------------- sessions + loop
 
-CONV_DIR = settings.conversations_dir
-_sessions: dict[str, dict[str, Any]] = {}  # hot cache of conversations, backed by CONV_DIR/<id>.json
+CONV_DIR = settings.conversations_dir  # one folder per user: CONV_DIR/<username, lower case>/<id>.json
+_sessions: dict[tuple[str, str], dict[str, Any]] = {}  # hot cache keyed by (user folder, conversation id)
+
+
+def _user_dir() -> Path:
+    username = users.current_username()
+    if not username:
+        raise PermissionError("sign in first")
+    return CONV_DIR / username.lower()
 
 
 def _conv_path(cid: str) -> Path:
     if not re.fullmatch(r"[0-9a-f]{32}", cid):
         raise ValueError("bad conversation id")
-    return CONV_DIR / f"{cid}.json"
+    return _user_dir() / f"{cid}.json"
+
+
+def _key(cid: str) -> tuple[str, str]:
+    return (_user_dir().name, cid)
+
+
+def migrate_conversations() -> int:
+    """Conversations from before they were per user belong to MAL_USERNAME. Returns how many were moved."""
+    if not settings.mal_username or not CONV_DIR.exists():
+        return 0
+    dest = CONV_DIR / settings.mal_username.lower()
+    moved = 0
+    for path in CONV_DIR.glob("*.json"):
+        dest.mkdir(parents=True, exist_ok=True)
+        path.replace(dest / path.name)
+        moved += 1
+    return moved
 
 
 def _new_conversation(cid: str) -> dict[str, Any]:
@@ -324,39 +376,44 @@ def _new_conversation(cid: str) -> dict[str, Any]:
 
 
 def load_conversation(cid: str) -> dict[str, Any] | None:
-    if cid in _sessions:
-        return _sessions[cid]
+    key = _key(cid)
+    if key in _sessions:
+        return _sessions[key]
     path = _conv_path(cid)
     if path.exists():
         conv = json.loads(path.read_text())
-        _sessions[cid] = conv
+        _sessions[key] = conv
         return conv
     return None
 
 
 def save_conversation(conv: dict[str, Any]) -> None:
-    CONV_DIR.mkdir(parents=True, exist_ok=True)
+    path = _conv_path(conv["id"])
+    path.parent.mkdir(parents=True, exist_ok=True)
     conv["updated_at"] = time.time()
-    tmp = _conv_path(conv["id"]).with_suffix(".tmp")
+    tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(conv, ensure_ascii=False, default=str))
-    tmp.replace(_conv_path(conv["id"]))
-    _sessions[conv["id"]] = conv
+    tmp.replace(path)
+    _sessions[_key(conv["id"])] = conv
 
 
 def list_conversations() -> list[dict[str, Any]]:
     out = []
-    if CONV_DIR.exists():
-        for path in CONV_DIR.glob("*.json"):
+    folder = _user_dir()
+    if folder.exists():
+        for path in folder.glob("*.json"):
             try:
                 c = json.loads(path.read_text())
             except json.JSONDecodeError:
                 continue
+            if "id" not in c:
+                continue  # usage.json lives here too
             out.append({"id": c["id"], "title": c.get("title") or "(untitled)", "model": c.get("model"), "updated_at": c["updated_at"], "turns": len(c.get("turns", []))})
     return sorted(out, key=lambda c: -c["updated_at"])
 
 
 def delete_conversation(cid: str) -> bool:
-    _sessions.pop(cid, None)
+    _sessions.pop(_key(cid), None)
     path = _conv_path(cid)
     if path.exists():
         path.unlink()
@@ -381,7 +438,7 @@ def _session(session_id: str | None) -> tuple[str, dict[str, Any], bool]:
             return session_id, conv, bool(conv["messages"])
     cid = uuid.uuid4().hex
     conv = _new_conversation(cid)
-    _sessions[cid] = conv
+    _sessions[_key(cid)] = conv
     return cid, conv, False
 
 

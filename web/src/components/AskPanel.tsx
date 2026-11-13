@@ -1,6 +1,6 @@
 import { marked } from 'marked'
 import { useEffect, useRef, useState } from 'react'
-import { api, ask, type AskEvent, type ConversationSummary, type GNode } from '../api'
+import { api, ask, type AskEvent, type AskStatus, type ConversationSummary, type GNode } from '../api'
 import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
@@ -48,7 +48,7 @@ function argSummary(name: string, args: Record<string, unknown>): string {
 }
 
 export function AskPanel() {
-  const [status, setStatus] = useState<{ configured: boolean; model: string | null } | null>(null)
+  const [status, setStatus] = useState<AskStatus | null>(null)
   const [turns, setTurns] = useState<Turn[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
@@ -62,7 +62,7 @@ export function AskPanel() {
   const select = useStore((s) => s.select)
 
   useEffect(() => {
-    api.askStatus().then(setStatus).catch(() => setStatus({ configured: false, model: null }))
+    api.askStatus().then(setStatus).catch(() => setStatus({ configured: false, model: null, remaining_today: null }))
   }, [])
   const refreshHistory = () => api.conversations().then((r) => setHistory(r.conversations)).catch(() => {})
   useEffect(() => {
@@ -122,6 +122,7 @@ export function AskPanel() {
     } finally {
       setBusy(false)
       abortRef.current = null
+      api.askStatus().then(setStatus).catch(() => {})
       if (!title) setTitle(q.slice(0, 80))
     }
   }
@@ -222,6 +223,11 @@ export function AskPanel() {
             <p className="muted">
               Natural-language questions, answered by exploring the graph{status?.model ? ` (${status.model})` : ''}. Results can be drawn on the canvas or shown as cards.
             </p>
+            {status?.remaining_today != null && (
+              <p className="muted small-text">
+                {status.remaining_today} {status.remaining_today === 1 ? 'question' : 'questions'} left today
+              </p>
+            )}
             {EXAMPLES.map((e) => (
               <button key={e} className="example" onClick={() => void send(e)}>
                 {e}
@@ -293,7 +299,9 @@ export function AskPanel() {
       >
         <textarea
           value={input}
-          placeholder="Ask about your anime, characters, voice actors…"
+          maxLength={2000}
+          disabled={status?.remaining_today === 0}
+          placeholder={status?.remaining_today === 0 ? 'No questions left today. More at midnight UTC.' : 'Ask about your anime, characters, voice actors…'}
           rows={2}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
