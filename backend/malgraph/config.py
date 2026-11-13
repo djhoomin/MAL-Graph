@@ -20,6 +20,7 @@ class Settings:
     # the MAL app's redirect URL must be {PUBLIC_URL}/api/auth/callback.
     public_url: str = os.getenv("PUBLIC_URL", "").rstrip("/")
     session_secret: str = os.getenv("SESSION_SECRET", "")
+    genders_worker: bool = os.getenv("GENDERS_WORKER", "1") != "0"  # fill character genders in from AniList in the background
     privacy_contact: str = os.getenv("PRIVACY_CONTACT", "")  # who runs the site and how to reach them, shown on the privacy page
     memgraph_uri: str = os.getenv("MEMGRAPH_URI", "bolt://localhost:7687")
     memgraph_user: str = os.getenv("MEMGRAPH_USER", "")

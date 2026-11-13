@@ -326,5 +326,7 @@ export interface KmkTheme {
   pool: KmkCard[]
 }
 export const kmkApi = {
-  theme: (o: { avoid?: string; kind?: string; key?: string | number } = {}) => req<KmkTheme>(`/api/kmk/theme${qs(o)}`),
+  theme: (o: { avoid?: string; kind?: string; key?: string | number; gender?: string | null } = {}) => req<KmkTheme>(`/api/kmk/theme${qs(o)}`),
+  fixGender: (malId: number, gender: string | null) =>
+    req<{ mal_id: number; gender: string | null }>(`/api/kmk/character/${malId}/gender`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gender }) }),
 }

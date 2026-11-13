@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, type NodeDetail } from '../api'
 import { useStore } from '../store'
+import { GenderFix } from './Gender'
 import { navigate } from '../useHashRoute'
 import { LABEL_COLORS, REL_LABELS } from '../graph/style'
 import { CloseIcon, MoreIcon } from './icons'
@@ -97,6 +98,11 @@ function NodeSummary() {
             {menuItem('Collapse neighbours', () => collapseNode(node.id))}
             {typeof props.url === 'string' && menuItem('Open on MAL', () => window.open(props.url as string, '_blank', 'noreferrer'))}
             {menuItem('Remove from canvas', () => removeNode(node.id))}
+            {node.label === 'Character' && (
+              <div className="card-gender">
+                <GenderFix node={node} onFixed={(gender) => useStore.getState().mergePayload({ nodes: [{ ...node, props: { ...node.props, gender } }], edges: [] })} />
+              </div>
+            )}
           </div>
         )}
       </div>

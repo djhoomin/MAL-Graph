@@ -97,7 +97,7 @@ function MenuBody({ close }: { close: () => void }) {
         </label>
       </section>
 
-      <div className="muted small-text menu-credit">Data from MyAnimeList via the MyAnimeList API and Jikan. Not affiliated with MyAnimeList.</div>
+      <div className="muted small-text menu-credit">Data from MyAnimeList via the MyAnimeList API and Jikan, and character genders from AniList. Not affiliated with MyAnimeList or AniList.</div>
     </div>
   )
 }

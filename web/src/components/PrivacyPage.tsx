@@ -97,7 +97,7 @@ export function PrivacyPage() {
 
         <h2>Where the anime data comes from</h2>
         <p>
-          Anime, character and staff data comes from <a href="https://myanimelist.net" target="_blank" rel="noopener noreferrer">MyAnimeList</a>, through the official MyAnimeList API and <a href="https://jikan.moe" target="_blank" rel="noopener noreferrer">Jikan</a>. MAL-Graph isn't affiliated with or endorsed by MyAnimeList.
+          Anime, character and staff data comes from <a href="https://myanimelist.net" target="_blank" rel="noopener noreferrer">MyAnimeList</a>, through the official MyAnimeList API and <a href="https://jikan.moe" target="_blank" rel="noopener noreferrer">Jikan</a>. Character genders come from <a href="https://anilist.co" target="_blank" rel="noopener noreferrer">AniList</a>, and anyone signed in can correct one. Corrections are shared and aren't linked to the person who made them. MAL-Graph isn't affiliated with or endorsed by MyAnimeList or AniList.
         </p>
       </article>
     </div>

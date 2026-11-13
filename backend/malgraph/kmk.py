@@ -17,7 +17,8 @@ MIN_POOL = 4
 POOL_SIZE = 40
 
 SEEN = "MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) WHERE l.status <> 'plan_to_watch'"
-MAIN = "MATCH (a)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character)"
+GENDER = "($gender IS NULL OR c.gender = $gender)"
+MAIN = f"MATCH (a)-[:HAS_CHARACTER {{role: 'Main'}}]->(c:Character) WHERE {GENDER}"
 
 
 @dataclass(frozen=True)
@@ -44,9 +45,9 @@ def _staff(position: str, title: str, name: str, top: int = 30) -> Kind:
 KINDS = [
     Kind(
         "va",
-        f"{SEEN} MATCH (a)-[:HAS_CHARACTER]->(c:Character)<-[:VOICES {{language: 'Japanese'}}]-(p:Person) "
+        f"{SEEN} MATCH (a)-[:HAS_CHARACTER]->(c:Character)<-[:VOICES {{language: 'Japanese'}}]-(p:Person) WHERE {GENDER} "
         "WITH p, count(DISTINCT c) AS n WHERE n >= $min RETURN p.mal_id AS key, p.name AS label, n",
-        f"{SEEN} MATCH (a)-[h:HAS_CHARACTER]->(c:Character)<-[:VOICES {{language: 'Japanese'}}]-(p:Person {{mal_id: $key}}) "
+        f"{SEEN} MATCH (a)-[h:HAS_CHARACTER]->(c:Character)<-[:VOICES {{language: 'Japanese'}}]-(p:Person {{mal_id: $key}}) WHERE {GENDER} "
         "RETURN c, collect(DISTINCT a.title) AS anime, 'Main' IN collect(h.role) AS main",
         "Voiced by {label}",
         60,
@@ -91,29 +92,29 @@ KINDS = [
 BY_NAME = {k.name: k for k in KINDS}
 
 
-def _pool(kind: Kind, key: Any, rng: random.Random) -> list[dict[str, Any]]:
+def _pool(kind: Kind, key: Any, rng: random.Random, gender: str | None) -> list[dict[str, Any]]:
     from .api.serialize import node_payload  # the API's node shape, so the UI can reuse its cards
 
     with db.get_driver().session() as session:  # graph nodes, not plain dicts, for node_payload
-        rows = list(session.run(kind.pool, **{**users.params_for(kind.pool), "key": key}))
+        rows = list(session.run(kind.pool, **{**users.params_for(kind.pool), "key": key, "gender": gender}))
     rng.shuffle(rows)
     return [{"character": node_payload(r["c"]), "anime": r["anime"][:3], "main": bool(r["main"])} for r in rows[:POOL_SIZE]]
 
 
-def theme(avoid: str | None = None, kind_name: str | None = None, key: Any = None) -> dict[str, Any] | None:
+def theme(avoid: str | None = None, kind_name: str | None = None, key: Any = None, gender: str | None = None) -> dict[str, Any] | None:
     """A random theme from the player's graph (or the one named), with its character pool. None if there is none."""
     rng = random.Random()
     if kind_name in BY_NAME and key is not None:
         kind = BY_NAME[kind_name]
-        label = next((t["label"] for t in users.run(kind.themes, min=1) if str(t["key"]) == str(key)), str(key))
-        return {"kind": kind.name, "key": key, "title": kind.title.format(label=label), "pool": _pool(kind, key, rng)}
+        label = next((t["label"] for t in users.run(kind.themes, min=1, gender=None) if str(t["key"]) == str(key)), str(key))
+        return {"kind": kind.name, "key": key, "title": kind.title.format(label=label), "pool": _pool(kind, key, rng, gender)}
     kinds = KINDS[:]
     rng.shuffle(kinds)
     for kind in kinds:  # a random kind, then a random theme of that kind; skip kinds the player has none of
-        ranked = sorted(users.run(kind.themes, min=MIN_POOL), key=lambda t: -t["n"])
+        ranked = sorted(users.run(kind.themes, min=MIN_POOL, gender=gender), key=lambda t: -t["n"])
         options = [t for t in ranked[: kind.top or None] if f"{kind.name}:{t['key']}" != avoid]
         if not options:
             continue
         t = rng.choice(options)
-        return {"kind": kind.name, "key": t["key"], "title": kind.title.format(label=t["label"]), "pool": _pool(kind, t["key"], rng)}
+        return {"kind": kind.name, "key": t["key"], "title": kind.title.format(label=t["label"]), "pool": _pool(kind, t["key"], rng, gender)}
     return None

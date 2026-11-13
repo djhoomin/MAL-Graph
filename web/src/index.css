@@ -425,3 +425,15 @@ button.danger:hover:not(:disabled) { filter: brightness(1.1); border-color: #c93
   .kmk-choices button { height: 32px; }
   .kmk-verdict { font-size: 18px; }
 }
+
+/* Gender filter and corrections */
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.segmented button { border: none; border-radius: 0; height: 30px; padding: 0 12px; background: transparent; }
+.segmented button + button { border-left: 1px solid var(--border); }
+.segmented button.on { background: var(--accent); color: #fff; }
+.gender-fix { display: inline-flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; font-size: 12px; }
+.gender-current { font-size: 12px; color: var(--muted); }
+.gender-options { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.gender-options button { height: 26px; padding: 0 8px; font-size: 12px; }
+.gender-options button.on { border-color: var(--accent); }
+.card-gender { padding: 6px 10px; }

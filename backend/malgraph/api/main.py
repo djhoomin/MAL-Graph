@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from .. import agent, auth, db, ingest, users
+from .. import agent, auth, db, genders, ingest, users
 from ..config import settings
 from . import auth_routes, golf_routes, kmk_routes
 from .ratelimit import RateLimitMiddleware
@@ -65,6 +65,8 @@ def _startup() -> None:
     ingest.drop_legacy_user_props()
     agent.migrate_conversations()
     agent.guard_self_test()
+    if settings.genders_worker:
+        genders.start()
 
 
 @app.get("/healthz")

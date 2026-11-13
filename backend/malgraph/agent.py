@@ -30,7 +30,7 @@ The user is {username}. Answer their questions by exploring the graph with the t
 Graph model (all ids are MAL ids; node refs look like "Anime:5114", "Character:12", "Person:8", "Studio:4", "Genre:1"):
   (:User {{username}})-[:LISTED {{status, score, episodes_watched}}]->(:Anime)
   (:Anime {{mal_id, title, title_english, type, episodes, year, season, score, members, fetched_at}})
-  (:Anime)-[:HAS_CHARACTER {{role: 'Main'|'Supporting'}}]->(:Character {{mal_id, name, image_url, favorites}})
+  (:Anime)-[:HAS_CHARACTER {{role: 'Main'|'Supporting'}}]->(:Character {{mal_id, name, image_url, favorites, gender}})
   (:Person {{mal_id, name, image_url}})-[:VOICES {{language, anime_ids}}]->(:Character)
   (:Person)-[:WORKED_ON {{positions: [..]}}]->(:Anime)      e.g. positions contain 'Director', 'Music', 'Character Design'
   (:Anime)-[:RELATED_TO {{relation: 'Sequel'|'Prequel'|'Side Story'|...}}]->(:Anime)

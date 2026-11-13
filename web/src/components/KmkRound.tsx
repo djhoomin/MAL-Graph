@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { KmkCard } from '../api'
+import { GenderFix } from './Gender'
 
 export type Choice = 'kiss' | 'marry' | 'kill'
 const CHOICES: Choice[] = ['kiss', 'marry', 'kill']
@@ -19,10 +20,11 @@ interface Props {
   onNewTheme?: () => void
   newThemeBusy?: boolean
   onClose?: () => void
+  filter?: ReactNode // e.g. the Everyone / Women / Men switch
 }
 
 /** One round of Kiss Marry Kill: three characters, each choice used once, one reroll, then a result to share. */
-export function KmkRound({ title, pool, onNewTheme, newThemeBusy, onClose }: Props) {
+export function KmkRound({ title, pool, onNewTheme, newThemeBusy, onClose, filter }: Props) {
   const [cards, setCards] = useState(() => draw(pool))
   const [choices, setChoices] = useState<Record<string, Choice>>({})
   const [rerolled, setRerolled] = useState(false)
@@ -34,6 +36,9 @@ export function KmkRound({ title, pool, onNewTheme, newThemeBusy, onClose }: Pro
     setChoices({})
     setRerolled(false)
   }
+  // A correction updates the card in place; the round carries on.
+  const fixGender = (id: string, gender: string | null) =>
+    setCards((cs) => cs.map((c) => (c.character.id === id ? { ...c, character: { ...c.character, props: { ...c.character.props, gender } } } : c)))
   const reroll = (i: number) => {
     const taken = new Set(cards.map((c) => c.character.id))
     const rest = pool.filter((c) => !taken.has(c.character.id))
@@ -81,6 +86,7 @@ export function KmkRound({ title, pool, onNewTheme, newThemeBusy, onClose }: Pro
     <div className="kmk">
       <div className="kmk-head">
         <h2>{title}</h2>
+        {filter}
         {onClose && (
           <button className="link" onClick={onClose}>
             Back to all characters
@@ -100,6 +106,7 @@ export function KmkRound({ title, pool, onNewTheme, newThemeBusy, onClose }: Pro
               {c.character.image_url ? <img src={c.character.image_url} alt="" /> : <div className="noimg" />}
               <strong>{c.character.name}</strong>
               <span className="muted small-text">{c.anime[0]}</span>
+              {!done && <GenderFix node={c.character} onFixed={(g) => fixGender(c.character.id, g)} />}
               {!done && (
                 <>
                   <div className="kmk-choices">

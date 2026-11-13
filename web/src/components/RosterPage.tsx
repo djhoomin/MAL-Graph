@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api, type KmkCard, type RosterEntry, type VaRole, type VaResult } from '../api'
 import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
+import { genderOf, loadWho, saveWho, WhoFilter, type Who } from './Gender'
 import { KmkRound } from './KmkRound'
 
 const LANGS = ['Japanese', 'English', 'Korean', 'Mandarin', 'Spanish', 'French', 'German', 'Italian', 'Portuguese (BR)']
@@ -122,7 +123,23 @@ function PersonRoster({ personId, onlyWatched, mainOnly, lang }: Opts & { person
     setPlayingFor(cards)
     setPlaying(false)
   }
-  const pool: KmkCard[] = useMemo(() => cards.map((c) => ({ character: c.role.character, anime: c.anime.map((a) => a.name), main: c.main })), [cards])
+  const [who, setWho] = useState<Who>(loadWho)
+  const pool: KmkCard[] = useMemo(
+    () =>
+      cards
+        .filter((c) => !who || genderOf(c.role.character) === who)
+        .map((c) => ({ character: c.role.character, anime: c.anime.map((a) => a.name), main: c.main })),
+    [cards, who],
+  )
+  const whoFilter = (
+    <WhoFilter
+      value={who}
+      onChange={(w) => {
+        setWho(w)
+        saveWho(w)
+      }}
+    />
+  )
 
   const person = data?.nodes.find((n) => n.id === `Person:${personId}`)
   const openInGraph = () => {
@@ -149,7 +166,19 @@ function PersonRoster({ personId, onlyWatched, mainOnly, lang }: Opts & { person
       </div>
       {err && <div className="error">{err}</div>}
       {data && cards.length === 0 && <div className="muted">No characters match these filters.</div>}
-      {playing && person && <KmkRound title={`Voiced by ${person.name}`} pool={pool} onClose={() => setPlaying(false)} />}
+      {playing && person && pool.length >= 3 && <KmkRound key={who} title={`Voiced by ${person.name}`} pool={pool} onClose={() => setPlaying(false)} filter={whoFilter} />}
+      {playing && person && pool.length < 3 && (
+        <div className="kmk">
+          <div className="kmk-head">
+            <h2>Voiced by {person.name}</h2>
+            {whoFilter}
+            <button className="link" onClick={() => setPlaying(false)}>
+              Back to all characters
+            </button>
+          </div>
+          <p className="muted">There aren't three characters for this filter. Try Everyone, or correct a character's gender from its card in the graph.</p>
+        </div>
+      )}
       <div className="roster-grid" hidden={playing}>
         {cards
           .map(({ role, anime, main }) => (
