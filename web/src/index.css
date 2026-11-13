@@ -437,3 +437,18 @@ button.danger:hover:not(:disabled) { filter: brightness(1.1); border-color: #c93
 .gender-options button { height: 26px; padding: 0 8px; font-size: 12px; }
 .gender-options button.on { border-color: var(--accent); }
 .card-gender { padding: 6px 10px; }
+
+/* Kiss Marry Kill cards keep one shape: two-line names, one-line anime, buttons pinned to the bottom,
+   and the gender correction opening over the card instead of pushing it down. */
+.kmk-card strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; min-height: 2.6em; }
+.kmk-card .kmk-anime { display: block; line-height: 1.4; min-height: 1.4em; }
+.kmk-card .gender-fix { position: relative; min-height: 20px; }
+.kmk-card .gender-options { position: absolute; z-index: 5; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); width: max-content; max-width: min(220px, calc(100vw - 32px)); padding: 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--float, #1d212b); box-shadow: var(--float-shadow, 0 6px 20px rgba(0, 0, 0, 0.4)); }
+.kmk-choices { margin-top: auto; }
+.kmk-card { position: relative; }
+.kmk-head { margin-bottom: 12px; }
+@media (max-width: 700px) {
+  /* Narrow cards: open the options across the card's own width so they never run off screen. */
+  .kmk-card .gender-fix { position: static; }
+  .kmk-card .gender-options { left: 4px; right: 4px; top: auto; transform: none; width: auto; max-width: none; margin-top: 4px; }
+}

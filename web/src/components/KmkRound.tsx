@@ -104,8 +104,10 @@ export function KmkRound({ title, pool, onNewTheme, newThemeBusy, onClose, filte
                 </div>
               )}
               {c.character.image_url ? <img src={c.character.image_url} alt="" /> : <div className="noimg" />}
-              <strong>{c.character.name}</strong>
-              <span className="muted small-text">{c.anime[0]}</span>
+              <strong title={c.character.name}>{c.character.name}</strong>
+              <span className="muted small-text kmk-anime" title={c.anime[0]}>
+                {c.anime[0]}
+              </span>
               {!done && <GenderFix node={c.character} onFixed={(g) => fixGender(c.character.id, g)} />}
               {!done && (
                 <>
