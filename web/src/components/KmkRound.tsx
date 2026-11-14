@@ -89,6 +89,30 @@ function replacement(pool: KmkCard[], cards: KmkCard[], i: number, mode: DrawMod
   return freshFirst(rest)[0]
 }
 
+/** Everyone's choices for one card, as counts. */
+export type Tally = Record<Choice, number>
+
+interface Props {
+  title: string
+  pool: KmkCard[]
+  /** The daily round: the pool is the three cards, in order, with no reroll or redraw. */
+  fixed?: boolean
+  /** Asks the player to lock their choices in, then calls this. Choices are keyed by character id. */
+  lockIn?: (choices: Record<string, Choice>) => Promise<void>
+  /** Choices already locked in, keyed by character id. */
+  locked?: Record<string, Choice>
+  /** Everyone's choices per character id, shown once the round is done. */
+  tally?: Record<string, Tally>
+  /** The daily round's id in your history (rounds from a theme record themselves), and whether it was rescued. */
+  roundId?: string
+  rescued?: boolean
+  onNewTheme?: () => void
+  newThemeBusy?: boolean
+  onClose?: () => void
+  filter?: ReactNode // e.g. the Everyone / Women / Men switch
+}
+
+/** One round of Kiss Marry Kill: three characters, each choice used once, one reroll, then a result to share. */
 export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: givenId, rescued: givenRescued, onNewTheme, newThemeBusy, onClose, filter }: Props) {
   const [mode, setMode] = useState<DrawMode>(loadDraw)
   const [cards, setCards] = useState(() => (fixed ? pool.slice(0, 3) : draw(pool, mode)))
