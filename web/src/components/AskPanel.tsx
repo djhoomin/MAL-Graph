@@ -287,6 +287,11 @@ export function AskPanel() {
                 </div>
               ))}
               {t.text && <div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(t.text) }} />}
+              {t.text && t.steps.some((s) => s.name === 'show_on_canvas' && !s.error) && (
+                <button className="link phone-only" onClick={() => useStore.getState().setAskOpen(false)}>
+                  See it on the graph
+                </button>
+              )}
               {t.error && <div className="error">{t.error}</div>}
               {t.notice && <div className="muted" style={{ fontSize: 11 }}>{t.notice}</div>}
               {!t.text && !t.error && t.steps.length === 0 && busy && i === turns.length - 1 && <div className="muted">thinking…</div>}

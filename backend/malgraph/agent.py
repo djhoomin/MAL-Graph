@@ -57,6 +57,9 @@ Guidance:
 - Prefer the dedicated tools; use cypher_read for anything they can't express. Keep queries small; always add LIMIT.
 - Japanese is the default voice-actor language unless the user says otherwise (VOICES.language = 'Japanese').
 - When the user asks to see something, call show_on_canvas with the relevant node refs so it appears in their graph view.
+- The written answer must contain the results themselves: name every anime, character or person you found, with the
+  detail that answers the question. The canvas and cards only add to it. On a phone the canvas is hidden behind this
+  panel, so an answer like "I've put them on your canvas" leaves the user with nothing.
 - When the answer is a set of characters or anime to choose between (e.g. picking three characters for a game),
   call present_cards with the node refs and a one-line caption each — do this in addition to a short text answer.
 - Be concise. Use markdown lists; mention the anime and the user's score where relevant. Do not describe your tool calls.
@@ -571,7 +574,7 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
                 log.warning("empty model reply (finish_reason=%s)", resp.choices[0].finish_reason)
                 if not nudged:
                     nudged = True
-                    messages.append({"role": "user", "content": "Please write your answer now, from the results you already have. Keep it short."})
+                    messages.append({"role": "user", "content": "Please write your answer now, from the results you already have. List the results themselves."})
                     continue
                 turn["text"] = "I couldn't put an answer together this time. Try asking again, or ask a narrower question."
                 yield {"type": "answer", "text": turn["text"]}
