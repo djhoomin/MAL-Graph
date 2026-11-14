@@ -133,7 +133,23 @@ def _cypher_value(v: Any) -> Any:
 
 # Lists are private, but the graph is shared, so the agent's free-form Cypher is checked in two layers.
 # 1. The text may name users or lists only as the current user's own anchor pattern below.
-OWN_LIST = re.compile(r"\(\s*\w*\s*:\s*User\s*\{\s*username\s*:\s*\$user\s*\}\s*\)(\s*-\s*\[\s*\w*\s*:\s*LISTED\s*\]\s*->)?", re.I)
+_LISTED = r"\[\s*\w*\s*:\s*LISTED\s*\]"
+OWN_LIST = re.compile(
+    rf"(<-\s*{_LISTED}\s*-\s*)?\(\s*\w*\s*:\s*User\s*\{{\s*username\s*:\s*\$user\s*\}}\s*\)(\s*-\s*{_LISTED}\s*->)?", re.I
+)
+# A query may refer back to the user by variable, as in "and not on my list": (u)-[:LISTED]->(b). Before checking,
+# every such back-reference is rewritten to the full anchor, (u:User {username: $user})-[:LISTED]->(b). When u is the
+# user's own node this changes nothing. When a later clause has reused the name u for something else, the pattern
+# can still only match the user's own list, so the rewrite never widens what a query can see.
+_BACKREF_OUT = re.compile(rf"\(\s*(\w+)\s*\)(\s*-\s*{_LISTED}\s*->)", re.I)
+_BACKREF_IN = re.compile(rf"(<-\s*{_LISTED}\s*-\s*)\(\s*(\w+)\s*\)", re.I)
+
+
+def pin_own_list(query: str) -> str:
+    query = _BACKREF_OUT.sub(r"(\1:User {username: $user})\2", query)
+    return _BACKREF_IN.sub(r"\1(\2:User {username: $user})", query)
+
+
 OTHER_USERS = re.compile(r"\b(User|LISTED|username)\b", re.I)
 # 2. The query plan may not reach a user node any other way. User nodes connect only through LISTED, so it is enough
 #    that every scan has a label, every relationship step has a type, and nothing looks nodes up by internal id or
@@ -174,11 +190,15 @@ _MUST_REFUSE = [
     "MATCH (a:Anime) RETURN [(a)-[r]-(x) | properties(r)] AS xs LIMIT 1",
     "MATCH (n) WHERE n:Anime OR n.x IS NOT NULL RETURN n LIMIT 1",
     "MATCH (a:Anime) WITH count(a) AS c MATCH (a) RETURN a LIMIT 1",
+    # Someone else's list: the variable u no longer holds the user's own node in the second MATCH.
+    "MATCH (u:User {username: $user}) WITH 1 AS x MATCH (a:Anime)<-[:LISTED]-(v) RETURN v.username LIMIT 1",
 ]
 _MUST_ACCEPT = [
     "MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) RETURN a.title LIMIT 1",
     "MATCH (a:Anime)-[:HAS_CHARACTER]->(c)<-[v:VOICES]-(p:Person) RETURN p.name LIMIT 1",
     "MATCH (a:Anime {mal_id: 1})-[:RELATED_TO *BFS 0..6]-(f:Anime) RETURN f.title LIMIT 1",
+    "MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)-[:RELATED_TO]->(b:Anime) "
+    "WHERE NOT (u)-[:LISTED]->(b) RETURN b.title LIMIT 1",
 ]
 _guard_ok: bool | None = None  # None until the self-test has run
 
@@ -190,7 +210,7 @@ def guard_self_test() -> bool:
     ok = True
     for q in _MUST_REFUSE:
         try:
-            check_private(q, params)
+            check_private(pin_own_list(q), params)
             log.error("Ask privacy guard let through %r; free-form Cypher is off", q)
             ok = False
         except ValueError:
@@ -199,7 +219,7 @@ def guard_self_test() -> bool:
             log.debug("self-test query failed to plan: %s", e)
     for q in _MUST_ACCEPT:
         try:
-            check_private(q, params)
+            check_private(pin_own_list(q), params)
         except Exception as e:  # noqa: BLE001
             log.error("Ask privacy guard refused a safe query %r (%s); free-form Cypher is off", q, e)
             ok = False
@@ -214,6 +234,7 @@ def cypher_read(query: str, params: dict[str, Any] | None = None) -> dict[str, A
         raise ValueError("free-form Cypher is unavailable on this server right now; answer with the other tools")
     if FORBIDDEN.search(query):
         raise ValueError("only read queries are allowed (no CREATE/MERGE/SET/DELETE/...)")
+    query = pin_own_list(query)
     params = {**(params or {}), **users.params_for(query)}  # the current user's values always win
     check_private(query, params)
     rows = []
@@ -531,6 +552,7 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
     # (automatic on DeepSeek/OpenAI; cache_control breakpoints on Anthropic) actually hits.
     extra_body = {"session_id": sid, "cache_control": {"type": "ephemeral"}}
 
+    nudged = False  # asked once already for an answer after an empty reply
     try:
         for _ in range(MAX_STEPS):
             resp = await client.chat.completions.create(
@@ -543,6 +565,17 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
                 details = getattr(resp.usage, "prompt_tokens_details", None)
                 usage["cached_tokens"] += (getattr(details, "cached_tokens", None) or 0) if details else 0
             msg = resp.choices[0].message
+            if not msg.tool_calls and not (msg.content or "").strip():
+                # An empty reply, usually because the model spent its token budget thinking (finish_reason
+                # "length"). Ask once for the answer itself rather than ending the turn with nothing.
+                log.warning("empty model reply (finish_reason=%s)", resp.choices[0].finish_reason)
+                if not nudged:
+                    nudged = True
+                    messages.append({"role": "user", "content": "Please write your answer now, from the results you already have. Keep it short."})
+                    continue
+                turn["text"] = "I couldn't put an answer together this time. Try asking again, or ask a narrower question."
+                yield {"type": "answer", "text": turn["text"]}
+                break
             messages.append({"role": "assistant", "content": msg.content or "", **({"tool_calls": [tc.model_dump() for tc in msg.tool_calls]} if msg.tool_calls else {})})
             if not msg.tool_calls:
                 turn["text"] = msg.content or ""
@@ -574,7 +607,7 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
                     turn["cards"].append(group)
                     yield {"type": "cards", **group}
         else:
-            turn["text"] = "I ran out of steps before finishing — try a narrower question."
+            turn["text"] = "I ran out of steps before finishing. Try a narrower question."
             yield {"type": "answer", "text": turn["text"]}
     except Exception as e:  # noqa: BLE001
         turn["error"] = f"{type(e).__name__}: {e}"
