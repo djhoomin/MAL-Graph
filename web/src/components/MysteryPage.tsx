@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { api, errorText, mysteryApi, type GNode, type Mystery } from '../api'
+import { api, errorText, mysteryApi, type GNode, type GraphPayload, type Mystery } from '../api'
 import { navigate } from '../useHashRoute'
 import { FieldBars, GameCard } from './GameBits'
 
@@ -99,10 +99,13 @@ function Result({ game }: { game: Mystery }) {
   )
 }
 
-/** Search box for characters already in the graph. Picking a suggestion makes the guess. */
+/** Search box for a guess. It finds characters, and anime too: picking an anime lists its characters, main
+ *  characters first, for when you know the show but not the name. Picking a character makes the guess. */
 function GuessBox({ onGuess, disabled, exclude }: { onGuess: (n: GNode) => void; disabled: boolean; exclude: Set<string> }) {
   const [q, setQ] = useState('')
-  const [results, setResults] = useState<GNode[]>([])
+  const [results, setResults] = useState<{ characters: GNode[]; anime: GNode[] }>({ characters: [], anime: [] })
+  const [show, setShow] = useState<{ anime: GNode; cast: GNode[] | null } | null>(null) // an anime picked from the search
+  const [castError, setCastError] = useState<string | null>(null)
   const [active, setActive] = useState(0)
   const seq = useRef(0)
   const input = useRef<HTMLInputElement>(null)
@@ -115,52 +118,103 @@ function GuessBox({ onGuess, disabled, exclude }: { onGuess: (n: GNode) => void;
 
   useEffect(() => {
     const term = q.trim()
-    if (term.length < 2) {
-      setResults([])
+    if (show || term.length < 2) {
+      setResults({ characters: [], anime: [] })
       return
     }
     const mine = ++seq.current
     const t = setTimeout(() => {
-      api.search(term, 8, ['Character']).then(
-        (r) => mine === seq.current && (setResults(r.results.Character ?? []), setActive(0)),
-        () => mine === seq.current && setResults([]),
+      api.search(term, 6, ['Character', 'Anime']).then(
+        (r) => mine === seq.current && (setResults({ characters: r.results.Character ?? [], anime: r.results.Anime ?? [] }), setActive(0)),
+        () => mine === seq.current && setResults({ characters: [], anime: [] }),
       )
     }, 200)
     return () => clearTimeout(t)
-  }, [q])
-  const shown = results.filter((n) => !exclude.has(n.id))
+  }, [q, show])
 
-  const choose = (n: GNode) => {
+  const openAnime = async (anime: GNode) => {
+    setShow({ anime, cast: null })
+    setCastError(null)
     setQ('')
-    setResults([])
-    onGuess(n)
+    setActive(0)
+    input.current?.focus()
+    const castOf = (p: GraphPayload) => {
+      const role = new Map(p.edges.filter((e) => e.type === 'HAS_CHARACTER').map((e) => [e.source === anime.id ? e.target : e.source, e.props.role]))
+      return p.nodes.filter((n) => n.label === 'Character' && role.has(n.id))
+        // Main characters first, then the best-known by MyAnimeList favourites
+        .sort((a, b) => Number(role.get(b.id) === 'Main') - Number(role.get(a.id) === 'Main') || Number(b.props.favorites ?? 0) - Number(a.props.favorites ?? 0))
+    }
+    try {
+      let cast = castOf(await api.neighbors(anime.id, { rels: ['HAS_CHARACTER'], limit: 300 }))
+      if (!cast.length) cast = castOf(await api.expand(anime.id)) // not fetched from MyAnimeList yet
+      setShow({ anime, cast })
+    } catch (e) {
+      setCastError(errorText(e))
+    }
+  }
+  const back = () => {
+    setShow(null)
+    setCastError(null)
+    input.current?.focus()
+  }
+
+  // In an anime's cast, typing filters the cast. Otherwise characters come first, then anime.
+  const term = q.trim().toLowerCase()
+  const items: { node: GNode; anime?: boolean }[] = show
+    ? (show.cast ?? []).filter((n) => !exclude.has(n.id) && (!term || n.name.toLowerCase().includes(term))).map((node) => ({ node }))
+    : [...results.characters.filter((n) => !exclude.has(n.id)).map((node) => ({ node })), ...results.anime.map((node) => ({ node, anime: true }))]
+
+  const pick = (item: { node: GNode; anime?: boolean }) => {
+    if (item.anime) {
+      void openAnime(item.node)
+      return
+    }
+    setQ('')
+    setShow(null)
+    setResults({ characters: [], anime: [] })
+    onGuess(item.node)
   }
 
   return (
     <div className="guess-box">
+      {show && (
+        <div className="guess-show">
+          <span>
+            Characters in <strong>{show.anime.name}</strong>
+          </span>
+          <button className="link" onClick={back}>
+            Back to search
+          </button>
+        </div>
+      )}
       <input
         ref={input}
         type="search"
-        placeholder="Name a character"
+        placeholder={show ? 'Filter by name' : 'Name a character or an anime'}
         value={q}
         disabled={disabled}
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'ArrowDown') setActive((a) => Math.min(a + 1, shown.length - 1))
+          if (e.key === 'ArrowDown') setActive((a) => Math.min(a + 1, items.length - 1))
           else if (e.key === 'ArrowUp') setActive((a) => Math.max(a - 1, 0))
-          else if (e.key === 'Enter' && shown[active]) choose(shown[active])
+          else if (e.key === 'Enter' && items[active]) pick(items[active])
+          else if (e.key === 'Escape' && show) back()
           else return
           e.preventDefault()
         }}
         aria-label="Guess a character"
       />
-      {shown.length > 0 && (
-        <ul className="guess-results">
-          {shown.map((n, i) => (
-            <li key={n.id}>
-              <button className={i === active ? 'on' : ''} onClick={() => choose(n)}>
-                {n.image_url ? <img src={n.image_url} alt="" /> : <span className="noimg" />}
-                {n.name}
+      {show && !show.cast && !castError && <p className="muted small-text">Loading the characters…</p>}
+      {show && show.cast && !items.length && <p className="muted small-text">{show.cast.length ? 'No character by that name.' : "MyAnimeList doesn't list characters for this anime."}</p>}
+      {castError && <p className="error">{castError}</p>}
+      {items.length > 0 && (
+        <ul className={`guess-results ${show ? 'inline' : ''}`}>
+          {items.map((it, i) => (
+            <li key={it.node.id}>
+              <button className={i === active ? 'on' : ''} onClick={() => pick(it)}>
+                {it.node.image_url ? <img src={it.node.image_url} alt="" /> : <span className="noimg" />}
+                <span className="guess-name">{it.node.name}</span>
+                {it.anime && <span className="guess-kind">Anime · see characters</span>}
               </button>
             </li>
           ))}
