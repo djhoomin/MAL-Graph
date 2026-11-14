@@ -572,6 +572,7 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .tour-side > p { margin: 0; }
 .tour-side .tour-covers { margin-top: 6px; }
 .tour-subhead { margin-top: 24px; }
+.tour-more-head { margin: 12px 0 0; }
 .tour-steps { flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
 .tour-rec-head { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: start; }
 .tour-rec-head img, .tour-rec-head .noimg { width: 64px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; background: var(--border); }

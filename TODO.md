@@ -70,6 +70,8 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       Adamic-Adar way) and creative teams (the people-to-anime graph projected onto people). PageRank was tried on the
       tour graph and dropped, because the links point people into anime and anime into studios, so it rewarded
       studios and people with a single credit.
+- [x] **What each team made together.** Teams list other anime they worked on that you haven't seen. Anime only
+      known by title are fetched in the background on a tour queue and appear on a later visit.
 - [ ] **Theme draft.** Two to four friends take turns drafting characters for a Kiss Marry Kill roulette theme, then
       vote on the best team. Reuses the existing theme pools.
 - [ ] **Taste match (next up).** Compare two people's lists for a compatibility score with reasons: how closely they

@@ -454,6 +454,8 @@ export interface TourTeam {
   people: { id: string; name: string }[]
   series: number
   shows: { mal_id: number; title: string; image_url: string | null }[]
+  /** What they made together that you haven't seen, with how many of the team worked on it. */
+  more: { mal_id: number; title: string; image_url: string | null; mal_score: number | null; type: string | null; year: number | null; people: number }[]
 }
 export interface Tour {
   anime: number
@@ -466,7 +468,7 @@ export interface Tour {
   twins: TourTwins[]
   recs: TourRec[]
   teams: TourTeam[]
-  queries: { clusters: string; bridges: string; cuts: string; twins: string; recs: string; teams: string }
+  queries: { clusters: string; bridges: string; cuts: string; twins: string; recs: string; teams: string; team_more: string }
 }
 export const tourApi = {
   get: () => req<Tour>('/api/tour'),

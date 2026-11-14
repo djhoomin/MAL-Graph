@@ -34,6 +34,7 @@ from typing import Any
 from . import db, games
 
 TTL = 600
+PENDING_TTL = 60  # how long a tour is kept while anime it needs are still being fetched
 MIN_SERIES = 2  # a cluster needs this many series to be shown
 MAX_CLUSTERS = 10
 MAX_BRIDGES = 8
@@ -46,6 +47,8 @@ MAX_RECS = 10
 REC_MIN_MEMBERS = 20_000  # leaves out specials and shorts nobody has heard of
 REC_PATHS = 3  # paths shown for each recommendation
 MAX_TEAMS = 8
+TEAM_RECS = 4  # other anime shown for each team
+TEAM_FETCH = 40  # stubs a tour may queue for fetching at once
 TIMELINE_MAKERS = 12  # people and studios offered as highlights on a cluster's timeline
 SEASONS = ["winter", "spring", "summer", "fall"]
 
@@ -130,6 +133,17 @@ WHERE size(together) >= 2
 RETURN 'Person:' + toString(p.mal_id) AS p, 'Person:' + toString(q.mal_id) AS q, together"""
 
 
+# What a team made together that you haven't listed. Anime only known by title (stubs) are fetched in the background
+# and show up on a later visit, once their type, score and members are known.
+TEAM_MORE = """MATCH (p:Person)-[w:WORKED_ON]->(rec:Anime)
+WHERE p.mal_id IN $people AND any(job IN w.positions WHERE job IN $jobs)
+  AND NOT (:User {username: $user})-[:LISTED]->(rec)
+  AND NOT (rec)-[:RELATED_TO {relation: 'Prequel'}]->() AND NOT (rec)-[:RELATED_TO {relation: 'Parent Story'}]->()
+  AND (rec.fetched_at IS NULL OR (rec.type IN ['TV', 'Movie', 'ONA'] AND rec.members >= $min_members))
+RETURN rec.mal_id AS id, rec.title AS title, rec.image_url AS image_url, rec.score AS mal_score,
+       rec.type AS type, rec.year AS year, rec.fetched_at IS NOT NULL AS fetched, collect(DISTINCT p.mal_id) AS people"""
+
+
 def _ref(label: str, mal_id: Any) -> str:
     return f"{label}:{mal_id}"
 
@@ -150,8 +164,12 @@ def tour(username: str) -> dict[str, Any]:
     if hit and time.time() - hit[0] < TTL:
         return hit[1]
     result = _build(username)
+    # While anime the tour asked for are still being fetched, keep the result for a minute only, so they show up soon.
+    from . import jobs
+
+    pending = jobs.queue.status(f"tour:{username}")["running"]
     with _lock:
-        _cache[username] = (time.time(), result)
+        _cache[username] = (time.time() - (TTL - PENDING_TTL if pending else 0), result)
     return result
 
 
@@ -262,7 +280,7 @@ def _build(username: str) -> dict[str, Any]:
         "clusters": clusters,
         "bridges": bridges,
         "makers": len(makers),
-        "queries": {"clusters": CLUSTERS, "bridges": BRIDGES, "cuts": CUTS, "twins": TWINS, "recs": RECS, "teams": TEAMS},
+        "queries": {"clusters": CLUSTERS, "bridges": BRIDGES, "cuts": CUTS, "twins": TWINS, "recs": RECS, "teams": TEAMS, "team_more": TEAM_MORE},
     }
 
 
@@ -497,13 +515,42 @@ def _teams(username: str, anime: dict[int, Any], series_of: dict[int, int], make
         for a in sorted(shared, key=lambda a: (-anime[a]["score"], a)):
             one.setdefault(series_of[a], a)
         members = sorted((makers[x] for x in team), key=lambda m: m["name"])
+        more = _team_more(username, members, series_of)
         out.append({
             "people": [{"id": m["id"], "name": m["name"]} for m in members],
             "series": len(one),
             "shows": [_card(anime[a]) for a in one.values()],
+            "more": more,
         })
-        show.append(_ids(sorted(shared), members))
+        show.append(_ids(sorted(shared) + [m["mal_id"] for m in more], members))
     return out, show
+
+
+def _team_more(username: str, members: list[dict[str, Any]], series_of: dict[int, int]) -> list[dict[str, Any]]:
+    """Anime from series you haven't seen that the whole team, or for a bigger team at least two of them, worked on.
+
+    Stubs among them are queued for fetching, so they can be shown on a later visit."""
+    from . import jobs
+
+    franchise = games.recent_franchises()
+    seen = set(series_of.values())
+    ids = [m["mal_id"] for m in members]
+    need = min(len(ids), 2)
+    rows = [r for r in db.run(TEAM_MORE, people=ids, jobs=JOBS, user=username, min_members=REC_MIN_MEMBERS)
+            if len(r["people"]) >= need and franchise.get(r["id"], r["id"]) not in seen]
+    stubs = [r["id"] for r in rows if not r["fetched"]][:TEAM_FETCH]
+    if stubs:
+        jobs.queue.enqueue(f"tour:{username}", stubs)
+    picked, taken = [], set()
+    for r in sorted((r for r in rows if r["fetched"]), key=lambda r: (-len(r["people"]), -(r["mal_score"] or 0))):
+        series = franchise.get(r["id"], r["id"])
+        if series in taken:
+            continue
+        taken.add(series)
+        picked.append({k: r[k] for k in ("title", "image_url", "mal_score", "type", "year")} | {"mal_id": r["id"], "people": len(r["people"])})
+        if len(picked) >= TEAM_RECS:
+            break
+    return picked
 
 
 def _card(a: dict[str, Any]) -> dict[str, Any]:
@@ -559,5 +606,8 @@ def _ids(anime: list[int], makers: list[dict[str, Any]]) -> dict[str, list[int]]
 
 
 def forget(username: str) -> None:
+    from . import jobs
+
     with _lock:
         _cache.pop(username, None)
+    jobs.queue.cancel(f"tour:{username}")

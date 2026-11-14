@@ -107,7 +107,7 @@ export function TourPage() {
 }
 
 /** What the step teaches, and the query behind it. */
-function Lesson({ title, query, note, children }: { title: string; query: string; note?: string; children: ReactNode }) {
+function Lesson({ title, query, note, more, children }: { title: string; query: string; note?: string; more?: { label: string; query: string }; children: ReactNode }) {
   return (
     <aside className="tour-lesson">
       <strong>{title}</strong>
@@ -117,6 +117,12 @@ function Lesson({ title, query, note, children }: { title: string; query: string
         <pre>{query}</pre>
         <p className="muted small-text">{note ?? 'This is the query that ran on your graph. $user is your MyAnimeList name.'}</p>
       </details>
+      {more && (
+        <details>
+          <summary>{more.label}</summary>
+          <pre>{more.query}</pre>
+        </details>
+      )}
     </aside>
   )
 }
@@ -144,13 +150,14 @@ function ShowButton({ load, select }: { load: () => Promise<GraphPayload>; selec
   )
 }
 
-function Covers({ items }: { items: { mal_id: number; title: string; image_url: string | null }[] }) {
+function Covers({ items }: { items: { mal_id: number; title: string; image_url: string | null; note?: string }[] }) {
   return (
     <div className="tour-covers">
       {items.map((s) => (
         <figure key={s.mal_id} title={s.title}>
           {s.image_url ? <img src={s.image_url} alt="" loading="lazy" /> : <div className="noimg" />}
           <figcaption>{s.title}</figcaption>
+          {s.note && <figcaption className="muted">{s.note}</figcaption>}
         </figure>
       ))}
     </div>
@@ -477,9 +484,15 @@ function Teams({ tour }: { tour: Tour }) {
     <>
       <h2>Who keeps working together?</h2>
       <p>These people worked side by side on more than one of your series, as directors, writers, composers, character designers or the original creators.</p>
-      <Lesson title="The graph idea: projection" query={tour.queries.teams} note="This is the query that ran on your graph. $user is your MyAnimeList name, and $jobs are the credits the tour counts.">
+      <Lesson
+        title="The graph idea: projection"
+        query={tour.queries.teams}
+        note="This is the query that ran on your graph. $user is your MyAnimeList name, and $jobs are the credits the tour counts."
+        more={{ label: 'See the query for what else they made', query: tour.queries.team_more }}
+      >
         <p>Your graph links people to anime. A projection turns that into a graph of people only, with two people linked when they worked on the same anime. The anime disappear and leave behind a network of collaborators.</p>
         <p>Twins was the same trick the other way round, linking anime through the people they share. One graph gives two views, depending on which side you project onto.</p>
+        <p>A team that keeps working together is also a good guide to what to watch next, so each team shows what else they made together that you haven't seen.</p>
       </Lesson>
       {tour.teams.map((t, i) => (
         <TeamCard key={t.people.map((p) => p.id).join()} index={i} team={t} />
@@ -496,6 +509,19 @@ function TeamCard({ index, team }: { index: number; team: TourTeam }) {
       </div>
       <p className="small-text">Together on {team.series} of your series.</p>
       <Covers items={team.shows} />
+      {team.more.length > 0 && (
+        <>
+          <p className="small-text tour-more-head">
+            <strong>Also made together</strong>
+          </p>
+          <Covers
+            items={team.more.map((m) => ({
+              ...m,
+              note: [m.mal_score != null && `MAL ${m.mal_score.toFixed(2)}`, m.people < team.people.length && `${m.people} of the ${team.people.length}`].filter(Boolean).join(', '),
+            }))}
+          />
+        </>
+      )}
       <ShowButton load={() => tourApi.team(index)} />
     </section>
   )
