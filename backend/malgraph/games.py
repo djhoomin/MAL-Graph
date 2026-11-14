@@ -157,6 +157,21 @@ def franchises() -> dict[int, int]:
     return {x: root(x) for x in parent}
 
 
+_franchise_cache: tuple[float, dict[int, int]] | None = None
+FRANCHISE_TTL = 600
+
+
+def recent_franchises() -> dict[int, int]:
+    """franchises(), reused for FRANCHISE_TTL seconds, for features that run on demand."""
+    global _franchise_cache
+    cached = _franchise_cache
+    if cached and time.time() - cached[0] < FRANCHISE_TTL:
+        return cached[1]
+    fresh = franchises()
+    _franchise_cache = (time.time(), fresh)
+    return fresh
+
+
 def natural(name: str | None) -> str:
     """MyAnimeList writes people as "Last, First". Sentences read better as "First Last"."""
     if name and name.count(",") == 1:

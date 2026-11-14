@@ -392,6 +392,39 @@ export interface Mystery {
   summary?: { players: number; solved: number; by_clues: Histogram[] }
   token?: string // a game from your own list
 }
+/** A person or studio in the tour, with how many of your series they're behind. */
+export interface TourMaker {
+  id: string
+  label: 'Person' | 'Studio'
+  mal_id: number
+  name: string
+  series: number
+}
+export interface TourCluster {
+  anime: number
+  series: { mal_id: number; title: string; image_url: string | null; my_score: number }[]
+  makers: TourMaker[]
+  genres: string[]
+}
+export interface TourBridge extends TourMaker {
+  rank: number
+  count_rank: number // their place when ranked by how many of your series they're behind
+  clusters: { cluster: number; mal_id: number; title: string; image_url: string | null }[]
+}
+export interface Tour {
+  anime: number
+  clustered: number
+  makers: number
+  clusters: TourCluster[]
+  bridges: TourBridge[]
+  queries: { clusters: string; bridges: string }
+}
+export const tourApi = {
+  get: () => req<Tour>('/api/tour'),
+  cluster: (index: number) => req<GraphPayload>(`/api/tour/cluster/${index}`),
+  bridge: (ref: string) => req<GraphPayload>(`/api/tour/bridge/${encodeURIComponent(ref)}`),
+}
+
 export const mysteryApi = {
   daily: () => req<Mystery>('/api/mystery/daily'),
   move: (action: 'clue' | 'guess' | 'give_up', guess?: number) => req<Mystery>('/api/mystery/daily', post({ action, guess })),

@@ -552,3 +552,21 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .genre-count, .genre-delta { text-align: right; font-variant-numeric: tabular-nums; }
 .genre-rows + button { margin-top: 8px; }
 .card-body .small-text { display: block; }
+
+/* Graph tour */
+.tour h2 { font-size: 19px; margin: 18px 0 6px; }
+.tour > p, .tour-card p { line-height: 1.55; }
+.tour-lesson { border-left: 3px solid var(--accent); background: var(--panel); border-radius: 0 10px 10px 0; padding: 10px 14px; margin: 12px 0 18px; font-size: 14px; line-height: 1.55; }
+.tour-lesson p { margin: 6px 0; }
+.tour-lesson summary { cursor: pointer; color: var(--accent); font-size: 13px; margin-top: 4px; }
+.tour-lesson pre { overflow-x: auto; font-size: 12px; background: var(--bg, #0e1016); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin: 8px 0 4px; white-space: pre; }
+.tour-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin: 12px 0; }
+.tour-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.tour-card-head h3 { margin: 0; font-size: 16px; }
+.tour-card p { margin: 8px 0; }
+.tour-covers { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin: 10px 0 4px; }
+.tour-covers figure { margin: 0; min-width: 0; }
+.tour-covers img, .tour-covers .noimg { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; display: block; background: var(--border); }
+.tour-covers figcaption { font-size: 11px; line-height: 1.3; margin-top: 3px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.tour-nav { margin-top: 20px; }
+.tour-card-head h3 { text-transform: none; letter-spacing: normal; color: inherit; }

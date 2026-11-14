@@ -188,24 +188,10 @@ def summary(puzzle: dict[str, Any]) -> dict[str, Any]:
 MINE_POOL = 150  # the most favourited main characters of the anime you've seen
 MINE_TTL = 6 * 3600
 RECENT = 30  # characters not to repeat for a player
-FRANCHISE_TTL = 600
 
 _lock = threading.Lock()
 _mine: dict[str, tuple[float, str, dict[str, Any], dict[str, Any]]] = {}  # token -> (expiry, user, puzzle, play)
 _recent: dict[str, deque[int]] = {}
-_franchise: tuple[float, dict[int, int]] | None = None
-
-
-def _franchises() -> dict[int, int]:
-    global _franchise
-    with _lock:
-        cached = _franchise
-    if cached and time.time() - cached[0] < FRANCHISE_TTL:
-        return cached[1]
-    fresh = games.franchises()
-    with _lock:
-        _franchise = (time.time(), fresh)
-    return fresh
 
 
 def _my_characters(username: str) -> list[int]:
@@ -227,7 +213,7 @@ def new_mine(username: str) -> tuple[str, dict[str, Any], dict[str, Any]]:
         recent = set(_recent.get(username, ()))
     fresh = [c for c in pool if c not in recent] or pool
     rng = random.Random()
-    franchise = _franchises()
+    franchise = games.recent_franchises()
     best: tuple[int, list[str]] | None = None
     for cid in rng.sample(fresh, min(15, len(fresh))):
         clues = clues_for(cid, franchise)

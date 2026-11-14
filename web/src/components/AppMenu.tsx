@@ -68,6 +68,7 @@ function MenuBody({ close }: { close: () => void }) {
         <a href="#/kmk" onClick={close} title="Kiss one, marry one, kill one">Kiss Marry Kill</a>
         <a href="#/odd" onClick={close} title="Find the character who doesn't share the others' link">Odd one out</a>
         <a href="#/mystery" onClick={close} title="Guess today's character from clues">Mystery character</a>
+        <a href="#/tour" onClick={close} title="What the shape of your graph says about your taste">Graph tour</a>
         <a href="#/insights" onClick={close} title="A summary of your list">Insights</a>
         <a href="#/roster" onClick={close} title="The voice actors in your anime">VA roster</a>
         <a href="#/help" onClick={close}>Help</a>

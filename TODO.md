@@ -59,6 +59,10 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       seen, with no repeats. An endurance version of Graph Golf.
 - [x] **Insights from your own list.** Hot takes (your score against MyAnimeList's average), your genres against
       your mean score, hidden gems (scored 8 or more, under 100k members, not sequels) and shows paused near the end.
+- [x] **Graph tour, steps 1 and 2.** Taste clusters (Louvain community detection) and the bridges between them
+      (betweenness centrality), run in Memgraph on the user's anime and their makers, with the query shown.
+- [ ] **Graph tour, more steps.** PageRank for who really shapes your list, recommendations that show the path that
+      led to them, an anime map from node similarity, and creative teams from projecting the people-to-anime graph.
 - [ ] **Theme draft.** Two to four friends take turns drafting characters for a Kiss Marry Kill roulette theme, then
       vote on the best team. Reuses the existing theme pools.
 - [ ] **Taste match (next up).** Compare two people's lists for a compatibility score with reasons: how closely they
@@ -72,4 +76,6 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
 
 - [ ] **Graph Golf on a phone.** The layout was built for phones but only tested on a desktop.
 - [ ] **Odd one out and Mystery character on a real phone.** Checked at phone width in a desktop browser only.
+- [ ] **Graph tour's "Show on the graph" in a real browser.** The layout and fit run on an animation, which the
+      automated test browser never plays because its tab is hidden. The positions it computes look right.
 - [ ] **Insights timeline on a phone.** The y-axis labels scroll out of view along with the chart.

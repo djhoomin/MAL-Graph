@@ -27,6 +27,9 @@ export function HelpPage() {
         <h2>Ask</h2>
         <p>The speech bubble at the bottom right opens Ask. You can ask questions about your list and the anime, characters and people in it, such as "Which voice actors appear most in what I've watched?" or "What sequels haven't I seen?". The answer is written out, and you can open what it found on the graph. There's a limit on questions per day.</p>
 
+        <h2>Graph tour</h2>
+        <p>The <a href="#/tour">graph tour</a>, in the menu, answers questions about your taste from the shape of your graph. It finds clusters of anime that belong together and the people who connect them, and explains the graph idea behind each answer.</p>
+
         <h2>Insights and the voice actor roster</h2>
         <p>Insights, in the menu, sums up your list with a timeline, the people who show up most in it, recommendations and gaps. The voice actor roster lists the voice actors in your anime and the characters they voice in it.</p>
 
