@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster, type TourCut } from '../api'
+import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster, type TourCut, type TourThread } from '../api'
 import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
@@ -240,7 +240,7 @@ function BridgeCard({ bridge }: { bridge: TourBridge }) {
 }
 
 function Cuts({ tour }: { tour: Tour }) {
-  if (!tour.cuts.length) return <p className="muted">Every cluster in your list holds together without any single person, studio or anime. Sync more of your list and come back.</p>
+  if (!tour.cuts.length && !tour.threads.length) return <p className="muted">Every cluster in your list holds together without any single person, studio or anime. Sync more of your list and come back.</p>
   return (
     <>
       <h2>What holds your clusters together?</h2>
@@ -252,6 +252,7 @@ function Cuts({ tour }: { tour: Tour }) {
       {tour.cuts.map((c) => (
         <CutCard key={`${c.cluster}-${c.id}`} cut={c} />
       ))}
+      {tour.threads.length > 0 && <Threads threads={tour.threads} />}
     </>
   )
 }
@@ -280,5 +281,35 @@ function CutCard({ cut }: { cut: TourCut }) {
       ))}
       <ShowButton load={() => tourApi.cluster(cut.cluster)} select={cut.id} />
     </section>
+  )
+}
+
+const and = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`)
+
+function Threads({ threads }: { threads: TourThread[] }) {
+  const [all, setAll] = useState(false)
+  const shown = all ? threads : threads.slice(0, 6)
+  return (
+    <>
+      <h3 className="tour-subhead">Hanging by a thread</h3>
+      <p className="small-text">These shows belong to a cluster but connect to the rest of it through only one person, studio or anime.</p>
+      <div className="tour-threads">
+        {shown.map((t) => (
+          <div key={`${t.cluster}-${t.show.mal_id}-${t.via.id}`} className="tour-thread">
+            {t.show.image_url ? <img src={t.show.image_url} alt="" loading="lazy" /> : <div className="noimg" />}
+            <p className="small-text">
+              <strong>{t.show.title}</strong> connects to cluster {t.cluster + 1} only through <strong>{t.via.name}</strong>
+              {t.also.length > 0 ? `, who also worked on ${and(t.also.map((a) => a.title))}.` : '.'}
+            </p>
+            <ShowButton load={() => tourApi.cluster(t.cluster)} select={t.via.id} />
+          </div>
+        ))}
+      </div>
+      {threads.length > 6 && (
+        <button className="link small-text" onClick={() => setAll((v) => !v)}>
+          {all ? 'Show fewer' : `Show all ${threads.length}`}
+        </button>
+      )}
+    </>
   )
 }

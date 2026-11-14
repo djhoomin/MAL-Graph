@@ -28,6 +28,7 @@ MIN_SERIES = 2  # a cluster needs this many series to be shown
 MAX_CLUSTERS = 10
 MAX_BRIDGES = 8
 MAX_CUTS = 8
+MIN_SIDE = 2  # series the second-largest side of a cut needs
 SIDE_ITEMS = 4  # series shown for each side of a cut
 
 # The tour's graph. It is written out in full, since the app shows it.
@@ -174,10 +175,11 @@ def _build(username: str) -> dict[str, Any]:
     for c in clusters:
         del c["community"]
         show.append(c.pop("_show"))
-    cuts = _cuts(show, anime, series_of, makers)
+    cuts, threads = _cuts(show, anime, series_of, makers)
     return {
         "_show": show,
         "cuts": cuts,
+        "threads": threads,
         "anime": len(anime),
         "clustered": in_clusters,
         "clusters": clusters,
@@ -187,13 +189,14 @@ def _build(username: str) -> dict[str, Any]:
     }
 
 
-def _cuts(show: list[dict[str, list[int]]], anime: dict[int, Any], series_of: dict[int, int], makers: dict[str, Any]) -> list[dict[str, Any]]:
-    """The people, studios and anime each cluster falls apart without, with the sides they hold together.
+def _cuts(show: list[dict[str, list[int]]], anime: dict[int, Any], series_of: dict[int, int], makers: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The people, studios and anime each cluster falls apart without.
 
-    A cut point only counts when at least two of its sides have two or more series, so a show hanging off one
-    person isn't reported. An anime is only reported when no person or studio next to it is a cut point too,
-    since that maker usually tells the same story better."""
-    found = []
+    Returns two lists. Splits are cut points with at least two sides of two or more series, so the cluster really
+    breaks in two. Threads are the rest: a single series that only connects to its cluster through one person,
+    studio or anime. An anime is only reported when no person or studio next to it is a cut point too, since that
+    maker usually tells the same story better."""
+    splits, threads = [], []
     for index, ids in enumerate(show):
         in_bcc: dict[str, set[int]] = defaultdict(set)
         adj: dict[str, set[str]] = defaultdict(set)
@@ -227,23 +230,41 @@ def _cuts(show: list[dict[str, list[int]]], anime: dict[int, Any], series_of: di
                 for a in sorted(members, key=lambda x: (-anime[x]["score"], -anime[x]["members"])):
                     series.setdefault(series_of[a], anime[a])
                 if series:
+                    # The cut's own anime on this side, which is what the side hangs from.
+                    touch = [a for a in series.values() if _ref("Anime", a["id"]) in adj[cut] or series_of[a["id"]] in {series_of[int(n.split(":", 1)[1])] for n in adj[cut] if n.startswith("Anime:")}]
                     sides.append({
                         "series": len(series),
                         "anime": len(members),
-                        "items": [{"mal_id": a["id"], "title": a["title"], "image_url": a["image_url"]} for a in list(series.values())[:SIDE_ITEMS]],
+                        "items": [_card(a) for a in list(series.values())[:SIDE_ITEMS]],
+                        "touch": [_card(a) for a in touch[:2]],
                     })
             sides.sort(key=lambda x: (-x["series"], -x["anime"]))
-            if len(sides) < 2 or sides[1]["series"] < 2:
+            if len(sides) < 2:
                 continue
             if kind == "Anime":
                 a = anime[int(cut.split(":", 1)[1])]
                 who = {"id": cut, "label": "Anime", "mal_id": a["id"], "name": a["title"], "image_url": a["image_url"]}
             else:
                 who = {**makers[cut], "image_url": None}
-            found.append({**who, "cluster": index, "sides": sides})
+            if sides[1]["series"] >= MIN_SIDE:
+                splits.append({**who, "cluster": index, "sides": [{k: v for k, v in x.items() if k != "touch"} for x in sides]})
+                continue
+            for side in sides[1:]:
+                threads.append({
+                    "cluster": index,
+                    "show": side["items"][0],
+                    "via": {k: who[k] for k in ("id", "label", "name")},
+                    # What the cut point also made in the rest of the cluster, when it's a person or studio.
+                    "also": sides[0]["touch"] if kind != "Anime" else [],
+                })
     # The most even splits first: a cut point matters most when both sides are big.
-    found.sort(key=lambda c: (-c["sides"][1]["series"], -sum(x["series"] for x in c["sides"])))
-    return found[:MAX_CUTS]
+    splits.sort(key=lambda c: (-c["sides"][1]["series"], -sum(x["series"] for x in c["sides"])))
+    threads.sort(key=lambda t: (t["cluster"], t["show"]["title"]))
+    return splits[:MAX_CUTS], threads
+
+
+def _card(a: dict[str, Any]) -> dict[str, Any]:
+    return {"mal_id": a["id"], "title": a["title"], "image_url": a["image_url"]}
 
 
 SHOW = """MATCH (a:Anime)-[r]-(maker)

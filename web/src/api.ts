@@ -421,6 +421,13 @@ export interface TourCut {
   cluster: number
   sides: { series: number; anime: number; items: { mal_id: number; title: string; image_url: string | null }[] }[]
 }
+/** A single series that only connects to its cluster through one person, studio or anime. */
+export interface TourThread {
+  cluster: number
+  show: { mal_id: number; title: string; image_url: string | null }
+  via: { id: string; label: 'Person' | 'Studio' | 'Anime'; name: string }
+  also: { mal_id: number; title: string; image_url: string | null }[] // what the person or studio made in the rest of the cluster
+}
 export interface Tour {
   anime: number
   clustered: number
@@ -428,6 +435,7 @@ export interface Tour {
   clusters: TourCluster[]
   bridges: TourBridge[]
   cuts: TourCut[]
+  threads: TourThread[]
   queries: { clusters: string; bridges: string; cuts: string }
 }
 export const tourApi = {
