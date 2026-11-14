@@ -236,8 +236,8 @@ export async function* ask(message: string, sessionId: string | null, signal?: A
 }
 
 export const api = {
-  search: (q: string, limit = 8) =>
-    req<{ query: string; results: Partial<Record<Label, GNode[]>> }>(`/api/search${qs({ q, limit })}`),
+  search: (q: string, limit = 8, kinds?: Label[]) =>
+    req<{ query: string; results: Partial<Record<Label, GNode[]>> }>(`/api/search${qs({ q, limit, kinds: kinds?.join(',') })}`),
   node: (id: string) => req<NodeDetail>(`/api/node/${id}`),
   neighbors: (id: string, o: NeighborOpts = {}) =>
     req<GraphPayload>(`/api/neighbors/${id}${qs({ only_watched: o.only_watched, lang: o.lang, rels: o.rels?.join(','), limit: o.limit })}`),
@@ -329,4 +329,64 @@ export const kmkApi = {
   theme: (o: { avoid?: string; kind?: string; key?: string | number; gender?: string | null } = {}) => req<KmkTheme>(`/api/kmk/theme${qs(o)}`),
   fixGender: (malId: number, gender: string | null) =>
     req<{ mal_id: number; gender: string | null }>(`/api/kmk/character/${malId}/gender`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gender }) }),
+}
+
+// --------------------------------------------------------------------------- Daily games
+const post = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
+/** Players per value (a score, or clues used), without names. */
+export interface Histogram {
+  value: number
+  players: number
+}
+
+export type KmkChoice = 'kiss' | 'marry' | 'kill'
+export interface KmkDaily {
+  date: string
+  title: string
+  cards: KmkCard[]
+  choices?: Record<string, KmkChoice> // by character mal_id, once played
+  tally?: { players: number; counts: Record<string, Record<KmkChoice, number>> }
+}
+
+export interface OddResult {
+  pick: number
+  correct: boolean
+  answer: number // mal_id of the odd one
+  links: string[] // what the other three share, main link first
+  players?: number // daily only: how many answered this round
+  right?: number
+}
+export interface OddDaily {
+  date: string
+  rounds: { cards: KmkCard[]; result?: OddResult }[]
+  summary?: { players: number; by_score: Histogram[] }
+}
+export const oddApi = {
+  daily: () => req<OddDaily>('/api/odd/daily'),
+  answer: (index: number, pick: number) => req<{ result: OddResult; summary?: OddDaily['summary'] }>(`/api/odd/daily/${index}`, post({ pick })),
+  practice: () => req<{ token: string; cards: KmkCard[] }>('/api/odd/practice'),
+  answerPractice: (token: string, pick: number) => req<{ result: OddResult }>('/api/odd/practice', post({ token, pick })),
+}
+
+export interface Mystery {
+  date: string
+  total: number // clues there are
+  clues: string[] // shown so far (all of them once done)
+  used: number // clues the player has seen, which is the score once solved
+  guesses: GNode[]
+  solved: boolean
+  done: boolean
+  correct?: boolean // after a guess
+  answer?: KmkCard // once done
+  summary?: { players: number; solved: number; by_clues: Histogram[] }
+}
+export const mysteryApi = {
+  daily: () => req<Mystery>('/api/mystery/daily'),
+  move: (action: 'clue' | 'guess' | 'give_up', guess?: number) => req<Mystery>('/api/mystery/daily', post({ action, guess })),
+}
+
+export const kmkDailyApi = {
+  get: () => req<KmkDaily>('/api/kmk/daily'),
+  play: (choices: Record<string, KmkChoice>) => req<KmkDaily>('/api/kmk/daily', post({ choices })),
 }

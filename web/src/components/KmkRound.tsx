@@ -14,9 +14,20 @@ function draw(pool: KmkCard[], n = 3): KmkCard[] {
   return out
 }
 
+/** Everyone's choices for one card, as counts. */
+export type Tally = Record<Choice, number>
+
 interface Props {
   title: string
   pool: KmkCard[]
+  /** The daily round: the pool is the three cards, in order, with no reroll or redraw. */
+  fixed?: boolean
+  /** Asks the player to lock their choices in, then calls this. Choices are keyed by character id. */
+  lockIn?: (choices: Record<string, Choice>) => Promise<void>
+  /** Choices already locked in, keyed by character id. */
+  locked?: Record<string, Choice>
+  /** Everyone's choices per character id, shown once the round is done. */
+  tally?: Record<string, Tally>
   onNewTheme?: () => void
   newThemeBusy?: boolean
   onClose?: () => void
@@ -24,12 +35,27 @@ interface Props {
 }
 
 /** One round of Kiss Marry Kill: three characters, each choice used once, one reroll, then a result to share. */
-export function KmkRound({ title, pool, onNewTheme, newThemeBusy, onClose, filter }: Props) {
-  const [cards, setCards] = useState(() => draw(pool))
-  const [choices, setChoices] = useState<Record<string, Choice>>({})
+export function KmkRound({ title, pool, fixed, lockIn, locked, tally, onNewTheme, newThemeBusy, onClose, filter }: Props) {
+  const [cards, setCards] = useState(() => (fixed ? pool.slice(0, 3) : draw(pool)))
+  const [choices, setChoices] = useState<Record<string, Choice>>(locked ?? {})
   const [rerolled, setRerolled] = useState(false)
   const [saving, setSaving] = useState(false)
-  const done = cards.length === 3 && cards.every((c) => choices[c.character.id])
+  const [locking, setLocking] = useState(false)
+  const [lockError, setLockError] = useState<string | null>(null)
+  const complete = cards.length === 3 && cards.every((c) => choices[c.character.id])
+  const done = complete && (!lockIn || !!locked)
+  const confirm = async () => {
+    if (!lockIn) return
+    setLocking(true)
+    setLockError(null)
+    try {
+      await lockIn(choices)
+    } catch (e) {
+      setLockError(String((e as Error)?.message ?? e).replace(/^\d+: /, ''))
+    } finally {
+      setLocking(false)
+    }
+  }
 
   const again = () => {
     setCards(draw(pool))
@@ -109,6 +135,7 @@ export function KmkRound({ title, pool, onNewTheme, newThemeBusy, onClose, filte
                 {c.anime[0]}
               </span>
               {!done && <GenderFix node={c.character} onFixed={(g) => fixGender(c.character.id, g)} />}
+              {done && tally?.[c.character.id] && <TallyBar tally={tally[c.character.id]} />}
               {!done && (
                 <>
                   <div className="kmk-choices">
@@ -118,29 +145,59 @@ export function KmkRound({ title, pool, onNewTheme, newThemeBusy, onClose, filte
                       </button>
                     ))}
                   </div>
-                  <button className="link kmk-reroll" disabled={rerolled || pool.length <= 3} onClick={() => reroll(i)} title="Swap this character for another. Once per round.">
-                    {rerolled ? 'Reroll used' : 'Reroll'}
-                  </button>
+                  {!fixed && (
+                    <button className="link kmk-reroll" disabled={rerolled || pool.length <= 3} onClick={() => reroll(i)} title="Swap this character for another. Once per round.">
+                      {rerolled ? 'Reroll used' : 'Reroll'}
+                    </button>
+                  )}
                 </>
               )}
             </div>
           )
         })}
       </div>
+      {lockError && <p className="error">{lockError}</p>}
       <div className="kmk-actions">
+        {lockIn && !done && (
+          <button className="primary" onClick={() => void confirm()} disabled={!complete || locking}>
+            {locking ? 'Locking in…' : 'Lock in'}
+          </button>
+        )}
         {done && (
           <button className="primary" onClick={() => void save()} disabled={saving}>
             {saving ? 'Making the image…' : 'Save or share'}
           </button>
         )}
-        <button onClick={again} disabled={pool.length < 3}>
-          {done ? 'Play again' : 'Draw three others'}
-        </button>
+        {!fixed && (
+          <button onClick={again} disabled={pool.length < 3}>
+            {done ? 'Play again' : 'Draw three others'}
+          </button>
+        )}
         {onNewTheme && (
           <button onClick={onNewTheme} disabled={newThemeBusy}>
             {newThemeBusy ? 'Spinning…' : 'New theme'}
           </button>
         )}
+      </div>
+    </div>
+  )
+}
+
+/** How everyone chose for one character, as a bar split by choice. */
+function TallyBar({ tally }: { tally: Tally }) {
+  const total = CHOICES.reduce((n, ch) => n + tally[ch], 0)
+  if (!total) return null
+  return (
+    <div className="kmk-tally" title={`${total} ${total === 1 ? 'player' : 'players'}`}>
+      <div className="kmk-tally-bar">
+        {CHOICES.map((ch) => (tally[ch] ? <i key={ch} style={{ flexGrow: tally[ch], background: COLORS[ch] }} /> : null))}
+      </div>
+      <div className="kmk-tally-text">
+        {CHOICES.map((ch) => (
+          <span key={ch} style={{ color: COLORS[ch] }}>
+            {LABELS[ch]} {Math.round((100 * tally[ch]) / total)}%
+          </span>
+        ))}
       </div>
     </div>
   )

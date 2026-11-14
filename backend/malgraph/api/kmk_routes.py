@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from .. import genders, kmk, users
+from .. import games, genders, kmk, users
 
 router = APIRouter(prefix="/api/kmk")
 
@@ -41,3 +41,41 @@ async def fix_gender(mal_id: int, body: GenderFix) -> dict[str, Any]:
     if not await run_in_threadpool(genders.correct, mal_id, body.gender):
         raise HTTPException(404, "character not found")
     return {"mal_id": mal_id, "gender": body.gender}
+
+
+def _daily_view(username: str) -> dict[str, Any]:
+    try:
+        puzzle = kmk.daily()
+    except ValueError as e:
+        raise HTTPException(503, str(e))
+    play = games.my_play("kmk", puzzle["date"], username)
+    out: dict[str, Any] = {"date": puzzle["date"], "title": puzzle["title"], "cards": games.character_cards(puzzle["cards"])}
+    if play:
+        out["choices"] = play["choices"]
+        out["tally"] = kmk.tally(puzzle)
+    return out
+
+
+@router.get("/daily")
+async def daily() -> dict[str, Any]:
+    """Today's three, the same for everyone. After playing, also your choices and everyone's tally."""
+    username = users.current_username()
+    if not username:
+        raise HTTPException(401, "Sign in with MyAnimeList to play")
+    return await run_in_threadpool(_daily_view, username)
+
+
+class DailyChoices(BaseModel):
+    choices: dict[str, str]  # character id -> kiss, marry or kill
+
+
+@router.post("/daily")
+async def play_daily(body: DailyChoices) -> dict[str, Any]:
+    username = users.current_username()
+    if not username:
+        raise HTTPException(401, "Sign in with MyAnimeList to play")
+    try:
+        await run_in_threadpool(kmk.play_daily, username, body.choices)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return await run_in_threadpool(_daily_view, username)

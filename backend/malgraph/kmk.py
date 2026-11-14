@@ -8,10 +8,11 @@ characters people remember. A theme needs at least MIN_POOL characters to be off
 from __future__ import annotations
 
 import random
+import time
 from dataclasses import dataclass
 from typing import Any
 
-from . import db, users
+from . import db, games, users
 
 MIN_POOL = 4
 POOL_SIZE = 40
@@ -118,3 +119,79 @@ def theme(avoid: str | None = None, kind_name: str | None = None, key: Any = Non
         t = rng.choice(options)
         return {"kind": kind.name, "key": t["key"], "title": kind.title.format(label=t["label"]), "pool": _pool(kind, t["key"], rng, gender)}
     return None
+
+
+# --------------------------------------------------------------------------- Daily Kiss Marry Kill
+# The same three characters for everyone each day, drawn from the shared graph rather than anyone's list: three
+# well-known main roles of a popular voice actor, or three main characters from a big studio. Everyone's choices
+# are tallied without names.
+
+CHOICES = ("kiss", "marry", "kill")
+_ROLES = (
+    "MATCH (a:Anime)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character) WHERE a.fetched_at IS NOT NULL AND c.favorites IS NOT NULL "
+)
+DAILY_KINDS = {
+    "va": (
+        f"{_ROLES} MATCH (p:Person)-[:VOICES {{language: 'Japanese'}}]->(c) WITH p, count(DISTINCT c) AS n WHERE n >= 4 "
+        "RETURN p.mal_id AS key, p.name AS label ORDER BY coalesce(p.favorites, 0) DESC LIMIT 40",
+        f"{_ROLES} MATCH (p:Person {{mal_id: $key}})-[:VOICES {{language: 'Japanese'}}]->(c) "
+        "WITH c, collect(a.mal_id) AS anime ORDER BY c.favorites DESC LIMIT 12 RETURN c.mal_id AS id, anime",
+        "Voiced by {label}",
+    ),
+    "studio": (
+        f"{_ROLES} MATCH (a)-[:PRODUCED_BY]->(s:Studio) WITH s, count(DISTINCT c) AS n WHERE n >= 6 "
+        "RETURN s.mal_id AS key, s.name AS label ORDER BY n DESC LIMIT 25",
+        f"{_ROLES} MATCH (a)-[:PRODUCED_BY]->(s:Studio {{mal_id: $key}}) "
+        "WITH c, collect(a.mal_id) AS anime ORDER BY c.favorites DESC LIMIT 15 RETURN c.mal_id AS id, anime",
+        "Main characters from {label} anime",
+    ),
+}
+
+
+def make_daily(rng: random.Random) -> dict[str, Any]:
+    """Three characters from three different franchises, sharing a voice actor or a studio."""
+    franchise = games.franchises()
+    kinds = list(DAILY_KINDS)
+    rng.shuffle(kinds)
+    for kind in kinds * 10:
+        themes_q, pool_q, title = DAILY_KINDS[kind]
+        themes = db.run(themes_q)
+        if not themes:
+            continue
+        t = rng.choice(themes)
+        roles = db.run(pool_q, key=t["key"])
+        rng.shuffle(roles)
+        picked: list[int] = []
+        seen: set[int] = set()
+        for r in roles:
+            own = {franchise.get(a, a) for a in r["anime"]}
+            if not own & seen:
+                picked.append(r["id"])
+                seen |= own
+            if len(picked) == 3:
+                label = games.natural(t["label"]) if kind == "va" else t["label"]
+                return {"title": title.format(label=label), "cards": picked}
+    raise ValueError("the graph is too small for a daily round yet")
+
+
+def daily(day: str | None = None) -> dict[str, Any]:
+    return games.daily("kmk", make_daily, day)
+
+
+def tally(puzzle: dict[str, Any]) -> dict[str, Any]:
+    """How everyone chose today: per character, the number of kisses, marriages and kills."""
+    counts = {str(c): {ch: 0 for ch in CHOICES} for c in puzzle["cards"]}
+    plays = games.plays("kmk", puzzle["date"]).values()
+    for p in plays:
+        for cid, ch in p["choices"].items():
+            if cid in counts and ch in CHOICES:
+                counts[cid][ch] += 1
+    return {"players": len(plays), "counts": counts}
+
+
+def play_daily(username: str, choices: dict[str, str]) -> dict[str, Any]:
+    """Record a player's choices. Each card gets a different choice. Only the first play of the day counts."""
+    puzzle = daily()
+    if sorted(choices) != sorted(str(c) for c in puzzle["cards"]) or sorted(choices.values()) != sorted(CHOICES):
+        raise ValueError("give each of today's three characters a different choice")
+    return games.update_play("kmk", puzzle["date"], username, lambda old: old or {"choices": choices, "at": time.time()})

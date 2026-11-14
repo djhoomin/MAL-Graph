@@ -9,6 +9,8 @@ import { NodeCard } from './components/NodeCard'
 import { PathBar } from './components/PathBar'
 import { PrivacyPage } from './components/PrivacyPage'
 import { KmkPage } from './components/KmkPage'
+import { MysteryPage } from './components/MysteryPage'
+import { OddPage } from './components/OddPage'
 import { RosterPage } from './components/RosterPage'
 import { SearchBar } from './components/SearchBar'
 import { SyncPill, Welcome } from './components/Welcome'
@@ -23,6 +25,8 @@ export default function App() {
   if (route[0] === 'insights') return <InsightsPage />
   if (route[0] === 'privacy') return <PrivacyPage />
   if (route[0] === 'kmk') return <KmkPage />
+  if (route[0] === 'odd') return <OddPage />
+  if (route[0] === 'mystery') return <MysteryPage />
   return <GraphPage />
 }
 

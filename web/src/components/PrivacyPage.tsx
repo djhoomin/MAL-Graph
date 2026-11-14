@@ -43,12 +43,12 @@ export function PrivacyPage() {
           <li>Your MyAnimeList username.</li>
           <li>Your anime list. For each anime that means its status, your score, the episodes you've watched, whether you're rewatching it and when you last updated it. Private lists are included, because you sign in with your own account.</li>
           <li>The questions you ask in Ask the graph, the answers, and how many questions you asked each day.</li>
-          <li>Your Graph Golf rounds, meaning the moves you made and your score.</li>
+          <li>Your plays of the daily games, meaning your Graph Golf moves and score, your Odd one out picks, your Mystery character guesses and your daily Kiss Marry Kill choices.</li>
         </ul>
         <p>MAL-Graph never sees your MyAnimeList password, because MyAnimeList handles the sign-in. The access MyAnimeList grants is used once to read your list and is then discarded. MAL-Graph never changes anything on MyAnimeList.</p>
 
         <h2>Who can see it</h2>
-        <p>Only you. Other people can't see your list, your questions or your golf rounds. Daily hole results show how many players got each score, without names.</p>
+        <p>Only you. Other people can't see your list, your questions or your game plays. Daily results show only counts, such as how many players got each score or chose Kiss for a character, and never names.</p>
         <p>The anime, characters, voice actors and staff in the graph are public MyAnimeList data that everyone shares.</p>
 
         <h2>Other services involved</h2>
@@ -69,7 +69,7 @@ export function PrivacyPage() {
           <p className="doc-done">Your data has been deleted and you are signed out. Copies in backups disappear within 30 days.</p>
         ) : me?.username && me.sign_in ? (
           <>
-            <p>This removes your list, your Ask conversations and your golf rounds from MAL-Graph straight away, and signs you out. Copies in backups disappear within 30 days. Your MyAnimeList account isn't affected, and signing in again would read your list again.</p>
+            <p>This removes your list, your Ask conversations and your game plays from MAL-Graph straight away, and signs you out. Copies in backups disappear within 30 days. Your MyAnimeList account isn't affected, and signing in again would read your list again.</p>
             {confirming ? (
               <div className="doc-confirm">
                 <p>

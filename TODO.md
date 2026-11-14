@@ -41,15 +41,15 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
 
 ## Product ideas
 
-- [ ] **Daily Kiss Marry Kill.** The same three for everyone each day, with an anonymous tally of choices. It can reuse
-      the daily-hole and anonymous-results setup from Graph Golf.
+- [x] **Daily Kiss Marry Kill.** The same three for everyone each day, with an anonymous tally of choices. Built as
+      "Today's three" on the Kiss Marry Kill page.
 - [ ] **Balanced Kiss Marry Kill draws.** Pick three characters of similar popularity using MyAnimeList favourites, or
       a spicy mode with one famous character and two obscure ones.
 - [ ] **Guess the voice actor.** Show three characters and ask who voices all of them.
 - [ ] **Pass-the-phone Kiss Marry Kill** for groups, revealing where players agreed.
-- [ ] **Odd one out.** Four characters, three of which share a hidden link (voice actor, studio, creator or season).
+- [x] **Odd one out.** Four characters, three of which share a hidden link (voice actor, studio, creator or season).
       Pick the one that doesn't belong. The graph guarantees exactly one answer. Cheap to build and works as a daily.
-- [ ] **Mystery character.** Guess a character from clues revealed one at a time from the graph, for example "voiced
+- [x] **Mystery character.** Guess a character from clues revealed one at a time from the graph, for example "voiced
       by someone who also played X", "from a Fall 2019 anime" or "made by the studio behind Y". Fewer clues score more.
       Fits a daily format with an anonymous tally.
 - [ ] **Who's the link.** Two anime, and the player names a person who worked on both using search. Rarer answers
@@ -65,4 +65,5 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
 ## Checks not done yet
 
 - [ ] **Graph Golf on a phone.** The layout was built for phones but only tested on a desktop.
+- [ ] **Odd one out and Mystery character on a real phone.** Checked at phone width in a desktop browser only.
 - [ ] **Insights timeline on a phone.** The y-axis labels scroll out of view along with the chart.
