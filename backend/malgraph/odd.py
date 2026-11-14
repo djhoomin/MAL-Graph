@@ -81,16 +81,34 @@ def facts() -> Facts:
     return f
 
 
-def describe(f: Facts, key: str) -> str:
-    kind, label = key.split(":", 1)[0], f.labels.get(key, "")
+def describe(f: Facts, key: str) -> dict[str, str]:
+    """The link as a sentence, with the name in it and where that name links to: the voice actor's roster in the
+    app, or the studio, creator or season on MyAnimeList."""
+    kind, rest = key.split(":", 1)
+    label = f.labels.get(key, "")
     if kind in ("va", "creator"):
         label = games.natural(label)
-    return {
+    text = {
         "va": f"All three are voiced by {label} in Japanese.",
         "studio": f"All three are main characters in anime by {label}.",
         "creator": f"All three were created by {label}.",
         "season": f"All three are main characters in anime from {label}.",
     }[kind]
+    if kind == "season":
+        year, season = rest.split("-")
+        href = f"https://myanimelist.net/anime/season/{year}/{season}"
+    else:
+        href = {
+            "va": f"#/roster/{rest}",
+            "studio": f"https://myanimelist.net/anime/producer/{rest}",
+            "creator": f"https://myanimelist.net/people/{rest}",
+        }[kind]
+    return {"text": text, "name": label, "href": href}
+
+
+def links(rnd: dict[str, Any]) -> list[dict[str, str]]:
+    """A round's links as objects. Rounds made before links had names stored plain sentences."""
+    return [x if isinstance(x, dict) else {"text": x} for x in rnd["links"]]
 
 
 def _shared(f: Facts, chars: list[int]) -> set[str]:
@@ -179,7 +197,7 @@ def reveal(puzzle: dict[str, Any], index: int, pick: int) -> dict[str, Any]:
         "pick": pick,
         "correct": pick == rnd["answer"],
         "answer": rnd["answer"],
-        "links": rnd["links"],
+        "links": links(rnd),
         "players": len(picks),
         "right": sum(1 for p in picks if p == rnd["answer"]),
     }
@@ -234,4 +252,4 @@ def answer_practice(token: str, pick: int) -> dict[str, Any] | None:
     if not entry:
         return None
     rnd = entry[1]
-    return {"pick": pick, "correct": pick == rnd["answer"], "answer": rnd["answer"], "links": rnd["links"]}
+    return {"pick": pick, "correct": pick == rnd["answer"], "answer": rnd["answer"], "links": links(rnd)}

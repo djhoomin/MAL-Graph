@@ -349,11 +349,17 @@ export interface KmkDaily {
   tally?: { players: number; counts: Record<string, Record<KmkChoice, number>> }
 }
 
+/** A sentence about what the three share, with the shared thing's name and where it links to. */
+export interface OddLink {
+  text: string
+  name?: string
+  href?: string // '#/roster/…' inside the app, otherwise a MyAnimeList page
+}
 export interface OddResult {
   pick: number
   correct: boolean
   answer: number // mal_id of the odd one
-  links: string[] // what the other three share, main link first
+  links: OddLink[] // what the other three share, main link first
   players?: number // daily only: how many answered this round
   right?: number
 }

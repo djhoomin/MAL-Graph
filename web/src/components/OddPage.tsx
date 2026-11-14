@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
-import { errorText, oddApi, type KmkCard, type OddDaily, type OddResult } from '../api'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { errorText, oddApi, type KmkCard, type OddDaily, type OddLink, type OddResult } from '../api'
 import { navigate } from '../useHashRoute'
 import { FieldBars, GameCard } from './GameBits'
+
+/** On a phone the reveal sits below the cards, so a new round starts back at the top of the page. */
+const toTop = () => document.querySelector('.doc-page')?.scrollTo({ top: 0, behavior: 'smooth' })
 
 /** Odd one out: four characters, three share a hidden link. Five daily rounds, then endless practice. */
 export function OddPage() {
@@ -84,20 +87,25 @@ function Daily({ onPractice }: { onPractice: () => void }) {
         Round {index + 1} of {total}
         {score > 0 && ` · ${score} right so far`}
       </div>
-      <OddRound cards={round.cards} result={round.result} busy={busy} onPick={(id) => void pick(index, id)} />
-      {error && <p className="error">{error}</p>}
-      {round.result?.players != null && round.result.players > 1 && (
-        <p className="muted small-text">
-          {round.result.right} of {round.result.players} players got this one.
-        </p>
-      )}
-      {round.result && (
+      <OddRound cards={round.cards} result={round.result} busy={busy} onPick={(id) => void pick(index, id)}>
+        {round.result?.players != null && round.result.players > 1 && (
+          <p className="muted small-text">
+            {round.result.right} of {round.result.players} players got this one.
+          </p>
+        )}
         <div className="kmk-actions">
-          <button className="primary" onClick={() => setViewing(!last && daily.rounds[index + 1].result ? index + 1 : null)}>
+          <button
+            className="primary"
+            onClick={() => {
+              toTop()
+              setViewing(!last && daily.rounds[index + 1].result ? index + 1 : null)
+            }}
+          >
             {last && next === -1 ? 'See how you did' : 'Next round'}
           </button>
         </div>
-      )}
+      </OddRound>
+      {error && <p className="error">{error}</p>}
     </>
   )
 }
@@ -149,28 +157,56 @@ function Practice({ onDaily }: { onDaily: () => void }) {
           Back to today's rounds
         </button>
       </div>
-      {round && <OddRound cards={round.cards} result={result ?? undefined} busy={busy} onPick={(id) => void pick(id)} />}
+      {round && (
+        <OddRound cards={round.cards} result={result ?? undefined} busy={busy} onPick={(id) => void pick(id)}>
+          <div className="kmk-actions">
+            <button
+              className="primary"
+              onClick={() => {
+                toTop()
+                void deal()
+              }}
+              disabled={busy}
+            >
+              Next round
+            </button>
+          </div>
+        </OddRound>
+      )}
       {!round && !error && <p className="muted">Dealing…</p>}
       {error && <p className="error">{error}</p>}
-      {result && (
-        <div className="kmk-actions">
-          <button className="primary" onClick={() => void deal()} disabled={busy}>
-            Next round
-          </button>
-        </div>
-      )}
+    </>
+  )
+}
+
+/** The sentence with the shared name as a link. Links open in a new tab, so the game keeps its place. */
+function LinkText({ link }: { link: OddLink }) {
+  const at = link.name && link.href ? link.text.indexOf(link.name) : -1
+  if (at < 0) return <>{link.text}</>
+  return (
+    <>
+      {link.text.slice(0, at)}
+      <a href={link.href} target="_blank" rel="noopener noreferrer">
+        {link.name}
+      </a>
+      {link.text.slice(at + link.name!.length)}
     </>
   )
 }
 
 /** Four cards to pick from. Once answered, the odd one is marked, your wrong pick too, and the link is told. */
-function OddRound({ cards, result, busy, onPick }: { cards: KmkCard[]; result?: OddResult; busy: boolean; onPick: (malId: number) => void }) {
+function OddRound({ cards, result, busy, onPick, children }: { cards: KmkCard[]; result?: OddResult; busy: boolean; onPick: (malId: number) => void; children?: ReactNode }) {
   const mark = (c: KmkCard) => {
     if (!result) return ''
     if (c.character.mal_id === result.answer) return 'odd-answer'
     if (c.character.mal_id === result.pick) return 'odd-wrong'
     return 'odd-rest'
   }
+  const reveal = useRef<HTMLDivElement>(null)
+  const answered = !!result
+  useEffect(() => {
+    if (answered) reveal.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [answered])
   return (
     <>
       <div className="odd-cards">
@@ -181,11 +217,14 @@ function OddRound({ cards, result, busy, onPick }: { cards: KmkCard[]; result?: 
         ))}
       </div>
       {result && (
-        <div className="odd-reveal">
+        <div className="odd-reveal" ref={reveal}>
           <strong className={result.correct ? 'good' : 'bad'}>{result.correct ? 'Right!' : 'Not quite.'}</strong>
           {result.links.map((l) => (
-            <p key={l}>{l}</p>
+            <p key={l.text}>
+              <LinkText link={l} />
+            </p>
           ))}
+          {children}
         </div>
       )}
     </>

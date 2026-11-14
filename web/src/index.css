@@ -490,7 +490,8 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .kmk-tally-text { display: flex; justify-content: space-between; gap: 4px; margin-top: 4px; font-size: 11px; font-weight: 600; }
 @media (max-width: 640px) {
   .odd-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .odd-cards .kmk-card img, .odd-cards .kmk-card .noimg { max-width: 140px; }
+  .odd-cards .kmk-card img, .odd-cards .kmk-card .noimg { max-width: 112px; }
+  .odd-cards .kmk-card { padding: 8px 6px; gap: 4px; }
   .mystery-done { grid-template-columns: 1fr; }
   .mystery-done .game-card { max-width: 220px; }
   .kmk-tally-text { flex-direction: column; align-items: center; gap: 0; }
