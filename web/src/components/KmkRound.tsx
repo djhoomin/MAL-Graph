@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { kmkHistoryApi, type KmkCard } from '../api'
 import { GenderFix } from './Gender'
+import { characterRecency, rememberCharacters } from '../kmkRecent'
 
 export type Choice = 'kiss' | 'marry' | 'kill'
 const CHOICES: Choice[] = ['kiss', 'marry', 'kill']
@@ -26,7 +27,6 @@ function loadDraw(): DrawMode {
   }
 }
 
-const pickOne = <T,>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)]
 function shuffle<T>(xs: T[]): T[] {
   const out = [...xs]
   for (let i = out.length - 1; i > 0; i--) {
@@ -37,6 +37,17 @@ function shuffle<T>(xs: T[]): T[] {
 }
 /** Popularity on a log scale, so 100 and 1,000 favourites are as far apart as 1,000 and 10,000. */
 const fame = (c: KmkCard) => Math.log10(Number(c.character.props.favorites ?? 0) + 1)
+/** Cards in the order they should be dealt: ones not seen lately in random order, then the longest unseen. */
+function freshFirst(cards: KmkCard[]): KmkCard[] {
+  const recency = characterRecency()
+  return shuffle(cards).sort((a, b) => (recency.get(a.character.id) ?? -1) - (recency.get(b.character.id) ?? -1))
+}
+/** The cards not seen lately, or when there are fewer than `min` of those, the `min` longest unseen. */
+function fresh(cards: KmkCard[], min: number): KmkCard[] {
+  const recency = characterRecency()
+  const unseen = cards.filter((c) => !recency.has(c.character.id))
+  return unseen.length >= min ? unseen : freshFirst(cards).slice(0, min)
+}
 /** The `n` cards closest in popularity to `target`, picked at random from the few closest so rounds vary. */
 function nearest(cards: KmkCard[], target: number, n: number): KmkCard[] {
   const close = [...cards].sort((a, b) => Math.abs(fame(a) - target) - Math.abs(fame(b) - target)).slice(0, n + 2)
@@ -48,17 +59,19 @@ function splitByFame(pool: KmkCard[]) {
   return { famous: sorted.slice(0, Math.ceil(sorted.length / 4)), obscure: sorted.slice(Math.ceil(sorted.length / 2)) }
 }
 
+/** Three cards for a round, dealt like a shuffled deck: characters seen lately come back only once the rest are used. */
 function draw(pool: KmkCard[], mode: DrawMode = 'random'): KmkCard[] {
   if (pool.length <= 3) return shuffle(pool)
   if (mode === 'balanced') {
-    const anchor = pickOne(pool)
-    return shuffle([anchor, ...nearest(pool.filter((c) => c !== anchor), fame(anchor), 2)])
+    const anchor = freshFirst(pool)[0]
+    const others = pool.filter((c) => c !== anchor)
+    return shuffle([anchor, ...nearest(fresh(others, 4), fame(anchor), 2)])
   }
   if (mode === 'spicy') {
     const { famous, obscure } = splitByFame(pool)
-    if (famous.length && obscure.length >= 2) return shuffle([pickOne(famous), ...shuffle(obscure).slice(0, 2)])
+    if (famous.length && obscure.length >= 2) return shuffle([freshFirst(famous)[0], ...freshFirst(obscure).slice(0, 2)])
   }
-  return shuffle(pool).slice(0, 3)
+  return freshFirst(pool).slice(0, 3)
 }
 
 /** A replacement for one card that keeps the round's mode: as popular as the other two, or from the same end. */
@@ -67,43 +80,23 @@ function replacement(pool: KmkCard[], cards: KmkCard[], i: number, mode: DrawMod
   const rest = pool.filter((c) => !taken.has(c.character.id))
   if (!rest.length) return undefined
   const others = cards.filter((_, j) => j !== i)
-  if (mode === 'balanced' && others.length) return nearest(rest, others.reduce((n, c) => n + fame(c), 0) / others.length, 1)[0]
+  if (mode === 'balanced' && others.length) return nearest(fresh(rest, 3), others.reduce((n, c) => n + fame(c), 0) / others.length, 1)[0]
   if (mode === 'spicy') {
     const { famous, obscure } = splitByFame(pool)
     const side = (famous.includes(cards[i]) ? famous : obscure).filter((c) => !taken.has(c.character.id))
-    if (side.length) return pickOne(side)
+    if (side.length) return freshFirst(side)[0]
   }
-  return pickOne(rest)
+  return freshFirst(rest)[0]
 }
 
-/** Everyone's choices for one card, as counts. */
-export type Tally = Record<Choice, number>
-
-interface Props {
-  title: string
-  pool: KmkCard[]
-  /** The daily round: the pool is the three cards, in order, with no reroll or redraw. */
-  fixed?: boolean
-  /** Asks the player to lock their choices in, then calls this. Choices are keyed by character id. */
-  lockIn?: (choices: Record<string, Choice>) => Promise<void>
-  /** Choices already locked in, keyed by character id. */
-  locked?: Record<string, Choice>
-  /** Everyone's choices per character id, shown once the round is done. */
-  tally?: Record<string, Tally>
-  /** The daily round's id in your history (rounds from a theme record themselves), and whether it was rescued. */
-  roundId?: string
-  rescued?: boolean
-  onNewTheme?: () => void
-  newThemeBusy?: boolean
-  onClose?: () => void
-  filter?: ReactNode // e.g. the Everyone / Women / Men switch
-}
-
-/** One round of Kiss Marry Kill: three characters, each choice used once, one reroll, then a result to share. */
 export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: givenId, rescued: givenRescued, onNewTheme, newThemeBusy, onClose, filter }: Props) {
   const [mode, setMode] = useState<DrawMode>(loadDraw)
   const [cards, setCards] = useState(() => (fixed ? pool.slice(0, 3) : draw(pool, mode)))
   const [choices, setChoices] = useState<Record<string, Choice>>(locked ?? {})
+  // Every card dealt counts as seen, so the next rounds deal others first.
+  useEffect(() => {
+    if (!fixed) rememberCharacters(cards.map((c) => c.character.id))
+  }, [cards, fixed])
   const [rerolled, setRerolled] = useState(false)
   const [saving, setSaving] = useState(false)
   const [locking, setLocking] = useState(false)

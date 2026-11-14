@@ -14,7 +14,8 @@ router = APIRouter(prefix="/api/kmk")
 
 @router.get("/theme")
 async def theme(avoid: str | None = None, kind: str | None = None, key: str | None = None, gender: str | None = None) -> dict[str, Any]:
-    """A random theme with its character pool (or a named one: kind=va&key=7263). `avoid` skips the current theme.
+    """A random theme with its character pool (or a named one: kind=va&key=7263). `avoid` is a comma-separated list of
+    recent themes (kind:key, most recent last), which are skipped, and whose kinds are tried last.
     `gender` (Female, Male) keeps only characters recorded with that gender."""
     if not users.current_username():
         raise HTTPException(401, "Sign in with MyAnimeList to play")

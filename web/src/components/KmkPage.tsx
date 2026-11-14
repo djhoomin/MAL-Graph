@@ -4,6 +4,7 @@ import { navigate } from '../useHashRoute'
 import { loadWho, saveWho, WhoFilter, type Who } from './Gender'
 import { HowTo } from './GameBits'
 import { KmkRound, type Choice, type Tally } from './KmkRound'
+import { recentThemes, rememberTheme } from '../kmkRecent'
 
 type Mode = 'today' | 'mine' | 'collection'
 const MODE_KEY = 'malgraph.kmk.mode'
@@ -108,7 +109,11 @@ function ThemeKmk() {
     setBusy(true)
     setError(null)
     try {
-      setTheme(await kmkApi.theme({ ...(current ? { avoid: `${current.kind}:${current.key}` } : {}), gender: gender || null }))
+      if (current) rememberTheme(`${current.kind}:${current.key}`)
+      const recent = recentThemes()
+      const next = await kmkApi.theme({ ...(recent.length ? { avoid: recent.join(',') } : {}), gender: gender || null })
+      rememberTheme(`${next.kind}:${next.key}`)
+      setTheme(next)
     } catch (e) {
       setError(errorText(e))
     } finally {

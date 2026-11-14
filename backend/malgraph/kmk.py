@@ -123,15 +123,22 @@ def theme(avoid: str | None = None, kind_name: str | None = None, key: Any = Non
         kind = BY_NAME[kind_name]
         label = next((t["label"] for t in users.run(kind.themes, min=1, gender=None) if str(t["key"]) == str(key)), str(key))
         return {"kind": kind.name, "key": key, "title": kind.title.format(label=label), "pool": _pool(kind, key, rng, gender)}
+    # Pure chance repeats itself, which players read as not random at all, so recent themes are skipped and the
+    # kinds played recently go to the back of the queue, the most recent last.
+    recent = [a for a in (avoid or "").split(",") if a]
+    recent_kinds = [a.split(":", 1)[0] for a in recent]
     kinds = KINDS[:]
     rng.shuffle(kinds)
+    kinds.sort(key=lambda k: max((i + 1 for i, name in enumerate(recent_kinds) if name == k.name), default=0))
     for kind in kinds:  # a random kind, then a random theme of that kind; skip kinds the player has none of
         ranked = sorted(users.run(kind.themes, min=MIN_POOL, gender=gender), key=lambda t: -t["n"])
-        options = [t for t in ranked[: kind.top or None] if f"{kind.name}:{t['key']}" != avoid]
+        options = [t for t in ranked[: kind.top or None] if f"{kind.name}:{t['key']}" not in recent]
         if not options:
             continue
         t = rng.choice(options)
         return {"kind": kind.name, "key": t["key"], "title": kind.title.format(label=t["label"]), "pool": _pool(kind, t["key"], rng, gender)}
+    if len(recent) > 1:  # a small list can run out of fresh themes: then only the current one is skipped
+        return theme(recent[-1], gender=gender)
     return None
 
 
