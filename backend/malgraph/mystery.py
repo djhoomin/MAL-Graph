@@ -8,7 +8,10 @@ guess with every clue showing ends the game. The score is how many clues were sh
 from __future__ import annotations
 
 import random
+import secrets
+import threading
 import time
+from collections import deque
 from typing import Any
 
 from . import db, games
@@ -136,31 +139,38 @@ def state(username: str) -> tuple[dict[str, Any], dict[str, Any]]:
     return puzzle, games.my_play("mystery", puzzle["date"], username) or _new_play()
 
 
-def act(username: str, action: str, guess: int | None = None) -> tuple[dict[str, Any], dict[str, Any], bool | None]:
-    """Apply "clue", "guess" or "give_up". Returns the puzzle, the play and whether a guess was right."""
-    puzzle = daily()
+def apply(puzzle: dict[str, Any], play: dict[str, Any], action: str, guess: int | None = None) -> bool | None:
+    """Apply "clue", "guess" or "give_up" to a play in place. Returns whether a guess was right."""
     total = len(puzzle["clues"])
+    if play["done"]:
+        return None
+    if action == "clue":
+        play["clues"] = min(total, play["clues"] + 1)
+    elif action == "give_up":
+        play["done"] = True
+    elif action == "guess" and guess is not None:
+        if guess in play["guesses"]:
+            return None
+        play["guesses"].append(guess)
+        if guess == puzzle["answer"]:
+            play["solved"] = play["done"] = True
+            return True
+        if play["clues"] >= total:
+            play["done"] = True
+        else:
+            play["clues"] += 1
+        return False
+    return None
+
+
+def act(username: str, action: str, guess: int | None = None) -> tuple[dict[str, Any], dict[str, Any], bool | None]:
+    """Apply a move to the player's daily game. Returns the puzzle, the play and whether a guess was right."""
+    puzzle = daily()
     correct: list[bool | None] = [None]
 
     def change(play: dict[str, Any] | None) -> dict[str, Any]:
         play = play or _new_play()
-        if play["done"]:
-            return play
-        if action == "clue":
-            play["clues"] = min(total, play["clues"] + 1)
-        elif action == "give_up":
-            play["done"] = True
-        elif action == "guess" and guess is not None:
-            if guess in play["guesses"]:
-                return play
-            play["guesses"].append(guess)
-            correct[0] = guess == puzzle["answer"]
-            if correct[0]:
-                play["solved"] = play["done"] = True
-            elif play["clues"] >= total:
-                play["done"] = True
-            else:
-                play["clues"] += 1
+        correct[0] = apply(puzzle, play, action, guess)
         return play
 
     play = games.update_play("mystery", puzzle["date"], username, change)
@@ -171,3 +181,82 @@ def summary(puzzle: dict[str, Any]) -> dict[str, Any]:
     done = [p for p in games.plays("mystery", puzzle["date"]).values() if p["done"]]
     solved = [p["clues"] for p in done if p["solved"]]
     return {"players": len(done), "solved": len(solved), "by_clues": games.histogram(solved)}
+
+
+# --------------------------------------------------------------------------- from your own list
+
+MINE_POOL = 150  # the most favourited main characters of the anime you've seen
+MINE_TTL = 6 * 3600
+RECENT = 30  # characters not to repeat for a player
+FRANCHISE_TTL = 600
+
+_lock = threading.Lock()
+_mine: dict[str, tuple[float, str, dict[str, Any], dict[str, Any]]] = {}  # token -> (expiry, user, puzzle, play)
+_recent: dict[str, deque[int]] = {}
+_franchise: tuple[float, dict[int, int]] | None = None
+
+
+def _franchises() -> dict[int, int]:
+    global _franchise
+    with _lock:
+        cached = _franchise
+    if cached and time.time() - cached[0] < FRANCHISE_TTL:
+        return cached[1]
+    fresh = games.franchises()
+    with _lock:
+        _franchise = (time.time(), fresh)
+    return fresh
+
+
+def _my_characters(username: str) -> list[int]:
+    rows = db.run(
+        "MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character) "
+        "WHERE l.status <> 'plan_to_watch' AND c.favorites IS NOT NULL "
+        "WITH DISTINCT c ORDER BY c.favorites DESC LIMIT $n RETURN c.mal_id AS id",
+        user=username, n=MINE_POOL,
+    )
+    return [r["id"] for r in rows]
+
+
+def new_mine(username: str) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    """A new game with a character from anime the player has seen. Raises ValueError if they have none."""
+    pool = _my_characters(username)
+    if not pool:
+        raise ValueError("Your list has no characters yet. Sync your list, or play today's character instead.")
+    with _lock:
+        recent = set(_recent.get(username, ()))
+    fresh = [c for c in pool if c not in recent] or pool
+    rng = random.Random()
+    franchise = _franchises()
+    best: tuple[int, list[str]] | None = None
+    for cid in rng.sample(fresh, min(15, len(fresh))):
+        clues = clues_for(cid, franchise)
+        if len(clues) >= MIN_CLUES:
+            best = (cid, clues)
+            break
+        if best is None or len(clues) > len(best[1]):
+            best = (cid, clues)
+    assert best
+    puzzle = {"date": "mine", "answer": best[0], "clues": best[1]}
+    play = _new_play()
+    token = secrets.token_urlsafe(12)
+    now = time.time()
+    with _lock:
+        for t in [t for t, entry in _mine.items() if entry[0] < now]:
+            del _mine[t]
+        _mine[token] = (now + MINE_TTL, username, puzzle, play)
+        _recent.setdefault(username, deque(maxlen=RECENT)).append(best[0])
+    return token, puzzle, play
+
+
+def act_mine(username: str, token: str, action: str, guess: int | None = None) -> tuple[dict[str, Any], dict[str, Any], bool | None] | None:
+    """Apply a move to one of the player's own games. None if the game has expired or isn't theirs."""
+    with _lock:
+        entry = _mine.get(token)
+        if not entry or entry[1] != username or entry[0] < time.time():
+            return None
+        _, _, puzzle, play = entry
+        correct = apply(puzzle, play, action, guess)
+        if play["done"]:
+            del _mine[token]
+    return puzzle, play, correct

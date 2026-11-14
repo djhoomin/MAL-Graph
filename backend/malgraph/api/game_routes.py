@@ -101,7 +101,8 @@ def _mystery_view(puzzle: dict[str, Any], play: dict[str, Any], correct: bool | 
     if play["done"]:
         out["clues"] = puzzle["clues"]
         out["answer"] = games.character_cards([puzzle["answer"]])[0]
-        out["summary"] = mystery.summary(puzzle)
+        if puzzle["date"] != "mine":  # games from your own list have no one to compare with
+            out["summary"] = mystery.summary(puzzle)
     return out
 
 
@@ -127,3 +128,30 @@ async def mystery_move(body: MysteryMove) -> dict[str, Any]:
         raise HTTPException(400, "unknown move")
     puzzle, play, correct = await run_in_threadpool(mystery.act, username, body.action, body.guess)
     return await run_in_threadpool(_mystery_view, puzzle, play, correct)
+
+
+@router.get("/api/mystery/mine")
+async def mystery_mine() -> dict[str, Any]:
+    """A new game with a character from the player's own list."""
+    username = _user()
+    try:
+        token, puzzle, play = await run_in_threadpool(mystery.new_mine, username)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return {**(await run_in_threadpool(_mystery_view, puzzle, play)), "token": token}
+
+
+class MineMove(MysteryMove):
+    token: str
+
+
+@router.post("/api/mystery/mine")
+async def mystery_mine_move(body: MineMove) -> dict[str, Any]:
+    username = _user()
+    if body.action not in ("clue", "guess", "give_up") or (body.action == "guess" and body.guess is None):
+        raise HTTPException(400, "unknown move")
+    moved = await run_in_threadpool(mystery.act_mine, username, body.token, body.action, body.guess)
+    if moved is None:
+        raise HTTPException(410, "This game has expired. Start a new one.")
+    puzzle, play, correct = moved
+    return {**(await run_in_threadpool(_mystery_view, puzzle, play, correct)), "token": body.token}

@@ -389,10 +389,13 @@ export interface Mystery {
   correct?: boolean // after a guess
   answer?: KmkCard // once done
   summary?: { players: number; solved: number; by_clues: Histogram[] }
+  token?: string // a game from your own list
 }
 export const mysteryApi = {
   daily: () => req<Mystery>('/api/mystery/daily'),
   move: (action: 'clue' | 'guess' | 'give_up', guess?: number) => req<Mystery>('/api/mystery/daily', post({ action, guess })),
+  mine: () => req<Mystery>('/api/mystery/mine'),
+  moveMine: (token: string, action: 'clue' | 'guess' | 'give_up', guess?: number) => req<Mystery>('/api/mystery/mine', post({ token, action, guess })),
 }
 
 export const kmkDailyApi = {

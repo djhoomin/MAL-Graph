@@ -1,31 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, errorText, mysteryApi, type GNode, type GraphPayload, type Mystery } from '../api'
 import { navigate } from '../useHashRoute'
 import { FieldBars, GameCard, HowTo } from './GameBits'
 
-/** Mystery character: guess today's character from clues revealed one at a time. */
+type Mode = 'today' | 'mine'
+const MODE_KEY = 'malgraph.mystery.mode'
+
+function loadMode(): Mode {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'mine' ? 'mine' : 'today'
+  } catch {
+    return 'today'
+  }
+}
+
+/** Mystery character: guess a character from clues revealed one at a time. Today's is the same for everyone, and
+ *  there are endless ones from your own list. */
 export function MysteryPage() {
-  const [game, setGame] = useState<Mystery | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [miss, setMiss] = useState<string | null>(null) // the name of the last wrong guess
-
-  useEffect(() => {
-    mysteryApi.daily().then(setGame, (e) => setError(errorText(e)))
-  }, [])
-
-  const move = async (action: 'clue' | 'guess' | 'give_up', guess?: GNode) => {
-    setBusy(true)
-    setError(null)
-    setMiss(null)
+  const [mode, setMode] = useState<Mode>(loadMode)
+  const change = (m: Mode) => {
+    setMode(m)
     try {
-      const next = await mysteryApi.move(action, guess?.mal_id ?? undefined)
-      setGame(next)
-      if (action === 'guess' && next.correct === false && guess) setMiss(guess.name)
-    } catch (e) {
-      setError(errorText(e))
-    } finally {
-      setBusy(false)
+      localStorage.setItem(MODE_KEY, m)
+    } catch {
+      /* storage blocked: the choice lasts until reload */
     }
   }
 
@@ -38,53 +36,110 @@ export function MysteryPage() {
       </header>
       <div className="kmk-page mystery">
         <h1>Mystery character</h1>
-        <p className="muted">Guess today's character. Each wrong guess shows another clue, and fewer clues is better.</p>
+        <p className="muted">Guess the character. Each wrong guess shows another clue, and fewer clues is better.</p>
         <HowTo id="mystery">
-          <p>There's one mystery character a day, and it's the same for everyone. You start with one clue, and the clues get more specific as they go, from how many anime the character is in down to the anime's title.</p>
+          <p>Today's character is the same for everyone. You start with one clue, and the clues get more specific as they go, from how many anime the character is in down to the anime's title.</p>
           <p>To guess, type a character's name and pick them from the list. If you know the anime but not the name, type the anime's title instead and pick it, and you can choose from its characters, main characters first.</p>
           <p>A wrong guess shows the next clue. You can also ask for the next clue without guessing, but your score is the number of clues you saw, so guessing early costs nothing. A wrong guess on the last clue ends the game, and so does giving up.</p>
           <p>A new character comes at midnight UTC. Once you're done, you can see how many clues everyone else needed.</p>
+          <p>From your list picks a main character from anime you've watched, so you're more likely to know them. You can play as many of those as you like, and they don't count towards today's scores.</p>
         </HowTo>
-        {!game && !error && <p className="muted">Loading today's clues…</p>}
-        {game && (
-          <>
-            <ol className="mystery-clues">
-              {game.clues.map((c, i) => (
-                <li key={i} className={`${i === game.clues.length - 1 && !game.done ? 'new' : ''} ${game.done && i >= game.used ? 'unseen' : ''}`}>
-                  {c}
-                </li>
-              ))}
-            </ol>
-            {!game.done && (
-              <>
-                <div className="muted small-text">
-                  Clue {game.clues.length} of {game.total}
-                </div>
-                <GuessBox disabled={busy} exclude={new Set(game.guesses.map((g) => g.id))} onGuess={(n) => void move('guess', n)} />
-                {miss && <p className="bad">It isn't {miss}.</p>}
-                <div className="kmk-actions">
-                  <button onClick={() => void move('clue')} disabled={busy || game.clues.length >= game.total}>
-                    Show another clue
-                  </button>
-                  <button className="link" onClick={() => void move('give_up')} disabled={busy}>
-                    Give up
-                  </button>
-                </div>
-              </>
-            )}
-            {game.guesses.length > 0 && !game.solved && (
-              <div className="mystery-guesses muted small-text">Guessed so far: {game.guesses.map((g) => g.name).join(', ')}</div>
-            )}
-            {game.done && game.answer && <Result game={game} />}
-          </>
-        )}
-        {error && <p className="error">{error}</p>}
+        <div className="segmented game-mode" role="group" aria-label="Which character">
+          <button className={mode === 'today' ? 'on' : ''} onClick={() => change('today')}>
+            Today's character
+          </button>
+          <button className={mode === 'mine' ? 'on' : ''} onClick={() => change('mine')}>
+            From your list
+          </button>
+        </div>
+        {mode === 'today' ? <Game key="today" /> : <Game key="mine" mine />}
       </div>
     </div>
   )
 }
 
-function Result({ game }: { game: Mystery }) {
+/** One game. Today's comes from the server's daily state, and one from your list starts fresh each time. */
+function Game({ mine = false }: { mine?: boolean }) {
+  const [game, setGame] = useState<Mystery | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [miss, setMiss] = useState<string | null>(null) // the name of the last wrong guess
+
+  const load = useCallback(() => {
+    setGame(null)
+    setError(null)
+    setMiss(null)
+    ;(mine ? mysteryApi.mine() : mysteryApi.daily()).then(setGame, (e) => setError(errorText(e)))
+  }, [mine])
+  useEffect(load, [load])
+
+  const move = async (action: 'clue' | 'guess' | 'give_up', guess?: GNode) => {
+    if (!game) return
+    setBusy(true)
+    setError(null)
+    setMiss(null)
+    try {
+      const g = guess?.mal_id ?? undefined
+      const next = game.token ? await mysteryApi.moveMine(game.token, action, g) : await mysteryApi.move(action, g)
+      setGame(next)
+      if (action === 'guess' && next.correct === false && guess) setMiss(guess.name)
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      {!game && !error && <p className="muted">{mine ? 'Picking a character from your list…' : "Loading today's clues…"}</p>}
+      {game && (
+        <>
+          <ol className="mystery-clues">
+            {game.clues.map((c, i) => (
+              <li key={i} className={`${i === game.clues.length - 1 && !game.done ? 'new' : ''} ${game.done && i >= game.used ? 'unseen' : ''}`}>
+                {c}
+              </li>
+            ))}
+          </ol>
+          {!game.done && (
+            <>
+              <div className="muted small-text">
+                Clue {game.clues.length} of {game.total}
+              </div>
+              <GuessBox disabled={busy} exclude={new Set(game.guesses.map((g) => g.id))} onGuess={(n) => void move('guess', n)} />
+              {miss && <p className="bad">It isn't {miss}.</p>}
+              <div className="kmk-actions">
+                <button onClick={() => void move('clue')} disabled={busy || game.clues.length >= game.total}>
+                  Show another clue
+                </button>
+                <button className="link" onClick={() => void move('give_up')} disabled={busy}>
+                  Give up
+                </button>
+              </div>
+            </>
+          )}
+          {game.guesses.length > 0 && !game.solved && (
+            <div className="mystery-guesses muted small-text">Guessed so far: {game.guesses.map((g) => g.name).join(', ')}</div>
+          )}
+          {game.done && game.answer && <Result game={game} onAnother={mine ? load : undefined} />}
+        </>
+      )}
+      {error && (
+        <>
+          <p className="error">{error}</p>
+          {mine && game && (
+            <button onClick={load} disabled={busy}>
+              New character
+            </button>
+          )}
+        </>
+      )}
+    </>
+  )
+}
+
+function Result({ game, onAnother }: { game: Mystery; onAnother?: () => void }) {
   const used = game.solved ? game.used : null
   return (
     <div className="game-done mystery-done">
@@ -99,7 +154,15 @@ function Result({ game }: { game: Mystery }) {
             <FieldBars rows={game.summary.by_clues} label={(v) => `${v} ${v === 1 ? 'clue' : 'clues'}`} mine={used} />
           </>
         )}
-        <p className="muted small-text">A new character comes at midnight UTC.</p>
+        {onAnother ? (
+          <div className="kmk-actions">
+            <button className="primary" onClick={onAnother}>
+              Another character
+            </button>
+          </div>
+        ) : (
+          <p className="muted small-text">A new character comes at midnight UTC.</p>
+        )}
       </div>
     </div>
   )
