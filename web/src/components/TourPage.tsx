@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster } from '../api'
+import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster, type TourCut } from '../api'
 import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
-const STEPS = ['Your taste clusters', 'The bridges'] as const
+const STEPS = ['Your taste clusters', 'The bridges', 'The cut points'] as const
 const STEP_KEY = 'malgraph.tour.step'
 
 function loadStep(): number {
@@ -17,7 +17,7 @@ function loadStep(): number {
 
 /** Put a cluster or a bridge on the graph by itself, then go and look at it. The graph is opened first and the
  *  nodes added once its canvas exists, so they're laid out on a canvas that has its size. */
-async function showOnGraph(load: () => Promise<GraphPayload>) {
+async function showOnGraph(load: () => Promise<GraphPayload>, select?: string) {
   const payload = await load()
   const { clear, setFilter, filters } = useStore.getState()
   // The tour's links are mostly staff credits, which the graph hides by default.
@@ -26,6 +26,7 @@ async function showOnGraph(load: () => Promise<GraphPayload>) {
   navigate('')
   setTimeout(() => {
     useStore.getState().mergePayload(payload)
+    if (select) useStore.getState().select(select)
   }, 150)
 }
 
@@ -74,6 +75,7 @@ export function TourPage() {
         {!tour && !error && <p className="muted">Working out your graph…</p>}
         {tour && step === 0 && <Clusters tour={tour} />}
         {tour && step === 1 && <Bridges tour={tour} />}
+        {tour && step === 2 && <Cuts tour={tour} />}
         {tour && (
           <div className="kmk-actions tour-nav">
             {step > 0 && <button onClick={() => go(step - 1)}>Back</button>}
@@ -94,7 +96,7 @@ export function TourPage() {
 }
 
 /** What the step teaches, and the query behind it. */
-function Lesson({ title, query, children }: { title: string; query: string; children: ReactNode }) {
+function Lesson({ title, query, note, children }: { title: string; query: string; note?: string; children: ReactNode }) {
   return (
     <aside className="tour-lesson">
       <strong>{title}</strong>
@@ -102,13 +104,13 @@ function Lesson({ title, query, children }: { title: string; query: string; chil
       <details>
         <summary>See the query</summary>
         <pre>{query}</pre>
-        <p className="muted small-text">This is the query that ran on your graph. $user is your MyAnimeList name.</p>
+        <p className="muted small-text">{note ?? 'This is the query that ran on your graph. $user is your MyAnimeList name.'}</p>
       </details>
     </aside>
   )
 }
 
-function ShowButton({ load }: { load: () => Promise<GraphPayload> }) {
+function ShowButton({ load, select }: { load: () => Promise<GraphPayload>; select?: string }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   return (
@@ -117,7 +119,7 @@ function ShowButton({ load }: { load: () => Promise<GraphPayload> }) {
         onClick={() => {
           setBusy(true)
           setError(null)
-          showOnGraph(load).catch((e) => {
+          showOnGraph(load, select).catch((e) => {
             setError(errorText(e))
             setBusy(false)
           })
@@ -233,6 +235,50 @@ function BridgeCard({ bridge }: { bridge: TourBridge }) {
       </p>
       <Covers items={bridge.clusters.map((c) => ({ ...c, title: `Cluster ${c.cluster + 1}: ${c.title}` }))} />
       <ShowButton load={() => tourApi.bridge(bridge.id)} />
+    </section>
+  )
+}
+
+function Cuts({ tour }: { tour: Tour }) {
+  if (!tour.cuts.length) return <p className="muted">Every cluster in your list holds together without any single person, studio or anime. Sync more of your list and come back.</p>
+  return (
+    <>
+      <h2>What holds your clusters together?</h2>
+      <p>Some clusters hang by a thread. Each of these people, studios and anime is the only link between two parts of a cluster, so the cluster splits apart without them.</p>
+      <Lesson title="The graph idea: cut points" query={tour.queries.cuts} note="This query ran once for each cluster. $anime, $people and $studios are the anime and makers drawn for that cluster.">
+        <p>A cut point, also called an articulation point, is a node whose removal splits a graph into separate pieces. Memgraph finds them by breaking each cluster into biconnected components, which are pieces that stay connected whichever single node you take out. Anything that belongs to two of those pieces is a cut point.</p>
+        <p>Bridges connect your whole list, and cut points are the weak spots inside one cluster. In a network of people, a cut point is the one contact two groups share. Here it's often a composer or a studio who worked on two otherwise unrelated sets of shows.</p>
+      </Lesson>
+      {tour.cuts.map((c) => (
+        <CutCard key={`${c.cluster}-${c.id}`} cut={c} />
+      ))}
+    </>
+  )
+}
+
+function CutCard({ cut }: { cut: TourCut }) {
+  const pieces = cut.sides.length === 2 ? 'two' : cut.sides.length === 3 ? 'three' : String(cut.sides.length)
+  return (
+    <section className="tour-card">
+      <div className="tour-card-head">
+        <h3>{cut.name}</h3>
+        <span className="muted small-text">
+          {cut.label}, cluster {cut.cluster + 1}
+        </span>
+      </div>
+      <p className="small-text">
+        Without {cut.name}, cluster {cut.cluster + 1} falls into {pieces} pieces.
+      </p>
+      {cut.sides.map((side, i) => (
+        <div key={i} className="tour-side">
+          <p className="muted small-text">
+            {side.series === 1 ? '1 series' : `${side.series} series`}
+            {side.anime > side.series && `, ${side.anime} anime`}
+          </p>
+          <Covers items={side.items} />
+        </div>
+      ))}
+      <ShowButton load={() => tourApi.cluster(cut.cluster)} select={cut.id} />
     </section>
   )
 }

@@ -61,6 +61,10 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       your mean score, hidden gems (scored 8 or more, under 100k members, not sequels) and shows paused near the end.
 - [x] **Graph tour, steps 1 and 2.** Taste clusters (Louvain community detection) and the bridges between them
       (betweenness centrality), run in Memgraph on the user's anime and their makers, with the query shown.
+- [x] **Graph tour, step 3.** Cut points (biconnected components per cluster): the person, studio or anime a cluster
+      falls apart without, with the pieces it holds together.
+- [ ] **Cluster timeline.** Lay a cluster's anime out by season, so patterns like one creator's shows alternating
+      cours stand out.
 - [ ] **Graph tour, more steps.** PageRank for who really shapes your list, recommendations that show the path that
       led to them, an anime map from node similarity, and creative teams from projecting the people-to-anime graph.
 - [ ] **Theme draft.** Two to four friends take turns drafting characters for a Kiss Marry Kill roulette theme, then

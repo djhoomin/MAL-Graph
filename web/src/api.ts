@@ -411,13 +411,24 @@ export interface TourBridge extends TourMaker {
   count_rank: number // their place when ranked by how many of your series they're behind
   clusters: { cluster: number; mal_id: number; title: string; image_url: string | null }[]
 }
+/** A cut point: the person, studio or anime a cluster falls apart without, and the pieces it holds together. */
+export interface TourCut {
+  id: string
+  label: 'Person' | 'Studio' | 'Anime'
+  mal_id: number
+  name: string
+  image_url: string | null
+  cluster: number
+  sides: { series: number; anime: number; items: { mal_id: number; title: string; image_url: string | null }[] }[]
+}
 export interface Tour {
   anime: number
   clustered: number
   makers: number
   clusters: TourCluster[]
   bridges: TourBridge[]
-  queries: { clusters: string; bridges: string }
+  cuts: TourCut[]
+  queries: { clusters: string; bridges: string; cuts: string }
 }
 export const tourApi = {
   get: () => req<Tour>('/api/tour'),
