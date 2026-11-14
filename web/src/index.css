@@ -576,5 +576,16 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .tour-thread img, .tour-thread .noimg { width: 44px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; grid-row: span 2; background: var(--border); }
 .tour-thread p { margin: 0; }
 .tour-thread button { justify-self: start; }
+.tour-timeline { margin: 10px 0; }
+.tour-timeline-makers { flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.tour-timeline-grid { display: grid; grid-template-columns: 40px repeat(4, minmax(0, 1fr)); gap: 4px 6px; align-items: start; }
+.tour-timeline-year { padding-top: 6px; }
+.tour-timeline-gap { grid-column: 1 / -1; text-align: center; border-top: 1px dashed var(--border); padding-top: 2px; }
+.tour-timeline-cell { display: flex; flex-wrap: wrap; gap: 3px; min-height: 8px; border-top: 1px solid var(--border); padding-top: 4px; }
+.tour-timeline-cover { padding: 0; border: 0; background: none; width: 30px; border-radius: 3px; cursor: pointer; transition: opacity 0.15s; }
+.tour-timeline-cover img, .tour-timeline-cover .noimg { display: block; width: 30px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 3px; background: var(--border); }
+.tour-timeline-cover.dim { opacity: 0.2; }
+.tour-timeline-cover.picked { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tour-timeline-picked { min-height: 1.4em; margin: 8px 0 0; }
 .tour-nav { margin-top: 20px; }
 .tour-card-head h3 { text-transform: none; letter-spacing: normal; color: inherit; }

@@ -405,6 +405,17 @@ export interface TourCluster {
   series: { mal_id: number; title: string; image_url: string | null; my_score: number }[]
   makers: TourMaker[]
   genres: string[]
+  timeline: {
+    items: { mal_id: number; title: string; image_url: string | null; year: number; season: number; makers: string[] }[] // season 0 is winter
+    makers: { id: string; name: string; anime: number }[] // the people and studios behind two or more of the cluster's anime
+  }
+}
+/** Anime from different series that share most of their makers. */
+export interface TourTwins {
+  shows: { mal_id: number; title: string; image_url: string | null }[]
+  shared: { id: string; label: 'Person' | 'Studio'; name: string }[]
+  either: number // people and studios behind either of the first pair
+  jaccard: number
 }
 export interface TourBridge extends TourMaker {
   rank: number
@@ -436,12 +447,14 @@ export interface Tour {
   bridges: TourBridge[]
   cuts: TourCut[]
   threads: TourThread[]
-  queries: { clusters: string; bridges: string; cuts: string }
+  twins: TourTwins[]
+  queries: { clusters: string; bridges: string; cuts: string; twins: string }
 }
 export const tourApi = {
   get: () => req<Tour>('/api/tour'),
   cluster: (index: number) => req<GraphPayload>(`/api/tour/cluster/${index}`),
   bridge: (ref: string) => req<GraphPayload>(`/api/tour/bridge/${encodeURIComponent(ref)}`),
+  twins: (index: number) => req<GraphPayload>(`/api/tour/twins/${index}`),
 }
 
 export const mysteryApi = {

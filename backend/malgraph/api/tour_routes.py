@@ -44,3 +44,9 @@ def cluster_graph(index: int) -> dict[str, Any]:
 def bridge_graph(ref: str) -> dict[str, Any]:
     """A bridge as graph data: the person or studio and one anime from each cluster they join."""
     return _payload(tour.show_bridge(_user(), ref))
+
+
+@router.get("/twins/{index}")
+def twins_graph(index: int) -> dict[str, Any]:
+    """Two twins as graph data: both anime and the people and studios they share."""
+    return _payload(tour.show_twins(_user(), index))

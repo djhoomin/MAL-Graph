@@ -63,10 +63,12 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       (betweenness centrality), run in Memgraph on the user's anime and their makers, with the query shown.
 - [x] **Graph tour, step 3.** Cut points (biconnected components per cluster): the person, studio or anime a cluster
       falls apart without, with the pieces it holds together.
-- [ ] **Cluster timeline.** Lay a cluster's anime out by season, so patterns like one creator's shows alternating
-      cours stand out.
-- [ ] **Graph tour, more steps.** PageRank for who really shapes your list, recommendations that show the path that
-      led to them, an anime map from node similarity, and creative teams from projecting the people-to-anime graph.
+- [x] **Cluster timeline.** Each cluster's anime by season, with the people and studios behind two or more of them
+      as highlights, so patterns like one creator's shows alternating cours stand out.
+- [x] **Graph tour, step 4.** Twins, the anime from different series with the highest Jaccard similarity of makers.
+- [ ] **Graph tour, more steps.** Recommendations that show the path that led to them, and creative teams from
+      projecting the people-to-anime graph. PageRank was tried on the tour graph and dropped, because the links point
+      people into anime and anime into studios, so it rewarded studios and people with a single credit.
 - [ ] **Theme draft.** Two to four friends take turns drafting characters for a Kiss Marry Kill roulette theme, then
       vote on the best team. Reuses the existing theme pools.
 - [ ] **Taste match (next up).** Compare two people's lists for a compatibility score with reasons: how closely they

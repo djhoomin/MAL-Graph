@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster, type TourCut, type TourThread } from '../api'
+import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster, type TourCut, type TourThread, type TourTwins } from '../api'
 import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
-const STEPS = ['Your taste clusters', 'The bridges', 'The cut points'] as const
+const STEPS = ['Your taste clusters', 'The bridges', 'The cut points', 'Twins'] as const
 const STEP_KEY = 'malgraph.tour.step'
 
 function loadStep(): number {
@@ -76,6 +76,7 @@ export function TourPage() {
         {tour && step === 0 && <Clusters tour={tour} />}
         {tour && step === 1 && <Bridges tour={tour} />}
         {tour && step === 2 && <Cuts tour={tour} />}
+        {tour && step === 3 && <Twins tour={tour} />}
         {tour && (
           <div className="kmk-actions tour-nav">
             {step > 0 && <button onClick={() => go(step - 1)}>Back</button>}
@@ -166,6 +167,7 @@ function Clusters({ tour }: { tour: Tour }) {
 
 function ClusterCard({ index, cluster }: { index: number; cluster: TourCluster }) {
   const [all, setAll] = useState(false)
+  const [timeline, setTimeline] = useState(false)
   const series = all ? cluster.series : cluster.series.slice(0, 6)
   return (
     <section className="tour-card">
@@ -198,8 +200,75 @@ function ClusterCard({ index, cluster }: { index: number; cluster: TourCluster }
           {cluster.genres.join(', ')}
         </p>
       )}
-      <ShowButton load={() => tourApi.cluster(index)} />
+      {timeline && <Timeline timeline={cluster.timeline} />}
+      <div className="row">
+        <ShowButton load={() => tourApi.cluster(index)} />
+        {cluster.timeline.items.length > 1 && <button onClick={() => setTimeline((v) => !v)}>{timeline ? 'Hide the timeline' : 'Timeline'}</button>}
+      </div>
     </section>
+  )
+}
+
+const SEASON_NAMES = ['Winter', 'Spring', 'Summer', 'Fall']
+
+/** A cluster's anime by the season they started airing. Tap a person or studio to pick out their anime. */
+function Timeline({ timeline }: { timeline: TourCluster['timeline'] }) {
+  const [maker, setMaker] = useState<string | null>(null)
+  const [picked, setPicked] = useState<number | null>(null)
+  const years = [...new Set(timeline.items.map((a) => a.year))].sort((x, y) => x - y)
+  const pick = picked != null ? timeline.items.find((a) => a.mal_id === picked) : null
+  return (
+    <div className="tour-timeline">
+      {timeline.makers.length > 0 && (
+        <div className="row tour-timeline-makers">
+          {timeline.makers.map((m) => (
+            <button key={m.id} className={`chip ${maker === m.id ? 'on' : 'off'}`} onClick={() => setMaker(maker === m.id ? null : m.id)}>
+              {m.name} <span className="muted">{m.anime}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="tour-timeline-grid">
+        <span />
+        {SEASON_NAMES.map((s) => (
+          <span key={s} className="muted small-text">
+            {s}
+          </span>
+        ))}
+        {years.map((year, i) => (
+          <TimelineYear key={year} year={year} gap={i > 0 ? year - years[i - 1] - 1 : 0} items={timeline.items.filter((a) => a.year === year)} maker={maker} picked={picked} onPick={setPicked} />
+        ))}
+      </div>
+      <p className="small-text tour-timeline-picked">
+        {pick ? `${pick.title}, ${SEASON_NAMES[pick.season].toLowerCase()} ${pick.year}` : <span className="muted">Tap a cover to see its title.</span>}
+      </p>
+    </div>
+  )
+}
+
+function TimelineYear({ year, gap, items, maker, picked, onPick }: { year: number; gap: number; items: TourCluster['timeline']['items']; maker: string | null; picked: number | null; onPick: (id: number) => void }) {
+  return (
+    <>
+      {gap > 0 && <span className="tour-timeline-gap muted small-text">{gap === 1 ? '1 year without any' : `${gap} years without any`}</span>}
+      <span className="small-text tour-timeline-year">{year}</span>
+      {SEASON_NAMES.map((_, season) => (
+        <span key={season} className="tour-timeline-cell">
+          {items
+            .filter((a) => a.season === season)
+            .map((a) => (
+              <button
+                key={a.mal_id}
+                className={`tour-timeline-cover${maker && !a.makers.includes(maker) ? ' dim' : ''}${picked === a.mal_id ? ' picked' : ''}`}
+                title={a.title}
+                aria-label={a.title}
+                onClick={() => onPick(a.mal_id)}
+              >
+                {a.image_url ? <img src={a.image_url} alt="" loading="lazy" /> : <span className="noimg" />}
+              </button>
+            ))}
+        </span>
+      ))}
+    </>
   )
 }
 
@@ -311,5 +380,41 @@ function Threads({ threads }: { threads: TourThread[] }) {
         </button>
       )}
     </>
+  )
+}
+
+function Twins({ tour }: { tour: Tour }) {
+  if (!tour.twins.length) return <p className="muted">None of your anime from different series share enough of their makers yet. Sync more of your list and come back.</p>
+  return (
+    <>
+      <h2>Which of your shows were made by the same team?</h2>
+      <p>These anime come from different series but share a lot of the people behind them. Sequels are left out, since they share almost everything.</p>
+      <Lesson title="The graph idea: Jaccard similarity" query={tour.queries.twins} note="This is the query that ran on your graph. $user is your MyAnimeList name, and $min_shared is 3, since many anime only list a few makers.">
+        <p>To compare two anime, the graph looks at their neighbours, which here are the people and studios linked to each. Jaccard similarity divides the neighbours they share by all the neighbours either of them has. Two anime made by exactly the same team score 1, and two with nobody in common score 0.</p>
+        <p>Recommendation systems use the same idea, with the people who watched a show in place of the people who made it.</p>
+      </Lesson>
+      {tour.twins.map((t, i) => (
+        <TwinsCard key={i} index={i} twins={t} />
+      ))}
+    </>
+  )
+}
+
+function TwinsCard({ index, twins }: { index: number; twins: TourTwins }) {
+  const n = twins.shows.length
+  return (
+    <section className="tour-card">
+      <Covers items={twins.shows} />
+      <p className="small-text">
+        {n === 2
+          ? `They share ${twins.shared.length} of the ${twins.either} people and studios behind either of them, a similarity of ${twins.jaccard.toFixed(2)}.`
+          : `All ${n === 3 ? 'three' : n} share the same ${twins.shared.length} people and studios.`}
+      </p>
+      <p className="small-text">
+        <span className="muted">Shared </span>
+        {twins.shared.map((m) => m.name).join(', ')}
+      </p>
+      <ShowButton load={() => tourApi.twins(index)} />
+    </section>
   )
 }

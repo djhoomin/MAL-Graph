@@ -12,6 +12,8 @@ Memgraph, and the queries shown in the app are the ones that run.
 Cut points come from biconnected components inside each cluster: a person, studio or anime that sits in more than
 one component is the only thing holding those parts of the cluster together.
 
+Twins come from Jaccard similarity between two anime: the makers they share divided by all the makers either has.
+
 Sequels share nearly all their staff, so results are counted by franchise ("series"), not by anime.
 """
 from __future__ import annotations
@@ -30,6 +32,10 @@ MAX_BRIDGES = 8
 MAX_CUTS = 8
 MIN_SIDE = 2  # series the second-largest side of a cut needs
 SIDE_ITEMS = 4  # series shown for each side of a cut
+MAX_TWINS = 10
+MIN_SHARED = 3  # makers two anime need in common to count as twins, since many anime only list a few
+TIMELINE_MAKERS = 12  # people and studios offered as highlights on a cluster's timeline
+SEASONS = ["winter", "spring", "summer", "fall"]
 
 # The tour's graph. It is written out in full, since the app shows it.
 GRAPH = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)
@@ -57,7 +63,26 @@ RETURN a.mal_id AS anime, labels(maker)[0] AS label, maker.mal_id AS id, maker.n
 ANIME = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime) WHERE l.status <> 'plan_to_watch'
 OPTIONAL MATCH (a)-[:HAS_GENRE]->(g:Genre) WHERE g.kind IN ['genre', 'theme'] AND NOT g.name IN ['Hentai', 'Erotica', 'Ecchi']
 RETURN a.mal_id AS id, a.title AS title, a.image_url AS image_url, coalesce(a.members, 0) AS members,
-       coalesce(l.score, 0) AS score, collect(g.name) AS genres"""
+       coalesce(l.score, 0) AS score, collect(g.name) AS genres, a.year AS year, a.season AS season, a.aired_from AS aired_from"""
+
+TWINS = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)
+WHERE l.status <> 'plan_to_watch'
+MATCH (a)-[r]-(maker)
+WHERE type(r) = 'PRODUCED_BY'
+   OR (type(r) = 'WORKED_ON' AND any(job IN r.positions WHERE job IN
+       ['Director', 'Series Composition', 'Music', 'Character Design', 'Original Creator']))
+WITH a, collect(DISTINCT maker) AS makers
+WITH collect({anime: a, makers: makers}) AS shows
+UNWIND shows AS x
+UNWIND shows AS y
+WITH x, y WHERE x.anime.mal_id < y.anime.mal_id
+WITH x, y, [m IN x.makers WHERE m IN y.makers] AS shared
+WHERE size(shared) >= $min_shared
+RETURN x.anime.mal_id AS a, y.anime.mal_id AS b,
+       [m IN shared | labels(m)[0] + ':' + toString(m.mal_id)] AS shared,
+       size(x.makers) + size(y.makers) - size(shared) AS either,
+       toFloat(size(shared)) / (size(x.makers) + size(y.makers) - size(shared)) AS jaccard
+ORDER BY jaccard DESC"""
 
 _lock = threading.Lock()
 _cache: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -139,6 +164,7 @@ def _build(username: str) -> dict[str, Any]:
             "series": [{"mal_id": s["id"], "title": s["title"], "image_url": s["image_url"], "my_score": s["score"]} for s in series.values()],
             "makers": [{**makers[ref], "series": n} for n, ref in counts[:5]],
             "genres": [g for _, g in reversed(lift[-3:])],
+            "timeline": _timeline(members, anime, made, makers, inside),
         })
     clusters.sort(key=lambda c: (-len(c["series"]), -c["anime"]))
     clusters = clusters[:MAX_CLUSTERS]
@@ -176,8 +202,11 @@ def _build(username: str) -> dict[str, Any]:
         del c["community"]
         show.append(c.pop("_show"))
     cuts, threads = _cuts(show, anime, series_of, makers)
+    twins, twin_show = _twins(username, anime, series_of, makers)
     return {
         "_show": show,
+        "_twins": twin_show,
+        "twins": twins,
         "cuts": cuts,
         "threads": threads,
         "anime": len(anime),
@@ -185,7 +214,7 @@ def _build(username: str) -> dict[str, Any]:
         "clusters": clusters,
         "bridges": bridges,
         "makers": len(makers),
-        "queries": {"clusters": CLUSTERS, "bridges": BRIDGES, "cuts": CUTS},
+        "queries": {"clusters": CLUSTERS, "bridges": BRIDGES, "cuts": CUTS, "twins": TWINS},
     }
 
 
@@ -263,6 +292,72 @@ def _cuts(show: list[dict[str, list[int]]], anime: dict[int, Any], series_of: di
     return splits[:MAX_CUTS], threads
 
 
+def _season(a: dict[str, Any]) -> tuple[int, int] | None:
+    """(year, season index) an anime started airing, from its season or else its first air date."""
+    aired = a.get("aired_from") or ""
+    year = a.get("year") or (int(aired[:4]) if aired[:4].isdigit() else None)
+    if not year:
+        return None
+    if a.get("season") in SEASONS:
+        return year, SEASONS.index(a["season"])
+    month = int(aired[5:7]) if aired[5:7].isdigit() else 1
+    return year, (month - 1) // 3
+
+
+def _timeline(members: list[int], anime: dict[int, Any], made: dict[str, set[int]], makers: dict[str, Any], inside: set[int]) -> dict[str, Any]:
+    """A cluster's anime by the season they started, with the people and studios behind two or more of them."""
+    shared = sorted((ref for ref, did in made.items() if len(did & inside) >= 2), key=lambda ref: (-len(made[ref] & inside), makers[ref]["name"]))[:TIMELINE_MAKERS]
+    items = []
+    for a in members:
+        when = _season(anime[a])
+        if when:
+            items.append({**_card(anime[a]), "year": when[0], "season": when[1], "makers": [ref for ref in shared if a in made[ref]]})
+    items.sort(key=lambda x: (x["year"], x["season"], x["title"]))
+    return {"items": items, "makers": [{"id": ref, "name": makers[ref]["name"], "anime": len(made[ref] & inside)} for ref in shared]}
+
+
+def _twins(username: str, anime: dict[int, Any], series_of: dict[int, int], makers: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, list[int]]]]:
+    """The anime from different series that share the most of their makers, by Jaccard similarity.
+
+    Pairs that share exactly the same makers and have an anime in common are merged, so three shows made by one
+    team come out as one group of three instead of three pairs."""
+    groups: list[dict[str, Any]] = []
+    seen = set()
+    for r in db.run(TWINS, user=username, min_shared=MIN_SHARED):
+        a, b = r["a"], r["b"]
+        if a not in anime or b not in anime:
+            continue
+        pair = frozenset((series_of[a], series_of[b]))
+        if len(pair) < 2 or pair in seen:
+            continue
+        seen.add(pair)
+        shared = frozenset(ref for ref in r["shared"] if ref in makers)
+        group = next((g for g in groups if g["shared"] == shared and {a, b} & g["anime"]), None)
+        if group:
+            group["anime"] |= {a, b}
+            continue
+        if len(groups) >= MAX_TWINS:
+            break
+        groups.append({"anime": {a, b}, "shared": shared, "either": r["either"], "jaccard": r["jaccard"]})
+    twins, show = [], []
+    for g in groups:
+        ids = sorted(g["anime"], key=lambda x: (-anime[x]["score"], x))
+        # Several anime of one series can join a group through different partners, so keep one per series.
+        one = {}
+        for x in ids:
+            one.setdefault(series_of[x], x)
+        ids = list(one.values())
+        shared = sorted((makers[ref] for ref in g["shared"]), key=lambda m: (m["label"] != "Person", m["name"]))
+        twins.append({
+            "shows": [_card(anime[x]) for x in ids],
+            "shared": [{k: m[k] for k in ("id", "label", "name")} for m in shared],
+            "either": g["either"],
+            "jaccard": round(g["jaccard"], 2),
+        })
+        show.append(_ids(ids, shared))
+    return twins, show
+
+
 def _card(a: dict[str, Any]) -> dict[str, Any]:
     return {"mal_id": a["id"], "title": a["title"], "image_url": a["image_url"]}
 
@@ -287,6 +382,12 @@ RETURN bcc_id, labels(node_from)[0] AS from_kind, node_from.mal_id AS from_id,
 def show_cluster(username: str, index: int) -> dict[str, list[int]] | None:
     """The anime and makers to draw for one cluster: all its anime and the makers behind two or more of them."""
     show = tour(username)["_show"]
+    return show[index] if 0 <= index < len(show) else None
+
+
+def show_twins(username: str, index: int) -> dict[str, list[int]] | None:
+    """Two twins and the makers they share."""
+    show = tour(username)["_twins"]
     return show[index] if 0 <= index < len(show) else None
 
 
