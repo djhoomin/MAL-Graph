@@ -7,7 +7,8 @@ Open work for MAL-Graph, in rough priority order. Production runs `main` behind 
 - [ ] **Ask MyAnimeList for written permission.** Their API agreement conflicts with three things the app does. It
       stores users' lists on the server (§3(c)). It gets characters, voice actors and staff from Jikan, which scrapes
       the MyAnimeList website (§4(i)). And it uses "MAL" in the app name and domain (§17). The request goes through
-      MyAnimeList's API support form. The site is non-commercial and read-only, which helps.
+      MyAnimeList's API support form. The site is non-commercial and read-only, which helps. The request was sent
+      through the support form on 14 November 2026, and this stays open until they reply.
 - [ ] **Rename the app.** Drop "MAL" from the name, the domain (`mal-graph.eu`) and the Kiss Marry Kill share image
       footer, whichever data source the app ends up on.
 - [ ] **Add a way to contact you on the privacy page.** `PRIVACY_CONTACT` is "DJ Human" with no address. GDPR expects
