@@ -12,6 +12,9 @@ export interface GolfOption {
 
 interface Golf {
   mode: 'daily' | 'practice'
+  easy: boolean // a short list of moves and the distance to the hole after each one
+  toHole: number | null // easy mode: steps from where the player stands to the hole
+  lastToHole: number | null // the distance before the last move, to say warmer or colder
   hole: GolfHole
   moves: string[] // positions from the tee, backtracks included
   trailNodes: Record<string, GNode>
@@ -28,7 +31,7 @@ interface GolfStore {
   starting: boolean
   startError: string | null
   stash: { nodes: Record<string, GNode>; edges: Record<string, GEdge> } | null
-  start: (mode: 'daily' | 'practice') => Promise<void>
+  start: (mode: 'daily' | 'practice', easy?: boolean) => Promise<void>
   move: (id: string) => Promise<void>
   mulligan: () => Promise<void>
   giveUp: () => Promise<void>
@@ -91,8 +94,25 @@ function render(g: Golf) {
   useStore.setState({ nodes, edges, selected: null, highlight: new Set(), pathFrom: g.hole.start.id, pathTo: g.hole.end.id, pathResult: null, pathPicking: false })
 }
 
-async function loadOptions(ref: string): Promise<GolfOption[]> {
-  const p = await golfApi.moves(ref)
+const EASY_KEY = 'malgraph.golf.easy'
+export function loadEasy(): boolean {
+  try {
+    return localStorage.getItem(EASY_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+function saveEasy(easy: boolean) {
+  try {
+    localStorage.setItem(EASY_KEY, easy ? '1' : '0')
+  } catch {
+    /* storage blocked: the choice lasts until reload */
+  }
+}
+
+/** The moves from `ref`. In easy mode (`hole` given) a short list plus the distance to the hole. */
+async function loadOptions(ref: string, hole?: string): Promise<{ options: GolfOption[]; toHole: number | null }> {
+  const p = await golfApi.moves(ref, hole)
   const byId = Object.fromEntries(p.nodes.map((n) => [n.id, n]))
   const seen = new Map<string, GolfOption>()
   for (const e of p.edges) {
@@ -102,7 +122,7 @@ async function loadOptions(ref: string): Promise<GolfOption[]> {
     const prev = seen.get(other)
     if (!prev || priority(o) < priority(prev)) seen.set(other, o)
   }
-  return [...seen.values()]
+  return { options: [...seen.values()], toHole: p.to_hole ?? null }
 }
 
 export const useGolf = create<GolfStore>((set, get) => {
@@ -121,7 +141,7 @@ export const useGolf = create<GolfStore>((set, get) => {
     try {
       const r =
         g.mode === 'daily'
-          ? await golfApi.finishDaily(g.moves, g.mulligans, gaveUp)
+          ? await golfApi.finishDaily(g.moves, g.mulligans, gaveUp, g.easy)
           : { ...(await golfApi.finishPractice(g.hole.start.id, g.hole.end.id, g.moves, g.mulligans, gaveUp)), par: g.hole.par }
       const round = r.round ?? { strokes: strokes(g), mulligans: g.mulligans, gave_up: gaveUp, moves: g.moves }
       update({ loading: false, result: { ...r, round, par: g.hole.par } })
@@ -136,14 +156,15 @@ export const useGolf = create<GolfStore>((set, get) => {
     startError: null,
     stash: null,
 
-    start: async (mode) => {
+    start: async (mode, easy = loadEasy()) => {
+      saveEasy(easy)
       const s = useStore.getState()
       if (!get().stash) set({ stash: { nodes: s.nodes, edges: s.edges } })
       set({ starting: true, startError: null })
       useStore.setState({ askOpen: false })
       try {
-        const hole: DailyResponse = mode === 'daily' ? await golfApi.daily() : await golfApi.practice()
-        const base: Golf = { mode, hole, moves: [hole.start.id], trailNodes: {}, trailEdges: [], options: [], mulligans: 0, loading: false, note: null, result: null }
+        const hole: DailyResponse = mode === 'daily' ? await golfApi.daily(easy) : await golfApi.practice()
+        const base: Golf = { mode, easy, toHole: null, lastToHole: null, hole, moves: [hole.start.id], trailNodes: {}, trailEdges: [], options: [], mulligans: 0, loading: false, note: null, result: null }
         // Already played today: go straight to the result.
         if (hole.round && hole.solution) {
           const g: Golf = { ...base, moves: hole.round.moves, mulligans: hole.round.mulligans, result: { round: hole.round, shortest: hole.shortest ?? null, summary: hole.summary, solution: hole.solution, par: hole.par } }
@@ -151,8 +172,8 @@ export const useGolf = create<GolfStore>((set, get) => {
           render(g)
           return
         }
-        const options = await loadOptions(hole.start.id)
-        const g = { ...base, options }
+        const { options, toHole } = await loadOptions(hole.start.id, easy ? hole.end.id : undefined)
+        const g = { ...base, options, toHole }
         set({ golf: g, starting: false })
         render(g)
       } catch (e) {
@@ -181,7 +202,8 @@ export const useGolf = create<GolfStore>((set, get) => {
       if (strokes(moved) >= MAX_STROKES) return finish(true)
       update({ loading: true })
       try {
-        update({ options: await loadOptions(id), loading: false })
+        const { options, toHole } = await loadOptions(id, g.easy ? g.hole.end.id : undefined)
+        update({ options, toHole, lastToHole: g.toHole, loading: false })
       } catch (e) {
         update({ loading: false, note: errorText(e) })
       }
@@ -196,7 +218,8 @@ export const useGolf = create<GolfStore>((set, get) => {
       const trailNodes = Object.fromEntries(Object.entries(g.trailNodes).filter(([k]) => keep.has(k)))
       set({ golf: { ...g, moves, trailEdges, trailNodes, mulligans: 1, loading: true, note: null } })
       try {
-        update({ options: await loadOptions(moves[moves.length - 1]), loading: false })
+        const { options, toHole } = await loadOptions(moves[moves.length - 1], g.easy ? g.hole.end.id : undefined)
+        update({ options, toHole, lastToHole: null, loading: false })
       } catch (e) {
         update({ loading: false, note: errorText(e) })
       }

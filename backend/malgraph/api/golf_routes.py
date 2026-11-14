@@ -47,6 +47,7 @@ class Round(BaseModel):
     moves: list[str] = Field(min_length=1, max_length=golf.MAX_MOVES + 1)
     mulligans: int = Field(0, ge=0, le=1)
     gave_up: bool = False
+    easy: bool = False
 
 
 class PracticeRound(Round):
@@ -55,28 +56,39 @@ class PracticeRound(Round):
 
 
 @router.get("/moves/{ref}")
-def moves(ref: str) -> dict[str, Any]:
-    """Every node one golf move away (all of them, so the right move is never cut off)."""
+def moves(ref: str, to: str | None = None, easy: bool = False) -> dict[str, Any]:
+    """Every node one golf move away (all of them, so the right move is never cut off).
+    In easy mode (with `to`, the hole) only a short list, one of which gets closer, plus the distance to the hole."""
     try:
         golf.parse(ref)
+        if easy and to:
+            golf.parse(to)
     except golf.GolfError as e:
         raise HTTPException(400, str(e))
-    return R.neighbors(ref, rels=",".join(golf.RELS), lang=golf.LANG, limit=2000)
+    payload = R.neighbors(ref, rels=",".join(golf.RELS), lang=golf.LANG, limit=2000)
+    if not (easy and to):
+        return payload
+    picked, to_hole = golf.easy_moves(ref, to)
+    keep = {*picked, ref}
+    nodes = [n for n in payload["nodes"] if n["id"] in keep]
+    edges = [e for e in payload["edges"] if e["source"] in keep and e["target"] in keep]
+    return {**payload, "nodes": nodes, "edges": edges, "to_hole": to_hole}
 
 
 @router.get("/daily")
-async def daily() -> dict[str, Any]:
+async def daily(easy: bool = False) -> dict[str, Any]:
     username = _user()
     try:
         hole = await run_in_threadpool(golf.daily_hole)
     except golf.GolfError as e:
         raise HTTPException(503, str(e))
     out = await run_in_threadpool(_public, hole)
-    mine = golf.my_round(hole["date"], username)
+    board = golf.board(hole["date"], easy)
+    mine = golf.my_round(board, username)
     if mine:  # already played today: show the result again
         out["round"] = mine
         out["shortest"] = hole["shortest"]
-        out["summary"] = golf.summary(hole["date"], username, hole["par"])
+        out["summary"] = golf.summary(board, username, hole["par"])
         out["solution"] = await run_in_threadpool(_solution, hole["start"], hole["end"])
     return out
 
@@ -95,13 +107,14 @@ async def play_daily(body: Round) -> dict[str, Any]:
         except golf.GolfError as e:
             raise HTTPException(400, str(e))
         entry = {"strokes": strokes, "mulligans": body.mulligans, "gave_up": False, "moves": body.moves}
-    counted = golf.record(hole["date"], username, entry)
+    board = golf.board(hole["date"], body.easy)
+    counted = golf.record(board, username, entry)
     return {
         "round": counted,
         "first_round": counted["moves"] == entry["moves"] and counted.get("gave_up") == entry["gave_up"],
         "par": hole["par"],
         "shortest": hole["shortest"],
-        "summary": golf.summary(hole["date"], username, hole["par"]),
+        "summary": golf.summary(board, username, hole["par"]),
         "solution": await run_in_threadpool(_solution, hole["start"], hole["end"]),
     }
 

@@ -304,11 +304,12 @@ export interface GolfResult {
 export type DailyResponse = GolfHole & Partial<GolfResult> & { round?: GolfRound }
 
 export const golfApi = {
-  daily: () => req<DailyResponse>('/api/golf/daily'),
+  daily: (easy = false) => req<DailyResponse>(`/api/golf/daily${qs({ easy: easy || undefined })}`),
   practice: () => req<GolfHole>('/api/golf/practice'),
-  moves: (ref: string) => req<GraphPayload>(`/api/golf/moves/${ref}`),
-  finishDaily: (moves: string[], mulligans: number, gave_up: boolean) =>
-    req<GolfResult & { par: number }>('/api/golf/daily', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ moves, mulligans, gave_up }) }),
+  /** Every move from `ref`, or in easy mode a short list toward the hole `to` plus the distance to it. */
+  moves: (ref: string, easyTo?: string) => req<GraphPayload & { to_hole?: number | null }>(`/api/golf/moves/${ref}${qs({ to: easyTo, easy: easyTo ? true : undefined })}`),
+  finishDaily: (moves: string[], mulligans: number, gave_up: boolean, easy = false) =>
+    req<GolfResult & { par: number }>('/api/golf/daily', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ moves, mulligans, gave_up, easy }) }),
   finishPractice: (start: string, end: string, moves: string[], mulligans: number, gave_up: boolean) =>
     req<GolfResult>('/api/golf/practice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start, end, moves, mulligans, gave_up }) }),
 }

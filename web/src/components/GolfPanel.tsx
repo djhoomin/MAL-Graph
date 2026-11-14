@@ -49,6 +49,10 @@ export function GolfPanel() {
 
   const { hole, result } = golf
   const title = golf.mode === 'daily' && hole.date ? `Daily hole · ${dayLabel(hole.date)}` : 'Practice hole'
+  // Switching modes starts the hole again. For the daily hole each mode has its own scores.
+  const setEasy = (easy: boolean) => easy !== golf.easy && void start(golf.mode, easy)
+  const warmth =
+    golf.toHole == null || golf.lastToHole == null ? '' : golf.toHole < golf.lastToHole ? ' · closer' : golf.toHole > golf.lastToHole ? ' · further' : ' · no closer'
   const here = golf.trailNodes[golf.moves[golf.moves.length - 1]] ?? hole.start
 
   return (
@@ -56,6 +60,16 @@ export function GolfPanel() {
       <header>
         <strong>{title}</strong>
         <span className="golf-header-actions">
+          {!result && (
+            <span className="segmented golf-level" role="group" aria-label="Difficulty">
+              <button className={golf.easy ? '' : 'on'} onClick={() => setEasy(false)} disabled={golf.loading}>
+                Normal
+              </button>
+              <button className={golf.easy ? 'on' : ''} onClick={() => setEasy(true)} disabled={golf.loading} title="A few moves to choose from, one of which always gets closer, and the distance to the hole after each move">
+                Easy
+              </button>
+            </span>
+          )}
           {!result && (
             <button className="link" onClick={() => void start('practice')} disabled={golf.loading}>
               {golf.mode === 'daily' ? 'Practice' : 'New hole'}
@@ -78,6 +92,7 @@ export function GolfPanel() {
             {result.round?.strokes} {result.round?.strokes === 1 ? 'stroke' : 'strokes'} · par {result.par}
             {result.shortest != null && ` · shortest route ${result.shortest}`}
             {result.round?.mulligans ? ' · 1 mulligan' : ''}
+            {golf.easy ? ' · easy' : ''}
           </p>
           {result.first_round === false && <p className="muted small-text">Only your first round today counts. This is that round.</p>}
           {result.summary && result.summary.players > 0 && (
@@ -116,7 +131,12 @@ export function GolfPanel() {
           <div className="golf-here muted small-text">
             At <b>{here.name}</b> · {golf.options.length} {golf.options.length === 1 ? 'move' : 'moves'}
           </div>
-          <input className="golf-filter" placeholder="Find a move" value={filter} onChange={(e) => setFilter(e.target.value)} autoComplete="off" />
+          {golf.easy && golf.toHole != null && (
+            <div className={`golf-distance ${warmth === ' · closer' ? 'warmer' : warmth === ' · further' ? 'colder' : ''}`}>
+              {golf.toHole} {golf.toHole === 1 ? 'step' : 'steps'} to the hole{warmth}
+            </div>
+          )}
+          {!golf.easy && <input className="golf-filter" placeholder="Find a move" value={filter} onChange={(e) => setFilter(e.target.value)} autoComplete="off" />}
           <ul className="golf-moves">
             {options.slice(0, 300).map((o) => (
               <li key={o.node.id}>

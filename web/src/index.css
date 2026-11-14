@@ -521,3 +521,10 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .guess-results.inline { position: static; margin-top: 6px; max-height: 360px; }
 .guess-name { flex: 1; min-width: 0; }
 .guess-kind { flex: none; font-size: 11px; color: var(--muted); }
+.golf-level button { height: 24px; padding: 0 8px; font-size: 12px; }
+/* Only the moves list gives way when the panel is short, so the buttons below it stay on screen. */
+.golf-panel > * { flex-shrink: 0; }
+.golf-panel > .golf-moves { flex-shrink: 1; }
+.golf-distance { font-size: 13px; font-weight: 600; margin: 2px 0 6px; }
+.golf-distance.warmer { color: #4cc38a; }
+.golf-distance.colder { color: #ff8a5c; }

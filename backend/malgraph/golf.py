@@ -89,6 +89,33 @@ def par_for(a: str, b: str, best: int, rng: random.Random) -> tuple[int, list[in
     return max(best, math.floor(sum(routes) / len(routes) + 0.5)), routes  # halves round up, as in golf
 
 
+EASY_OPTIONS = 6
+
+
+def easy_moves(here: str, hole: str) -> tuple[list[str], int | None]:
+    """Easy mode: a short list of moves from `here`, one of which always gets closer to the hole, and how far the
+    hole is. The list comes from a seed made of the position and the hole, so it doesn't change on a reload and every
+    player at the same spot sees the same choices."""
+    path = shortest_path(here, hole, MAX_HOPS + 4)
+    to_hole = len(path.relationships) if path is not None else None
+    closer = None
+    if path is not None and len(path.nodes) > 1:
+        n = path.nodes[1]
+        closer = f"{next(iter(n.labels & LABELS))}:{n['mal_id']}"
+    la, ia = parse(here)
+    rows = db.run(
+        f"MATCH (a:{la} {{mal_id: $a}})-[r]-(n) WHERE type(r) IN $rels AND (type(r) <> 'VOICES' OR r.language = $lang) "
+        "RETURN DISTINCT labels(n)[0] AS label, n.mal_id AS id",
+        a=ia, rels=RELS, lang=LANG,
+    )
+    refs = sorted({f"{r['label']}:{r['id']}" for r in rows if r["label"] in LABELS} - {here, closer or ""})
+    rng = random.Random(f"easy:{here}->{hole}")
+    picked = rng.sample(refs, min(EASY_OPTIONS - (1 if closer else 0), len(refs)))
+    if closer:
+        picked.insert(rng.randrange(len(picked) + 1), closer)
+    return picked, to_hole
+
+
 def adjacent(a: str, b: str) -> bool:
     (la, ia), (lb, ib) = parse(a), parse(b)
     rows = db.run(
@@ -182,6 +209,11 @@ def check_round(hole: dict[str, Any], moves: list[str]) -> int:
         if not adjacent(a, b):
             raise GolfError(f"{a} and {b} are not connected")
     return len(moves) - 1
+
+
+def board(day: str, easy: bool = False) -> str:
+    """The scoreboard a round goes on. Easy rounds have their own, so the two modes aren't ranked together."""
+    return f"{day}-easy" if easy else day
 
 
 def _scores_path(day: str) -> Path:
