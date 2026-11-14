@@ -20,6 +20,10 @@ from .config import settings
 
 MIN_POOL = 4
 POOL_SIZE = 40
+# A pool is mostly the theme's best-known characters, so a big voice actor isn't all side roles, plus a few from the
+# rest so the spicy draw has someone obscure to pick.
+KNOWN = 60
+FROM_KNOWN = 30
 
 SEEN = "MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) WHERE l.status <> 'plan_to_watch'"
 GENDER = "($gender IS NULL OR c.gender = $gender)"
@@ -102,8 +106,14 @@ def _pool(kind: Kind, key: Any, rng: random.Random, gender: str | None) -> list[
 
     with db.get_driver().session() as session:  # graph nodes, not plain dicts, for node_payload
         rows = list(session.run(kind.pool, **{**users.params_for(kind.pool), "key": key, "gender": gender}))
+    rows.sort(key=lambda r: -(r["c"].get("favorites") or 0))
+    known, rest = rows[:KNOWN], rows[KNOWN:]
+    rng.shuffle(known)
+    rng.shuffle(rest)
+    rows = known[:FROM_KNOWN] + rest[: POOL_SIZE - FROM_KNOWN] + known[FROM_KNOWN:]  # top up from the known when the rest runs short
+    rows = rows[:POOL_SIZE]
     rng.shuffle(rows)
-    return [{"character": node_payload(r["c"]), "anime": r["anime"][:3], "main": bool(r["main"])} for r in rows[:POOL_SIZE]]
+    return [{"character": node_payload(r["c"]), "anime": r["anime"][:3], "main": bool(r["main"])} for r in rows]
 
 
 def theme(avoid: str | None = None, kind_name: str | None = None, key: Any = None, gender: str | None = None) -> dict[str, Any] | None:

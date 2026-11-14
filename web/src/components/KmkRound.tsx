@@ -9,11 +9,71 @@ type Fate = Choice | 'terrarium'
 const LABELS: Record<Fate, string> = { kiss: 'Kiss', marry: 'Marry', kill: 'Kill', terrarium: 'Terrarium' }
 const COLORS: Record<Fate, string> = { kiss: '#ff7eb6', marry: '#ffd166', kill: '#ff4f6a', terrarium: '#4cc38a' }
 
-function draw(pool: KmkCard[], n = 3): KmkCard[] {
-  const copy = [...pool]
-  const out: KmkCard[] = []
-  while (out.length < Math.min(n, pool.length)) out.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0])
+/** How a round's three are picked: at random, three about as well known as each other, or one famous with two obscure. */
+export type DrawMode = 'random' | 'balanced' | 'spicy'
+const DRAW_MODES: { value: DrawMode; label: string; tip: string }[] = [
+  { value: 'random', label: 'Random', tip: 'Any three from the theme.' },
+  { value: 'balanced', label: 'Balanced', tip: 'Three characters about as popular as each other on MyAnimeList.' },
+  { value: 'spicy', label: 'Spicy', tip: 'One famous character and two obscure ones.' },
+]
+const DRAW_KEY = 'malgraph.kmk.draw'
+function loadDraw(): DrawMode {
+  try {
+    const m = localStorage.getItem(DRAW_KEY)
+    return m === 'balanced' || m === 'spicy' ? m : 'random'
+  } catch {
+    return 'random'
+  }
+}
+
+const pickOne = <T,>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)]
+function shuffle<T>(xs: T[]): T[] {
+  const out = [...xs]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
   return out
+}
+/** Popularity on a log scale, so 100 and 1,000 favourites are as far apart as 1,000 and 10,000. */
+const fame = (c: KmkCard) => Math.log10(Number(c.character.props.favorites ?? 0) + 1)
+/** The `n` cards closest in popularity to `target`, picked at random from the few closest so rounds vary. */
+function nearest(cards: KmkCard[], target: number, n: number): KmkCard[] {
+  const close = [...cards].sort((a, b) => Math.abs(fame(a) - target) - Math.abs(fame(b) - target)).slice(0, n + 2)
+  return shuffle(close).slice(0, n)
+}
+/** The most popular quarter of a pool and its least popular half. */
+function splitByFame(pool: KmkCard[]) {
+  const sorted = [...pool].sort((a, b) => fame(b) - fame(a))
+  return { famous: sorted.slice(0, Math.ceil(sorted.length / 4)), obscure: sorted.slice(Math.ceil(sorted.length / 2)) }
+}
+
+function draw(pool: KmkCard[], mode: DrawMode = 'random'): KmkCard[] {
+  if (pool.length <= 3) return shuffle(pool)
+  if (mode === 'balanced') {
+    const anchor = pickOne(pool)
+    return shuffle([anchor, ...nearest(pool.filter((c) => c !== anchor), fame(anchor), 2)])
+  }
+  if (mode === 'spicy') {
+    const { famous, obscure } = splitByFame(pool)
+    if (famous.length && obscure.length >= 2) return shuffle([pickOne(famous), ...shuffle(obscure).slice(0, 2)])
+  }
+  return shuffle(pool).slice(0, 3)
+}
+
+/** A replacement for one card that keeps the round's mode: as popular as the other two, or from the same end. */
+function replacement(pool: KmkCard[], cards: KmkCard[], i: number, mode: DrawMode): KmkCard | undefined {
+  const taken = new Set(cards.map((c) => c.character.id))
+  const rest = pool.filter((c) => !taken.has(c.character.id))
+  if (!rest.length) return undefined
+  const others = cards.filter((_, j) => j !== i)
+  if (mode === 'balanced' && others.length) return nearest(rest, others.reduce((n, c) => n + fame(c), 0) / others.length, 1)[0]
+  if (mode === 'spicy') {
+    const { famous, obscure } = splitByFame(pool)
+    const side = (famous.includes(cards[i]) ? famous : obscure).filter((c) => !taken.has(c.character.id))
+    if (side.length) return pickOne(side)
+  }
+  return pickOne(rest)
 }
 
 /** Everyone's choices for one card, as counts. */
@@ -41,7 +101,8 @@ interface Props {
 
 /** One round of Kiss Marry Kill: three characters, each choice used once, one reroll, then a result to share. */
 export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: givenId, rescued: givenRescued, onNewTheme, newThemeBusy, onClose, filter }: Props) {
-  const [cards, setCards] = useState(() => (fixed ? pool.slice(0, 3) : draw(pool)))
+  const [mode, setMode] = useState<DrawMode>(loadDraw)
+  const [cards, setCards] = useState(() => (fixed ? pool.slice(0, 3) : draw(pool, mode)))
   const [choices, setChoices] = useState<Record<string, Choice>>(locked ?? {})
   const [rerolled, setRerolled] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -93,8 +154,8 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: g
     }
   }
 
-  const again = () => {
-    setCards(draw(pool))
+  const again = (m: DrawMode = mode) => {
+    setCards(draw(pool, m))
     setChoices({})
     setRerolled(false)
     setRecordedId(null)
@@ -103,13 +164,21 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: g
   // A correction updates the card in place; the round carries on.
   const fixGender = (id: string, gender: string | null) =>
     setCards((cs) => cs.map((c) => (c.character.id === id ? { ...c, character: { ...c.character, props: { ...c.character.props, gender } } } : c)))
+  const changeMode = (m: DrawMode) => {
+    setMode(m)
+    try {
+      localStorage.setItem(DRAW_KEY, m)
+    } catch {
+      /* storage blocked: the mode lasts until the page closes */
+    }
+    again(m)
+  }
   const reroll = (i: number) => {
-    const taken = new Set(cards.map((c) => c.character.id))
-    const rest = pool.filter((c) => !taken.has(c.character.id))
-    if (!rest.length) return
+    const swap = replacement(pool, cards, i, mode)
+    if (!swap) return
     const next = [...cards]
     const old = next[i].character.id
-    next[i] = rest[Math.floor(Math.random() * rest.length)]
+    next[i] = swap
     setCards(next)
     setChoices(({ [old]: _drop, ...keep }) => keep)
     setRerolled(true)
@@ -152,6 +221,15 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: g
       <div className="kmk-head">
         <h2>{title}</h2>
         {filter}
+        {!fixed && pool.length > 3 && (
+          <div className="segmented" role="group" aria-label="How the three are drawn">
+            {DRAW_MODES.map((m) => (
+              <button key={m.value} className={mode === m.value ? 'on' : ''} onClick={() => changeMode(m.value)} title={m.tip}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
         {onClose && (
           <button className="link" onClick={onClose}>
             Back to all characters
@@ -214,7 +292,7 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: g
           </button>
         )}
         {!fixed && (
-          <button onClick={again} disabled={pool.length < 3}>
+          <button onClick={() => again()} disabled={pool.length < 3}>
             {done ? 'Play again' : 'Draw three others'}
           </button>
         )}

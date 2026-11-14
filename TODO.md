@@ -44,8 +44,8 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
 
 - [x] **Daily Kiss Marry Kill.** The same three for everyone each day, with an anonymous tally of choices. Built as
       "Today's three" on the Kiss Marry Kill page.
-- [ ] **Balanced Kiss Marry Kill draws.** Pick three characters of similar popularity using MyAnimeList favourites, or
-      a spicy mode with one famous character and two obscure ones.
+- [x] **Balanced Kiss Marry Kill draws.** Random, Balanced (three of similar popularity by MyAnimeList favourites) and
+      Spicy (one famous, two obscure). Pools are now 30 of a theme's best-known characters and 10 from the rest.
 - [ ] **Guess the voice actor.** Show three characters and ask who voices all of them.
 - [ ] **Pass-the-phone Kiss Marry Kill** for groups, revealing where players agreed.
 - [x] **Odd one out.** Four characters, three of which share a hidden link (voice actor, studio, creator or season).
