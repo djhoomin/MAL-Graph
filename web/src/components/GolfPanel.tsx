@@ -3,6 +3,7 @@ import type { GNode } from '../api'
 import { edgeLabel } from '../graph/elements'
 import { LABEL_COLORS } from '../graph/style'
 import { scoreName, sortOptions, strokes, useGolf } from '../golf'
+import { useHowTo } from './GameBits'
 import { CloseIcon } from './icons'
 
 const dayLabel = (date: string) => new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' })
@@ -25,6 +26,7 @@ export function GolfPanel() {
   const startError = useGolf((s) => s.startError)
   const { move, mulligan, giveUp, exit, start } = useGolf.getState()
   const [filter, setFilter] = useState('')
+  const [rules, setRules] = useHowTo('golf')
 
   const options = useMemo(() => {
     if (!golf) return []
@@ -62,7 +64,7 @@ export function GolfPanel() {
         <span className="golf-header-actions">
           {!result && (
             <span className="segmented golf-level" role="group" aria-label="Difficulty">
-              <button className={golf.easy ? '' : 'on'} onClick={() => setEasy(false)} disabled={golf.loading}>
+              <button className={golf.easy ? '' : 'on'} onClick={() => setEasy(false)} disabled={golf.loading} title="Every move from where you are, with a search box">
                 Normal
               </button>
               <button className={golf.easy ? 'on' : ''} onClick={() => setEasy(true)} disabled={golf.loading} title="A few moves to choose from, one of which always gets closer, and the distance to the hole after each move">
@@ -70,8 +72,11 @@ export function GolfPanel() {
               </button>
             </span>
           )}
+          <button className={`link ${rules ? 'on' : ''}`} onClick={() => setRules(!rules)} aria-expanded={rules}>
+            Rules
+          </button>
           {!result && (
-            <button className="link" onClick={() => void start('practice')} disabled={golf.loading}>
+            <button className="link" onClick={() => void start('practice')} disabled={golf.loading} title={golf.mode === 'daily' ? 'Play a random hole that doesn\'t count' : 'Try another random hole'}>
               {golf.mode === 'daily' ? 'Practice' : 'New hole'}
             </button>
           )}
@@ -80,6 +85,16 @@ export function GolfPanel() {
           </button>
         </span>
       </header>
+      {rules && (
+        <div className="golf-rules small-text">
+          <p>Get from the tee to the hole in as few moves as you can. Each move follows one link in the graph, such as an anime to one of its characters, a character to their voice actor, or a voice actor to another role. Each move is a stroke, and par is what a fair round takes, so the shortest route is often a stroke or two under it.</p>
+          <p>Normal mode lists every link from where you are, and you can type to find one. Easy mode gives you six moves to choose from, one of which always gets closer, and tells you how many steps are left after each move.</p>
+          <p>A mulligan takes back your last move for free, once per hole. The daily hole is the same for everyone, and only your first round each day counts. Practice holes are random and don't count.</p>
+          <button className="primary" onClick={() => setRules(false)}>
+            Got it
+          </button>
+        </div>
+      )}
       <div className="golf-ends">
         <End node={hole.start} tag="Tee" />
         <End node={hole.end} tag="Hole" />
@@ -156,7 +171,7 @@ export function GolfPanel() {
             <button onClick={() => void mulligan()} disabled={golf.loading || golf.mulligans > 0 || golf.moves.length < 2} title="Take back your last move without a stroke. One per hole.">
               {golf.mulligans > 0 ? 'Mulligan used' : 'Mulligan'}
             </button>
-            <button onClick={() => void giveUp()} disabled={golf.loading}>
+            <button onClick={() => void giveUp()} disabled={golf.loading} title="End the hole and see the shortest route">
               Give up
             </button>
           </div>

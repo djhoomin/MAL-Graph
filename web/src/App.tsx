@@ -8,6 +8,7 @@ import { ChatIcon, CloseIcon, FitIcon } from './components/icons'
 import { NodeCard } from './components/NodeCard'
 import { PathBar } from './components/PathBar'
 import { PrivacyPage } from './components/PrivacyPage'
+import { HelpPage } from './components/HelpPage'
 import { KmkPage } from './components/KmkPage'
 import { MysteryPage } from './components/MysteryPage'
 import { OddPage } from './components/OddPage'
@@ -24,6 +25,7 @@ export default function App() {
   if (route[0] === 'roster') return <RosterPage personId={route[1]} />
   if (route[0] === 'insights') return <InsightsPage />
   if (route[0] === 'privacy') return <PrivacyPage />
+  if (route[0] === 'help') return <HelpPage />
   if (route[0] === 'kmk') return <KmkPage />
   if (route[0] === 'odd') return <OddPage />
   if (route[0] === 'mystery') return <MysteryPage />

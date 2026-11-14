@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Histogram, KmkCard } from '../api'
 
 /** A character card for the daily games: picture, name and best-known anime. */
@@ -36,5 +36,47 @@ export function FieldBars({ rows, label, mine }: { rows: Histogram[]; label: (va
         </div>
       ))}
     </div>
+  )
+}
+
+const HOWTO_KEY = 'malgraph.howto.'
+
+/** Whether someone has seen a game's rules. The rules start open until they're closed once. */
+function seen(id: string): boolean {
+  try {
+    return localStorage.getItem(HOWTO_KEY + id) === 'seen'
+  } catch {
+    return false
+  }
+}
+
+export function useHowTo(id: string): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState(() => !seen(id))
+  const change = (next: boolean) => {
+    setOpen(next)
+    if (!next) {
+      try {
+        localStorage.setItem(HOWTO_KEY + id, 'seen')
+      } catch {
+        /* storage blocked: the rules open again next visit */
+      }
+    }
+  }
+  return [open, change]
+}
+
+/** The rules of a game, open on the first visit and folded away once read. */
+export function HowTo({ id, children }: { id: string; children: ReactNode }) {
+  const [open, setOpen] = useHowTo(id)
+  return (
+    <details className="howto" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+      <summary>How to play</summary>
+      <div className="howto-body">
+        {children}
+        <button className="primary" onClick={() => setOpen(false)}>
+          Got it
+        </button>
+      </div>
+    </details>
   )
 }

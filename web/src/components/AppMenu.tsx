@@ -64,18 +64,19 @@ function MenuBody({ close }: { close: () => void }) {
       )}
 
       <section className="menu-list">
-        <button onClick={act(() => void useGolf.getState().start('daily'))}>Graph Golf</button>
-        <a href="#/kmk" onClick={close}>Kiss Marry Kill</a>
-        <a href="#/odd" onClick={close}>Odd one out</a>
-        <a href="#/mystery" onClick={close}>Mystery character</a>
-        <a href="#/insights" onClick={close}>Insights</a>
-        <a href="#/roster" onClick={close}>VA roster</a>
+        <button onClick={act(() => void useGolf.getState().start('daily'))} title="Get from one thing to another along the graph in as few moves as you can">Graph Golf</button>
+        <a href="#/kmk" onClick={close} title="Kiss one, marry one, kill one">Kiss Marry Kill</a>
+        <a href="#/odd" onClick={close} title="Find the character who doesn't share the others' link">Odd one out</a>
+        <a href="#/mystery" onClick={close} title="Guess today's character from clues">Mystery character</a>
+        <a href="#/insights" onClick={close} title="A summary of your list">Insights</a>
+        <a href="#/roster" onClick={close} title="The voice actors in your anime">VA roster</a>
+        <a href="#/help" onClick={close}>Help</a>
         <a href="#/privacy" onClick={close}>Privacy and your data</a>
       </section>
 
       <section className="menu-list">
-        {user?.username && <button onClick={act(() => void loadNeighbors(`User:${user.username}`))}>Add my list to the graph</button>}
-        <button onClick={act(relayout)}>Re-layout</button>
+        {user?.username && <button onClick={act(() => void loadNeighbors(`User:${user.username}`))} title="Put every anime on your list on the graph">Add my list to the graph</button>}
+        <button onClick={act(relayout)} title="Rearrange the graph">Re-layout</button>
         <button onClick={act(clear)} disabled={nodeCount === 0}>
           Clear graph
         </button>

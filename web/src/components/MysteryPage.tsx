@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, errorText, mysteryApi, type GNode, type GraphPayload, type Mystery } from '../api'
 import { navigate } from '../useHashRoute'
-import { FieldBars, GameCard } from './GameBits'
+import { FieldBars, GameCard, HowTo } from './GameBits'
 
 /** Mystery character: guess today's character from clues revealed one at a time. */
 export function MysteryPage() {
@@ -39,6 +39,12 @@ export function MysteryPage() {
       <div className="kmk-page mystery">
         <h1>Mystery character</h1>
         <p className="muted">Guess today's character. Each wrong guess shows another clue, and fewer clues is better.</p>
+        <HowTo id="mystery">
+          <p>There's one mystery character a day, and it's the same for everyone. You start with one clue, and the clues get more specific as they go, from how many anime the character is in down to the anime's title.</p>
+          <p>To guess, type a character's name and pick them from the list. If you know the anime but not the name, type the anime's title instead and pick it, and you can choose from its characters, main characters first.</p>
+          <p>A wrong guess shows the next clue. You can also ask for the next clue without guessing, but your score is the number of clues you saw, so guessing early costs nothing. A wrong guess on the last clue ends the game, and so does giving up.</p>
+          <p>A new character comes at midnight UTC. Once you're done, you can see how many clues everyone else needed.</p>
+        </HowTo>
         {!game && !error && <p className="muted">Loading today's clues…</p>}
         {game && (
           <>

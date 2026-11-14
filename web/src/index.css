@@ -528,3 +528,17 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .golf-distance { font-size: 13px; font-weight: 600; margin: 2px 0 6px; }
 .golf-distance.warmer { color: #4cc38a; }
 .golf-distance.colder { color: #ff8a5c; }
+
+/* How to play: the rules of a game, open on the first visit */
+.howto { margin: 8px 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
+.howto summary { cursor: pointer; padding: 8px 12px; font-weight: 600; font-size: 14px; }
+.howto-body { padding: 0 14px 4px; font-size: 14px; line-height: 1.55; }
+.howto-body p { margin: 0 0 10px; }
+.golf-rules { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; line-height: 1.5; max-height: 40vh; overflow-y: auto; }
+.golf-rules p { margin: 0 0 8px; }
+.golf-header-actions .link.on { text-decoration: underline; }
+.howto-body > button { margin: 0 0 12px; }
+/* The golf header wraps its buttons to a second row on narrow screens instead of squeezing the title. */
+.golf-panel header { flex-wrap: wrap; gap: 6px; }
+.golf-panel header > strong { white-space: nowrap; }
+.golf-header-actions { margin-left: auto; }

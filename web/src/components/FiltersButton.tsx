@@ -61,7 +61,7 @@ export function FiltersButton() {
           </label>
         </div>
       )}
-      <button className={`fab ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-label="Filters">
+      <button className={`fab ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-label="Filters" title="Hide kinds of nodes or connections">
         <FilterIcon />
         <span className="fab-label">Filters</span>
         {changed && <span className="badge-dot" />}

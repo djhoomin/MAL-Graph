@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { errorText, oddApi, type KmkCard, type OddDaily, type OddLink, type OddResult } from '../api'
 import { navigate } from '../useHashRoute'
-import { FieldBars, GameCard } from './GameBits'
+import { FieldBars, GameCard, HowTo } from './GameBits'
 
 /** On a phone the reveal sits below the cards, so a new round starts back at the top of the page. */
 const toTop = () => document.querySelector('.doc-page')?.scrollTo({ top: 0, behavior: 'smooth' })
@@ -19,6 +19,12 @@ export function OddPage() {
       <div className="kmk-page">
         <h1>Odd one out</h1>
         <p className="muted">Three of these characters share a voice actor, a studio, a creator or an anime season. Pick the one that doesn't belong.</p>
+        <HowTo id="odd">
+          <p>Each round shows four characters. Three of them have something in common, and the fourth doesn't. Tap the one you think is the odd one out.</p>
+          <p>The link can be one of four things. The three can share a Japanese voice actor, they can be main characters in anime by the same studio, they can come from the same original creator, or they can be main characters in anime from the same season. The three never come from the same anime or its sequels, so the link takes a bit more thought than that.</p>
+          <p>Under each name is the character's best-known anime, which is a good hint. After you answer, the link is shown, and you can tap the name in it to look it up.</p>
+          <p>There are five rounds a day, and they're the same for everyone. Only your first pick in each round counts. Once you've played them, you can see how everyone else did and keep going with practice rounds, which are endless and don't count.</p>
+        </HowTo>
         {practice ? <Practice onDaily={() => setPractice(false)} /> : <Daily onPractice={() => setPractice(true)} />}
       </div>
     </div>

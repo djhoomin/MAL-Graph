@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { errorText, kmkApi, kmkDailyApi, kmkHistoryApi, type KmkDaily, type KmkHistory, type KmkTheme, type ShelfCard } from '../api'
 import { navigate } from '../useHashRoute'
 import { loadWho, saveWho, WhoFilter, type Who } from './Gender'
+import { HowTo } from './GameBits'
 import { KmkRound, type Choice, type Tally } from './KmkRound'
 
 type Mode = 'today' | 'mine' | 'collection'
@@ -37,6 +38,12 @@ export function KmkPage() {
       </header>
       <div className="kmk-page">
         <h1>Kiss Marry Kill</h1>
+        <HowTo id="kmk">
+          <p>You get three characters, and you have to kiss one, marry one and kill one. Each choice can only be used once, so every character ends up with a different fate.</p>
+          <p>Today's three is the same round for everyone, and once you lock your choices in you can see how everyone else chose. From your list draws three characters from a theme in your own anime list, such as a studio or a voice actor. You can swap one character per round, spin a new theme, and choose whether to see women, men or everyone.</p>
+          <p>Every round you finish goes into your collection. The ones you married go in your harem, the ones you kissed in your hookups and the ones you killed in your graveyard. If you feel bad about a kill, you can put that character in the terrarium after the round, where they're safe as a pet instead. Only you can see your collection.</p>
+          <p>When a round is done you can save it as a picture to share.</p>
+        </HowTo>
         <div className="segmented game-mode" role="group" aria-label="Which round">
           <button className={mode === 'today' ? 'on' : ''} onClick={() => change('today')}>
             Today's three

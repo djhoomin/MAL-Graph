@@ -80,10 +80,10 @@ function NodeSummary() {
       {/* The extra actions open in place: the card scrolls, so a floating list would be clipped by it. */}
       <div ref={moreRef}>
         <div className="card-actions">
-          <button className="primary" onClick={() => void expandNode(node.id)}>
+          <button className="primary" onClick={() => void expandNode(node.id)} title="Add everything connected to this">
             Expand
           </button>
-          <button className={pathPicking && pathFrom === node.id ? 'on' : ''} onClick={() => startPath(node.id)}>
+          <button className={pathPicking && pathFrom === node.id ? 'on' : ''} onClick={() => startPath(node.id)} title="Find the shortest chain from this to something else">
             Path
           </button>
           <button className={`icon-btn ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen((v) => !v)} aria-label="More actions" aria-expanded={moreOpen}>
