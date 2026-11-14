@@ -7,12 +7,16 @@ characters people remember. A theme needs at least MIN_POOL characters to be off
 """
 from __future__ import annotations
 
+import json
 import random
+import secrets
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any
 
 from . import db, games, users
+from .config import settings
 
 MIN_POOL = 4
 POOL_SIZE = 40
@@ -194,4 +198,105 @@ def play_daily(username: str, choices: dict[str, str]) -> dict[str, Any]:
     puzzle = daily()
     if sorted(choices) != sorted(str(c) for c in puzzle["cards"]) or sorted(choices.values()) != sorted(CHOICES):
         raise ValueError("give each of today's three characters a different choice")
-    return games.update_play("kmk", puzzle["date"], username, lambda old: old or {"choices": choices, "at": time.time()})
+    def change(old: dict[str, Any] | None) -> dict[str, Any]:
+        if old:
+            return old
+        rid = record_round(username, puzzle["title"], "daily", choices)
+        return {"choices": choices, "at": time.time(), "round_id": rid}
+
+    return games.update_play("kmk", puzzle["date"], username, change)
+
+
+# --------------------------------------------------------------------------- History and the terrarium
+# Every finished round, daily or from the player's list, goes into the player's own history. From it come their
+# Harem (married), Hookups (kissed) and Graveyard (killed), each with how often a character ended up there.
+# After a round the killed character can be rescued into the Terrarium instead, where they can't come to harm.
+# The history is private and is deleted with the player's data (games.forget).
+
+MAX_HISTORY = 5000  # rounds kept per player, oldest dropped first
+_history_lock = threading.Lock()
+
+
+def _history_path(username: str):
+    path = settings.golf_dir / "kmk" / "history"
+    path.mkdir(parents=True, exist_ok=True)
+    return path / f"{username.lower()}.json"
+
+
+def _load_history(username: str) -> list[dict[str, Any]]:
+    try:
+        return json.loads(_history_path(username).read_text())
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def _save_history(username: str, rounds: list[dict[str, Any]]) -> None:
+    path = _history_path(username)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(rounds[-MAX_HISTORY:]))
+    tmp.replace(path)
+
+
+def check_choices(choices: dict[str, str]) -> None:
+    if len(choices) != 3 or sorted(choices.values()) != sorted(CHOICES) or not all(k.isdigit() for k in choices):
+        raise ValueError("give each of the three characters a different choice")
+
+
+def record_round(username: str, title: str, source: str, choices: dict[str, str]) -> str:
+    """Add a finished round to the player's history. Returns its id, for a rescue."""
+    check_choices(choices)
+    found = db.run("MATCH (c:Character) WHERE c.mal_id IN $ids RETURN count(c) AS n", ids=[int(k) for k in choices])
+    if not found or found[0]["n"] != 3:
+        raise ValueError("those aren't three known characters")
+    rid = secrets.token_hex(6)
+    with _history_lock:
+        rounds = _load_history(username)
+        rounds.append({"id": rid, "at": time.time(), "title": title[:200], "source": source, "choices": choices, "rescued": None})
+        _save_history(username, rounds)
+    return rid
+
+
+def rescue(username: str, round_id: str) -> int:
+    """Move a round's killed character to the terrarium. Returns their id."""
+    with _history_lock:
+        rounds = _load_history(username)
+        rnd = next((r for r in rounds if r["id"] == round_id), None)
+        if rnd is None:
+            raise ValueError("that round isn't in your history")
+        killed = next(int(k) for k, ch in rnd["choices"].items() if ch == "kill")
+        rnd["rescued"] = killed
+        _save_history(username, rounds)
+    return killed
+
+
+def history(username: str) -> dict[str, Any]:
+    """The player's collections, each a list of characters with how often they landed there, most often first."""
+    rounds = _load_history(username)
+    shelves: dict[str, dict[int, dict[str, Any]]] = {"harem": {}, "hookups": {}, "graveyard": {}, "terrarium": {}}
+    shelf_of = {"marry": "harem", "kiss": "hookups", "kill": "graveyard"}
+    for r in rounds:
+        for k, ch in r["choices"].items():
+            cid = int(k)
+            shelf = "terrarium" if ch == "kill" and r.get("rescued") == cid else shelf_of[ch]
+            entry = shelves[shelf].setdefault(cid, {"count": 0, "last": 0})
+            entry["count"] += 1
+            entry["last"] = max(entry["last"], r["at"])
+    ids = sorted({cid for s in shelves.values() for cid in s})
+    cards = {c["character"]["mal_id"]: c for c in games.character_cards(ids)}
+    out: dict[str, Any] = {"rounds": len(rounds)}
+    for name, entries in shelves.items():
+        ordered = sorted(entries.items(), key=lambda kv: (-kv[1]["count"], -kv[1]["last"]))
+        out[name] = [{**cards[cid], "count": e["count"]} for cid, e in ordered if cid in cards]
+    return out
+
+
+def was_rescued(username: str, round_id: str | None) -> bool:
+    return bool(round_id) and any(r["id"] == round_id and r.get("rescued") for r in _load_history(username))
+
+
+def forget_history(username: str) -> bool:
+    path = _history_path(username)
+    if path.exists():
+        path.unlink()
+        return True
+    return False

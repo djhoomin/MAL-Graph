@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from . import agent, db, games, golf, jobs, users
+from . import agent, db, games, golf, jobs, kmk, users
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +25,7 @@ def delete_user(username: str) -> dict[str, Any]:
     agent.forget_conversations(username)
     rounds = golf.forget(username)
     plays = games.forget(username)
+    kmk.forget_history(username)
     # Imported here: routes imports this module's callers, and the cooldown is only an in-memory dict.
     from .api import routes
     routes._last_sync.pop(username.lower(), None)

@@ -1,11 +1,13 @@
-import { useState, type ReactNode } from 'react'
-import type { KmkCard } from '../api'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { kmkHistoryApi, type KmkCard } from '../api'
 import { GenderFix } from './Gender'
 
 export type Choice = 'kiss' | 'marry' | 'kill'
 const CHOICES: Choice[] = ['kiss', 'marry', 'kill']
-const LABELS: Record<Choice, string> = { kiss: 'Kiss', marry: 'Marry', kill: 'Kill' }
-const COLORS: Record<Choice, string> = { kiss: '#ff7eb6', marry: '#ffd166', kill: '#ff4f6a' }
+/** What a card ends up as: a choice, or the terrarium for a killed character who was rescued. */
+type Fate = Choice | 'terrarium'
+const LABELS: Record<Fate, string> = { kiss: 'Kiss', marry: 'Marry', kill: 'Kill', terrarium: 'Terrarium' }
+const COLORS: Record<Fate, string> = { kiss: '#ff7eb6', marry: '#ffd166', kill: '#ff4f6a', terrarium: '#4cc38a' }
 
 function draw(pool: KmkCard[], n = 3): KmkCard[] {
   const copy = [...pool]
@@ -28,6 +30,9 @@ interface Props {
   locked?: Record<string, Choice>
   /** Everyone's choices per character id, shown once the round is done. */
   tally?: Record<string, Tally>
+  /** The daily round's id in your history (rounds from a theme record themselves), and whether it was rescued. */
+  roundId?: string
+  rescued?: boolean
   onNewTheme?: () => void
   newThemeBusy?: boolean
   onClose?: () => void
@@ -35,7 +40,7 @@ interface Props {
 }
 
 /** One round of Kiss Marry Kill: three characters, each choice used once, one reroll, then a result to share. */
-export function KmkRound({ title, pool, fixed, lockIn, locked, tally, onNewTheme, newThemeBusy, onClose, filter }: Props) {
+export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: givenId, rescued: givenRescued, onNewTheme, newThemeBusy, onClose, filter }: Props) {
   const [cards, setCards] = useState(() => (fixed ? pool.slice(0, 3) : draw(pool)))
   const [choices, setChoices] = useState<Record<string, Choice>>(locked ?? {})
   const [rerolled, setRerolled] = useState(false)
@@ -44,6 +49,37 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, onNewTheme
   const [lockError, setLockError] = useState<string | null>(null)
   const complete = cards.length === 3 && cards.every((c) => choices[c.character.id])
   const done = complete && (!lockIn || !!locked)
+
+  // Every finished round goes into your history. The daily round is recorded when it's locked in, so it arrives
+  // with its id. The ref keeps a round from being recorded twice (React runs effects twice in development).
+  const [recordedId, setRecordedId] = useState<string | null>(null)
+  const [rescued, setRescued] = useState(false)
+  const [rescuing, setRescuing] = useState(false)
+  const recordedFor = useRef<string | null>(null)
+  const roundId = givenId ?? recordedId
+  const isRescued = rescued || !!givenRescued
+  useEffect(() => {
+    if (!done || lockIn) return
+    const key = cards.map((c) => `${c.character.id}=${choices[c.character.id]}`).join(',')
+    if (recordedFor.current === key) return
+    recordedFor.current = key
+    const byMal = Object.fromEntries(cards.map((c) => [String(c.character.mal_id), choices[c.character.id]]))
+    kmkHistoryApi.record(title, byMal).then(
+      (r) => setRecordedId(r.round_id),
+      () => {}, // not signed in, or offline: the round just isn't kept
+    )
+  }, [done, lockIn, cards, choices, title])
+  const rescue = async () => {
+    if (!roundId) return
+    setRescuing(true)
+    try {
+      await kmkHistoryApi.rescue(roundId)
+      setRescued(true)
+    } finally {
+      setRescuing(false)
+    }
+  }
+  const fateOf = (id: string): Fate => (choices[id] === 'kill' && isRescued ? 'terrarium' : choices[id])
   const confirm = async () => {
     if (!lockIn) return
     setLocking(true)
@@ -61,6 +97,8 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, onNewTheme
     setCards(draw(pool))
     setChoices({})
     setRerolled(false)
+    setRecordedId(null)
+    setRescued(false)
   }
   // A correction updates the card in place; the round carries on.
   const fixGender = (id: string, gender: string | null) =>
@@ -92,7 +130,8 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, onNewTheme
   const save = async () => {
     setSaving(true)
     try {
-      const blob = await renderResult(title, ordered, choices)
+      const fates = Object.fromEntries(ordered.map((c) => [c.character.id, fateOf(c.character.id)]))
+      const blob = await renderResult(title, ordered, fates)
       const file = new File([blob], 'kiss-marry-kill.png', { type: 'image/png' })
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: 'Kiss Marry Kill' }).catch(() => {})
@@ -122,11 +161,12 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, onNewTheme
       <div className="kmk-cards">
         {ordered.map((c, i) => {
           const chosen = choices[c.character.id]
+          const fate = done ? fateOf(c.character.id) : chosen
           return (
-            <div key={c.character.id} className={`kmk-card ${chosen ? 'chosen' : ''}`} style={chosen ? { borderColor: COLORS[chosen] } : undefined}>
+            <div key={c.character.id} className={`kmk-card ${chosen ? 'chosen' : ''}`} style={fate ? { borderColor: COLORS[fate] } : undefined}>
               {done && (
-                <div className="kmk-verdict" style={{ color: COLORS[chosen] }}>
-                  {LABELS[chosen]}
+                <div className="kmk-verdict" style={{ color: COLORS[fate] }}>
+                  {LABELS[fate]}
                 </div>
               )}
               {c.character.image_url ? <img src={c.character.image_url} alt="" /> : <div className="noimg" />}
@@ -136,6 +176,11 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, onNewTheme
               </span>
               {!done && <GenderFix node={c.character} onFixed={(g) => fixGender(c.character.id, g)} />}
               {done && tally?.[c.character.id] && <TallyBar tally={tally[c.character.id]} />}
+              {done && chosen === 'kill' && !isRescued && roundId && (
+                <button className="link kmk-rescue" onClick={() => void rescue()} disabled={rescuing} title="Save them from their fate. They go to your terrarium instead of your graveyard.">
+                  🪴 Put in the terrarium
+                </button>
+              )}
               {!done && (
                 <>
                   <div className="kmk-choices">
@@ -222,7 +267,7 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, max: number): stri
 }
 
 /** The finished round as a 1200 x 675 PNG, for a group chat. */
-export async function renderResult(title: string, cards: KmkCard[], choices: Record<string, Choice>): Promise<Blob> {
+export async function renderResult(title: string, cards: KmkCard[], choices: Record<string, Fate>): Promise<Blob> {
   const W = 1200
   const H = 675
   const canvas = document.createElement('canvas')

@@ -346,6 +346,8 @@ export interface KmkDaily {
   title: string
   cards: KmkCard[]
   choices?: Record<string, KmkChoice> // by character mal_id, once played
+  round_id?: string // this play in your history, for a rescue
+  rescued?: boolean // its killed character went to the terrarium
   tally?: { players: number; counts: Record<string, Record<KmkChoice, number>> }
 }
 
@@ -395,4 +397,19 @@ export const mysteryApi = {
 export const kmkDailyApi = {
   get: () => req<KmkDaily>('/api/kmk/daily'),
   play: (choices: Record<string, KmkChoice>) => req<KmkDaily>('/api/kmk/daily', post({ choices })),
+}
+
+/** A character in one of your collections, with how many rounds put them there. */
+export type ShelfCard = KmkCard & { count: number }
+export interface KmkHistory {
+  rounds: number
+  harem: ShelfCard[]
+  hookups: ShelfCard[]
+  graveyard: ShelfCard[]
+  terrarium: ShelfCard[]
+}
+export const kmkHistoryApi = {
+  record: (title: string, choices: Record<string, KmkChoice>) => req<{ round_id: string }>('/api/kmk/rounds', post({ title, choices })),
+  rescue: (roundId: string) => req<{ rescued: number }>(`/api/kmk/rounds/${roundId}/rescue`, post({})),
+  history: () => req<KmkHistory>('/api/kmk/history'),
 }

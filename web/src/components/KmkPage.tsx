@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { errorText, kmkApi, kmkDailyApi, type KmkDaily, type KmkTheme } from '../api'
+import { errorText, kmkApi, kmkDailyApi, kmkHistoryApi, type KmkDaily, type KmkHistory, type KmkTheme, type ShelfCard } from '../api'
 import { navigate } from '../useHashRoute'
 import { loadWho, saveWho, WhoFilter, type Who } from './Gender'
 import { KmkRound, type Choice, type Tally } from './KmkRound'
 
-type Mode = 'today' | 'mine'
+type Mode = 'today' | 'mine' | 'collection'
 const MODE_KEY = 'malgraph.kmk.mode'
 
 function loadMode(): Mode {
   try {
-    return localStorage.getItem(MODE_KEY) === 'mine' ? 'mine' : 'today'
+    const m = localStorage.getItem(MODE_KEY)
+    return m === 'mine' || m === 'collection' ? m : 'today'
   } catch {
     return 'today'
   }
@@ -43,8 +44,13 @@ export function KmkPage() {
           <button className={mode === 'mine' ? 'on' : ''} onClick={() => change('mine')}>
             From your list
           </button>
+          <button className={mode === 'collection' ? 'on' : ''} onClick={() => change('collection')}>
+            Your collection
+          </button>
         </div>
-        {mode === 'today' ? <DailyKmk /> : <ThemeKmk />}
+        {mode === 'today' && <DailyKmk />}
+        {mode === 'mine' && <ThemeKmk />}
+        {mode === 'collection' && <Collection />}
       </div>
     </div>
   )
@@ -79,7 +85,7 @@ function DailyKmk() {
         The same three for everyone today. Lock in your choices to see how everyone else chose.
         {daily.tally && ` ${daily.tally.players} ${daily.tally.players === 1 ? 'player has' : 'players have'} played.`}
       </p>
-      <KmkRound key={daily.date} title={daily.title} pool={daily.cards} fixed lockIn={lockIn} locked={locked} tally={tally} />
+      <KmkRound key={daily.date} title={daily.title} pool={daily.cards} fixed lockIn={lockIn} locked={locked} tally={tally} roundId={daily.round_id} rescued={daily.rescued} />
     </>
   )
 }
@@ -125,5 +131,56 @@ function ThemeKmk() {
       {!theme && !error && <p className="muted">Spinning a theme…</p>}
       {theme && <KmkRound key={`${theme.kind}:${theme.key}:${who}`} title={theme.title} pool={theme.pool} onNewTheme={() => void spin(theme, who)} newThemeBusy={busy} filter={filter} />}
     </>
+  )
+}
+
+const SHELVES: { key: keyof Omit<KmkHistory, 'rounds'>; title: string; empty: string }[] = [
+  { key: 'harem', title: '💍 Harem', empty: 'Nobody married yet.' },
+  { key: 'hookups', title: '💋 Hookups', empty: 'Nobody kissed yet.' },
+  { key: 'graveyard', title: '🪦 Graveyard', empty: 'Nobody killed yet.' },
+  { key: 'terrarium', title: '🪴 Terrarium', empty: 'Nobody rescued yet. After a round, put the one you killed in the terrarium instead.' },
+]
+
+/** Everyone you've married, kissed, killed or rescued, from every round you've finished. */
+function Collection() {
+  const [history, setHistory] = useState<KmkHistory | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    kmkHistoryApi.history().then(setHistory, (e) => setError(errorText(e)))
+  }, [])
+  if (error) return <p className="error">{error}</p>
+  if (!history) return <p className="muted">Loading your collection…</p>
+  return (
+    <>
+      <p className="muted">
+        From {history.rounds} {history.rounds === 1 ? 'round' : 'rounds'}. Only you can see this.
+      </p>
+      {SHELVES.map((shelf) => (
+        <section key={shelf.key} className="kmk-shelf">
+          <h2>
+            {shelf.title} <span className="muted">{history[shelf.key].length || ''}</span>
+          </h2>
+          {history[shelf.key].length ? (
+            <div className="kmk-shelf-grid">
+              {history[shelf.key].map((c) => (
+                <ShelfItem key={c.character.id} card={c} />
+              ))}
+            </div>
+          ) : (
+            <p className="muted small-text">{shelf.empty}</p>
+          )}
+        </section>
+      ))}
+    </>
+  )
+}
+
+function ShelfItem({ card }: { card: ShelfCard }) {
+  return (
+    <div className="kmk-shelf-item" title={`${card.character.name}${card.anime[0] ? ` (${card.anime[0]})` : ''}`}>
+      {card.character.image_url ? <img src={card.character.image_url} alt="" loading="lazy" /> : <div className="noimg" />}
+      {card.count > 1 && <span className="kmk-shelf-count">×{card.count}</span>}
+      <span className="kmk-shelf-name">{card.character.name}</span>
+    </div>
   )
 }

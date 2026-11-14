@@ -52,6 +52,8 @@ def _daily_view(username: str) -> dict[str, Any]:
     out: dict[str, Any] = {"date": puzzle["date"], "title": puzzle["title"], "cards": games.character_cards(puzzle["cards"])}
     if play:
         out["choices"] = play["choices"]
+        out["round_id"] = play.get("round_id")
+        out["rescued"] = kmk.was_rescued(username, play.get("round_id"))
         out["tally"] = kmk.tally(puzzle)
     return out
 
@@ -79,3 +81,43 @@ async def play_daily(body: DailyChoices) -> dict[str, Any]:
     except ValueError as e:
         raise HTTPException(400, str(e))
     return await run_in_threadpool(_daily_view, username)
+
+
+def _player() -> str:
+    username = users.current_username()
+    if not username:
+        raise HTTPException(401, "Sign in with MyAnimeList to play")
+    return username
+
+
+class FinishedRound(BaseModel):
+    title: str
+    choices: dict[str, str]  # character id -> kiss, marry or kill
+
+
+@router.post("/rounds")
+async def finish_round(body: FinishedRound) -> dict[str, Any]:
+    """Add a round played from your own list to your history. Daily rounds are added when you lock them in."""
+    username = _player()
+    try:
+        rid = await run_in_threadpool(kmk.record_round, username, body.title, "theme", body.choices)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"round_id": rid}
+
+
+@router.post("/rounds/{round_id}/rescue")
+async def rescue(round_id: str) -> dict[str, Any]:
+    """Put the round's killed character in your terrarium instead."""
+    username = _player()
+    try:
+        killed = await run_in_threadpool(kmk.rescue, username, round_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return {"rescued": killed}
+
+
+@router.get("/history")
+async def history() -> dict[str, Any]:
+    """Your harem, hookups, graveyard and terrarium, from every round you've finished."""
+    return await run_in_threadpool(kmk.history, _player())

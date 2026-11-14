@@ -43,7 +43,7 @@ export function PrivacyPage() {
           <li>Your MyAnimeList username.</li>
           <li>Your anime list. For each anime that means its status, your score, the episodes you've watched, whether you're rewatching it and when you last updated it. Private lists are included, because you sign in with your own account.</li>
           <li>The questions you ask in Ask the graph, the answers, and how many questions you asked each day.</li>
-          <li>Your plays of the daily games, meaning your Graph Golf moves and score, your Odd one out picks, your Mystery character guesses and your daily Kiss Marry Kill choices.</li>
+          <li>Your plays of the daily games, meaning your Graph Golf moves and score, your Odd one out picks, your Mystery character guesses, and every Kiss Marry Kill round you finish, which make up your collection.</li>
         </ul>
         <p>MAL-Graph never sees your MyAnimeList password, because MyAnimeList handles the sign-in. The access MyAnimeList grants is used once to read your list and is then discarded. MAL-Graph never changes anything on MyAnimeList.</p>
 
