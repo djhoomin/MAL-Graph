@@ -1,7 +1,7 @@
 """/api/tour: the graph tour, questions about your list answered from the graph's structure."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
 
@@ -46,7 +46,7 @@ def bridge_graph(ref: str) -> dict[str, Any]:
     return _payload(tour.show_bridge(_user(), ref))
 
 
-@router.get("/twins/{index}")
-def twins_graph(index: int) -> dict[str, Any]:
-    """Two twins as graph data: both anime and the people and studios they share."""
-    return _payload(tour.show_twins(_user(), index))
+@router.get("/{step}/{index}")
+def step_graph(step: Literal["twins", "recs", "teams"], index: int) -> dict[str, Any]:
+    """One card of the twins, recommendations or teams step as graph data."""
+    return _payload(tour.show_item(_user(), step, index))

@@ -1,9 +1,17 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster, type TourCut, type TourThread, type TourTwins } from '../api'
+import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster, type TourCut, type TourRec, type TourTeam, type TourThread, type TourTwins } from '../api'
 import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
-const STEPS = ['Your taste clusters', 'The bridges', 'The cut points', 'Twins'] as const
+/** Each step's short name for the step chips and its longer name for the Next button. */
+const STEPS = [
+  ['Clusters', 'Your taste clusters'],
+  ['Bridges', 'The bridges'],
+  ['Cut points', 'The cut points'],
+  ['Twins', 'Twins'],
+  ['Paths', 'Paths to new shows'],
+  ['Teams', 'Creative teams'],
+] as const
 const STEP_KEY = 'malgraph.tour.step'
 
 function loadStep(): number {
@@ -64,10 +72,10 @@ export function TourPage() {
             Your list is a graph. Your {tour.anime} anime are linked to the {tour.makers} people and studios who made them, whenever someone directed, wrote, scored, designed or animated a show. This tour asks questions about your taste that a list can't answer but the shape of that graph can.
           </p>
         )}
-        <div className="segmented game-mode" role="group" aria-label="Tour step">
-          {STEPS.map((s, i) => (
-            <button key={s} className={step === i ? 'on' : ''} onClick={() => go(i)}>
-              {i + 1}. {s}
+        <div className="row tour-steps" role="group" aria-label="Tour step">
+          {STEPS.map(([short], i) => (
+            <button key={short} className={`chip ${step === i ? 'on' : 'off'}`} onClick={() => go(i)}>
+              {i + 1}. {short}
             </button>
           ))}
         </div>
@@ -77,12 +85,14 @@ export function TourPage() {
         {tour && step === 1 && <Bridges tour={tour} />}
         {tour && step === 2 && <Cuts tour={tour} />}
         {tour && step === 3 && <Twins tour={tour} />}
+        {tour && step === 4 && <Recs tour={tour} />}
+        {tour && step === 5 && <Teams tour={tour} />}
         {tour && (
           <div className="kmk-actions tour-nav">
             {step > 0 && <button onClick={() => go(step - 1)}>Back</button>}
             {step < STEPS.length - 1 ? (
               <button className="primary" onClick={() => go(step + 1)}>
-                Next: {STEPS[step + 1].toLowerCase()}
+                Next: {STEPS[step + 1][1].toLowerCase()}
               </button>
             ) : (
               <button className="primary" onClick={() => navigate('')}>
@@ -415,6 +425,78 @@ function TwinsCard({ index, twins }: { index: number; twins: TourTwins }) {
         {twins.shared.map((m) => m.name).join(', ')}
       </p>
       <ShowButton load={() => tourApi.twins(index)} />
+    </section>
+  )
+}
+
+function Recs({ tour }: { tour: Tour }) {
+  if (!tour.recs.length) return <p className="muted">Score some of your anime 8 or more on MyAnimeList, sync your list and come back.</p>
+  return (
+    <>
+      <h2>What should you watch next, and why?</h2>
+      <p>Each of these starts from anime you scored 8 or more and follows the graph two steps, through someone who made it, to a series you haven't watched. The paths are the reasons.</p>
+      <Lesson title="The graph idea: link prediction" query={tour.queries.recs} note="This is the query that ran on your graph. $user is your MyAnimeList name, $jobs are the credits the tour counts, and $min_members is 20,000.">
+        <p>Link prediction guesses which missing links a graph is likely to grow, here a link from you to a show. The more short paths lead from you to a show, the likelier the link.</p>
+        <p>Not every path counts the same. A path from a show you scored 10 counts for more than one from a show you scored 8. A path through a director with ten shows counts for more than one through a studio with a hundred, because the director says more about your taste. This weighting is called Adamic-Adar, after the two researchers who used it to predict friendships.</p>
+      </Lesson>
+      {tour.recs.map((r, i) => (
+        <RecCard key={r.anime.mal_id} index={i} rec={r} />
+      ))}
+    </>
+  )
+}
+
+function RecCard({ index, rec }: { index: number; rec: TourRec }) {
+  const a = rec.anime
+  const facts = [a.type, a.year, a.mal_score != null && `MAL ${a.mal_score.toFixed(2)}`].filter(Boolean).join(', ')
+  return (
+    <section className="tour-card tour-rec">
+      <div className="tour-rec-head">
+        {a.image_url ? <img src={a.image_url} alt="" loading="lazy" /> : <div className="noimg" />}
+        <div>
+          <h3>{a.title}</h3>
+          <p className="muted small-text">{facts}</p>
+        </div>
+      </div>
+      <ul className="tour-paths">
+        {rec.paths.map((p) => (
+          <li key={p.maker.id} className="small-text">
+            You scored {and(p.because.map((b) => `${b.title} ${b.my_score}`))}. <strong>{p.maker.name}</strong> worked on {p.because.length > 1 ? 'those' : 'that'} and on this.{' '}
+            <span className="muted">({p.made === 1 ? '1 anime' : `${p.made} anime`} in the graph)</span>
+          </li>
+        ))}
+      </ul>
+      <ShowButton load={() => tourApi.rec(index)} />
+    </section>
+  )
+}
+
+function Teams({ tour }: { tour: Tour }) {
+  if (!tour.teams.length) return <p className="muted">Nobody in your list has worked together on two of your series yet. Sync more of your list and come back.</p>
+  return (
+    <>
+      <h2>Who keeps working together?</h2>
+      <p>These people worked side by side on more than one of your series, as directors, writers, composers, character designers or the original creators.</p>
+      <Lesson title="The graph idea: projection" query={tour.queries.teams} note="This is the query that ran on your graph. $user is your MyAnimeList name, and $jobs are the credits the tour counts.">
+        <p>Your graph links people to anime. A projection turns that into a graph of people only, with two people linked when they worked on the same anime. The anime disappear and leave behind a network of collaborators.</p>
+        <p>Twins was the same trick the other way round, linking anime through the people they share. One graph gives two views, depending on which side you project onto.</p>
+      </Lesson>
+      {tour.teams.map((t, i) => (
+        <TeamCard key={t.people.map((p) => p.id).join()} index={i} team={t} />
+      ))}
+    </>
+  )
+}
+
+function TeamCard({ index, team }: { index: number; team: TourTeam }) {
+  return (
+    <section className="tour-card">
+      <div className="tour-card-head">
+        <h3>{and(team.people.map((p) => p.name))}</h3>
+      </div>
+      <p className="small-text">Together on {team.series} of your series.</p>
+      <Covers items={team.shows} />
+      <ShowButton load={() => tourApi.team(index)} />
     </section>
   )
 }

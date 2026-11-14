@@ -572,6 +572,13 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .tour-side > p { margin: 0; }
 .tour-side .tour-covers { margin-top: 6px; }
 .tour-subhead { margin-top: 24px; }
+.tour-steps { flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.tour-rec-head { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: start; }
+.tour-rec-head img, .tour-rec-head .noimg { width: 64px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; background: var(--border); }
+.tour-rec-head h3 { margin: 0 0 4px; text-transform: none; }
+.tour-rec-head p { margin: 0; }
+.tour-paths { margin: 10px 0; padding-left: 18px; }
+.tour-paths li { margin: 4px 0; }
 .tour-thread { display: grid; grid-template-columns: 44px 1fr; gap: 4px 10px; align-items: start; padding: 10px 0; border-top: 1px solid var(--border); }
 .tour-thread img, .tour-thread .noimg { width: 44px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; grid-row: span 2; background: var(--border); }
 .tour-thread p { margin: 0; }

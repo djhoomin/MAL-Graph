@@ -439,6 +439,22 @@ export interface TourThread {
   via: { id: string; label: 'Person' | 'Studio' | 'Anime'; name: string }
   also: { mal_id: number; title: string; image_url: string | null }[] // what the person or studio made in the rest of the cluster
 }
+/** An anime you haven't listed, reached in two steps from anime you scored highly. */
+export interface TourRec {
+  anime: { mal_id: number; title: string; image_url: string | null; mal_score: number | null; members: number | null; type: string | null; year: number | null }
+  score: number
+  paths: {
+    maker: { id: string; label: 'Person' | 'Studio'; name: string }
+    made: number // anime this person or studio is credited on in the whole graph
+    because: { mal_id: number; title: string; image_url: string | null; my_score: number }[]
+  }[]
+}
+/** People who keep working together across your series. */
+export interface TourTeam {
+  people: { id: string; name: string }[]
+  series: number
+  shows: { mal_id: number; title: string; image_url: string | null }[]
+}
 export interface Tour {
   anime: number
   clustered: number
@@ -448,13 +464,17 @@ export interface Tour {
   cuts: TourCut[]
   threads: TourThread[]
   twins: TourTwins[]
-  queries: { clusters: string; bridges: string; cuts: string; twins: string }
+  recs: TourRec[]
+  teams: TourTeam[]
+  queries: { clusters: string; bridges: string; cuts: string; twins: string; recs: string; teams: string }
 }
 export const tourApi = {
   get: () => req<Tour>('/api/tour'),
   cluster: (index: number) => req<GraphPayload>(`/api/tour/cluster/${index}`),
   bridge: (ref: string) => req<GraphPayload>(`/api/tour/bridge/${encodeURIComponent(ref)}`),
   twins: (index: number) => req<GraphPayload>(`/api/tour/twins/${index}`),
+  rec: (index: number) => req<GraphPayload>(`/api/tour/recs/${index}`),
+  team: (index: number) => req<GraphPayload>(`/api/tour/teams/${index}`),
 }
 
 export const mysteryApi = {

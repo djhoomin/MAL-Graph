@@ -14,10 +14,18 @@ one component is the only thing holding those parts of the cluster together.
 
 Twins come from Jaccard similarity between two anime: the makers they share divided by all the makers either has.
 
+Recommendations follow two-step paths from the anime you scored 8 or more, through a person or studio, to anime you
+haven't listed. Each path counts for more when you scored the start higher and less when the maker is prolific (the
+Adamic-Adar idea), so a director with ten shows says more about your taste than a studio with a hundred.
+
+Creative teams project the anime-to-people graph onto people: two people are linked when they worked on the same
+anime, and the pairs that keep working together across your series become teams.
+
 Sequels share nearly all their staff, so results are counted by franchise ("series"), not by anime.
 """
 from __future__ import annotations
 
+import math
 import threading
 import time
 from collections import Counter, defaultdict
@@ -34,6 +42,10 @@ MIN_SIDE = 2  # series the second-largest side of a cut needs
 SIDE_ITEMS = 4  # series shown for each side of a cut
 MAX_TWINS = 10
 MIN_SHARED = 3  # makers two anime need in common to count as twins, since many anime only list a few
+MAX_RECS = 10
+REC_MIN_MEMBERS = 20_000  # leaves out specials and shorts nobody has heard of
+REC_PATHS = 3  # paths shown for each recommendation
+MAX_TEAMS = 8
 TIMELINE_MAKERS = 12  # people and studios offered as highlights on a cluster's timeline
 SEASONS = ["winter", "spring", "summer", "fall"]
 
@@ -86,6 +98,36 @@ ORDER BY jaccard DESC"""
 
 _lock = threading.Lock()
 _cache: dict[str, tuple[float, dict[str, Any]]] = {}
+
+
+JOBS = ['Director', 'Series Composition', 'Music', 'Character Design', 'Original Creator']
+
+RECS = """MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)
+WHERE l.score >= 8
+MATCH (a)-[r1]-(maker)-[r2]-(rec:Anime)
+WHERE (type(r1) = 'PRODUCED_BY' OR (type(r1) = 'WORKED_ON' AND any(job IN r1.positions WHERE job IN $jobs)))
+  AND (type(r2) = 'PRODUCED_BY' OR (type(r2) = 'WORKED_ON' AND any(job IN r2.positions WHERE job IN $jobs)))
+  AND NOT (u)-[:LISTED]->(rec)
+  AND rec.type IN ['TV', 'Movie', 'ONA'] AND rec.score >= 7 AND rec.members >= $min_members
+  AND NOT (rec)-[:RELATED_TO {relation: 'Prequel'}]->() AND NOT (rec)-[:RELATED_TO {relation: 'Parent Story'}]->()
+WITH rec, maker, max(l.score) AS best, collect(DISTINCT a.mal_id) AS because
+MATCH (maker)-[r3]-(made:Anime)
+WHERE type(r3) = 'PRODUCED_BY' OR (type(r3) = 'WORKED_ON' AND any(job IN r3.positions WHERE job IN $jobs))
+WITH rec, maker, best, because, count(DISTINCT made) AS made
+WITH rec, sum((best - 7) / log(made + 1)) AS score,
+     collect({maker: labels(maker)[0] + ':' + toString(maker.mal_id), made: made, best: best, because: because}) AS paths
+RETURN rec.mal_id AS id, rec.title AS title, rec.image_url AS image_url, rec.score AS mal_score,
+       rec.members AS members, rec.type AS type, rec.year AS year, score, paths
+ORDER BY score DESC LIMIT 200"""
+
+TEAMS = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)
+WHERE l.status <> 'plan_to_watch'
+MATCH (p:Person)-[w1:WORKED_ON]->(a)<-[w2:WORKED_ON]-(q:Person)
+WHERE p.mal_id < q.mal_id
+  AND any(job IN w1.positions WHERE job IN $jobs) AND any(job IN w2.positions WHERE job IN $jobs)
+WITH p, q, collect(DISTINCT a.mal_id) AS together
+WHERE size(together) >= 2
+RETURN 'Person:' + toString(p.mal_id) AS p, 'Person:' + toString(q.mal_id) AS q, together"""
 
 
 def _ref(label: str, mal_id: Any) -> str:
@@ -203,10 +245,16 @@ def _build(username: str) -> dict[str, Any]:
         show.append(c.pop("_show"))
     cuts, threads = _cuts(show, anime, series_of, makers)
     twins, twin_show = _twins(username, anime, series_of, makers)
+    recs, rec_show = _recs(username, anime, series_of, makers)
+    teams, team_show = _teams(username, anime, series_of, makers)
     return {
         "_show": show,
         "_twins": twin_show,
+        "_recs": rec_show,
+        "_teams": team_show,
         "twins": twins,
+        "recs": recs,
+        "teams": teams,
         "cuts": cuts,
         "threads": threads,
         "anime": len(anime),
@@ -214,7 +262,7 @@ def _build(username: str) -> dict[str, Any]:
         "clusters": clusters,
         "bridges": bridges,
         "makers": len(makers),
-        "queries": {"clusters": CLUSTERS, "bridges": BRIDGES, "cuts": CUTS, "twins": TWINS},
+        "queries": {"clusters": CLUSTERS, "bridges": BRIDGES, "cuts": CUTS, "twins": TWINS, "recs": RECS, "teams": TEAMS},
     }
 
 
@@ -358,6 +406,106 @@ def _twins(username: str, anime: dict[int, Any], series_of: dict[int, int], make
     return twins, show
 
 
+def _recs(username: str, anime: dict[int, Any], series_of: dict[int, int], makers: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, list[int]]]]:
+    """Anime you haven't listed, reached in two steps from the ones you scored highest, with the paths that led there.
+
+    Anything from a series you've already seen any of is left out, so these are new series."""
+    franchise = games.recent_franchises()
+    listed = {r["id"] for r in db.run("MATCH (:User {username: $user})-[:LISTED]->(a:Anime) RETURN a.mal_id AS id", user=username)}
+    seen_series = {franchise.get(a, a) for a in listed}
+    recs, show, taken = [], [], set()
+    for r in db.run(RECS, user=username, jobs=JOBS, min_members=REC_MIN_MEMBERS):
+        series = franchise.get(r["id"], r["id"])
+        if series in seen_series or series in taken:
+            continue
+        taken.add(series)
+        # The strongest paths first: a high score at the start and a maker with few shows.
+        paths = sorted((p for p in r["paths"] if p["maker"] in makers), key=lambda p: -(p["best"] - 7) / math.log(p["made"] + 1))[:REC_PATHS]
+        if not paths:
+            continue
+        def starts(p: dict[str, Any]) -> list[int]:
+            """The anime a path starts from, one per series, best scored first."""
+            one: dict[int, int] = {}
+            for a in sorted((a for a in p["because"] if a in anime), key=lambda a: (-anime[a]["score"], a)):
+                one.setdefault(series_of[a], a)
+            return list(one.values())[:2]
+
+        because = list(dict.fromkeys(a for p in paths for a in starts(p)))
+        recs.append({
+            "anime": {"mal_id": r["id"], "title": r["title"], "image_url": r["image_url"], "mal_score": r["mal_score"], "members": r["members"], "type": r["type"], "year": r["year"]},
+            "score": round(r["score"], 2),
+            "paths": [{
+                "maker": {k: makers[p["maker"]][k] for k in ("id", "label", "name")},
+                "made": p["made"],
+                "because": [{**_card(anime[a]), "my_score": anime[a]["score"]} for a in starts(p)],
+            } for p in paths],
+        })
+        show.append(_ids([r["id"], *because], [makers[p["maker"]] for p in paths]))
+        if len(recs) >= MAX_RECS:
+            break
+    return recs, show
+
+
+def _teams(username: str, anime: dict[int, Any], series_of: dict[int, int], makers: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, list[int]]]]:
+    """People who keep working together across your series.
+
+    Pairs come from the projection query. A team starts from the pair with the most series in common and takes in
+    anyone who worked with every member on at least two of those series, so three people who always work together
+    come out as one team of three."""
+    together: dict[frozenset[str], set[int]] = {}
+    for r in db.run(TEAMS, user=username, jobs=JOBS):
+        if r["p"] in makers and r["q"] in makers:
+            together[frozenset((r["p"], r["q"]))] = {a for a in r["together"] if a in anime}
+
+    def series(ids: set[int]) -> set[int]:
+        return {series_of[a] for a in ids}
+
+    pairs = sorted((p for p in together if len(series(together[p])) >= 2), key=lambda p: (-len(series(together[p])), sorted(p)))
+    people = {x for p in pairs for x in p}
+    teams: list[tuple[frozenset[str], set[int]]] = []
+    for pair in pairs:
+        team, shared = set(pair), set(together[pair])
+        grew = True
+        while grew:
+            grew = False
+            best = None
+            for x in sorted(people - team):
+                links = [together.get(frozenset((x, y))) for y in team]
+                if any(l is None for l in links):
+                    continue
+                common = shared.intersection(*links)
+                if len(series(common)) >= 2 and (best is None or len(series(common)) > len(series(best[1]))):
+                    best = (x, common)
+            if best:
+                team.add(best[0])
+                shared = best[1]
+                grew = True
+        key = frozenset(team)
+        # Skip a team already found, or one inside a bigger team with the same series.
+        if any(key <= t and series(shared) <= series(s) for t, s in teams):
+            continue
+        teams.append((key, shared))
+    teams.sort(key=lambda t: (-len(series(t[1])), -len(t[0])))
+    out, show = [], []
+    appears: Counter[str] = Counter()
+    for team, shared in teams:
+        # Someone who works with everyone would fill the list, so each person is in two teams at most.
+        if len(out) >= MAX_TEAMS or any(appears[x] >= 2 for x in team):
+            continue
+        appears.update(team)
+        one: dict[int, int] = {}
+        for a in sorted(shared, key=lambda a: (-anime[a]["score"], a)):
+            one.setdefault(series_of[a], a)
+        members = sorted((makers[x] for x in team), key=lambda m: m["name"])
+        out.append({
+            "people": [{"id": m["id"], "name": m["name"]} for m in members],
+            "series": len(one),
+            "shows": [_card(anime[a]) for a in one.values()],
+        })
+        show.append(_ids(sorted(shared), members))
+    return out, show
+
+
 def _card(a: dict[str, Any]) -> dict[str, Any]:
     return {"mal_id": a["id"], "title": a["title"], "image_url": a["image_url"]}
 
@@ -385,10 +533,11 @@ def show_cluster(username: str, index: int) -> dict[str, list[int]] | None:
     return show[index] if 0 <= index < len(show) else None
 
 
-def show_twins(username: str, index: int) -> dict[str, list[int]] | None:
-    """Two twins and the makers they share."""
-    show = tour(username)["_twins"]
-    return show[index] if 0 <= index < len(show) else None
+def show_item(username: str, step: str, index: int) -> dict[str, list[int]] | None:
+    """What to draw for one card of a step: twins and the makers they share, a recommendation and its paths, or a
+    team and the anime they made together."""
+    show = tour(username).get(f"_{step}")
+    return show[index] if show is not None and 0 <= index < len(show) else None
 
 
 def show_bridge(username: str, ref: str) -> dict[str, list[int]] | None:

@@ -66,9 +66,10 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
 - [x] **Cluster timeline.** Each cluster's anime by season, with the people and studios behind two or more of them
       as highlights, so patterns like one creator's shows alternating cours stand out.
 - [x] **Graph tour, step 4.** Twins, the anime from different series with the highest Jaccard similarity of makers.
-- [ ] **Graph tour, more steps.** Recommendations that show the path that led to them, and creative teams from
-      projecting the people-to-anime graph. PageRank was tried on the tour graph and dropped, because the links point
-      people into anime and anime into studios, so it rewarded studios and people with a single credit.
+- [x] **Graph tour, steps 5 and 6.** Paths to new shows (two-step paths from anime scored 8 or more, weighted the
+      Adamic-Adar way) and creative teams (the people-to-anime graph projected onto people). PageRank was tried on the
+      tour graph and dropped, because the links point people into anime and anime into studios, so it rewarded
+      studios and people with a single credit.
 - [ ] **Theme draft.** Two to four friends take turns drafting characters for a Kiss Marry Kill roulette theme, then
       vote on the best team. Reuses the existing theme pools.
 - [ ] **Taste match (next up).** Compare two people's lists for a compatibility score with reasons: how closely they
@@ -80,8 +81,8 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
 
 ## Checks not done yet
 
-- [ ] **Graph Golf on a phone.** The layout was built for phones but only tested on a desktop.
-- [ ] **Odd one out and Mystery character on a real phone.** Checked at phone width in a desktop browser only.
-- [ ] **Graph tour's "Show on the graph" in a real browser.** The layout and fit run on an animation, which the
+- [x] **Graph Golf on a phone.** The layout was built for phones but only tested on a desktop.
+- [x] **Odd one out and Mystery character on a real phone.** Checked at phone width in a desktop browser only.
+- [x] **Graph tour's "Show on the graph" in a real browser.** The layout and fit run on an animation, which the
       automated test browser never plays because its tab is hidden. The positions it computes look right.
 - [ ] **Insights timeline on a phone.** The y-axis labels scroll out of view along with the chart.
