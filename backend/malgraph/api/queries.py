@@ -102,12 +102,14 @@ INSIGHTS_LIST = """
     MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)
     OPTIONAL MATCH (a)-[:PRODUCED_BY]->(s:Studio)
     WITH a, l, collect(DISTINCT {mal_id: s.mal_id, name: s.name}) AS studios
+    OPTIONAL MATCH (a)-[pr:RELATED_TO]->(:Anime) WHERE pr.relation IN ['Prequel', 'Parent Story']
+    WITH a, l, studios, count(pr) > 0 AS follow_up
     OPTIONAL MATCH (a)-[:HAS_GENRE]->(g:Genre)
     RETURN a.mal_id AS mal_id, a.title AS title, a.title_english AS title_english, a.image_url AS image_url,
            a.type AS type, a.year AS year, a.season AS season, a.aired_from AS aired_from,
            a.episodes AS episodes, a.score AS score, a.members AS members,
            l.status AS status, l.score AS my_score, l.episodes_watched AS episodes_watched, l.updated_at AS updated_at,
-           [s IN studios WHERE s.mal_id IS NOT NULL] AS studios,
+           [s IN studios WHERE s.mal_id IS NOT NULL] AS studios, follow_up,
            collect(DISTINCT {mal_id: g.mal_id, name: g.name, kind: g.kind}) AS genres
 """
 

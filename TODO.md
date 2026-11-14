@@ -57,11 +57,16 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       score more, so a much-cast voice actor is worth less than the shared sound director.
 - [ ] **Voice chain.** Build the longest chain alternating character, voice actor, character through anime you've
       seen, with no repeats. An endurance version of Graph Golf.
+- [x] **Insights from your own list.** Hot takes (your score against MyAnimeList's average), your genres against
+      your mean score, hidden gems (scored 8 or more, under 100k members, not sequels) and shows paused near the end.
 - [ ] **Theme draft.** Two to four friends take turns drafting characters for a Kiss Marry Kill roulette theme, then
       vote on the best team. Reuses the existing theme pools.
-- [ ] **Taste match.** Compare two people's lists for a compatibility score with reasons: shared favourite voice
-      actors, studios both rate highly, and what one should watch next because of the other. Both people must agree
-      through an invite link before anything is compared.
+- [ ] **Taste match (next up).** Compare two people's lists for a compatibility score with reasons: how closely they
+      scored the anime both have seen, shared favourite voice actors and studios both rate highly. It should also list
+      what one loved that the other hasn't seen, both ways, and the anime both have on plan to watch, as picks to watch
+      together. Lists are private, so both people must agree through an invite link before anything is compared, and
+      either one can unlink at any time. Unlinking and account deletion must remove the link. Asked for in November
+      2026, now that two people use the app.
 
 ## Checks not done yet
 

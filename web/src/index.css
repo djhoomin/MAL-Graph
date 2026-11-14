@@ -542,3 +542,13 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .golf-panel header { flex-wrap: wrap; gap: 6px; }
 .golf-panel header > strong { white-space: nowrap; }
 .golf-header-actions { margin-left: auto; }
+
+/* Insights: your genres */
+.genre-rows { display: grid; gap: 4px; max-width: 640px; }
+.genre-row { display: grid; grid-template-columns: minmax(90px, 160px) 1fr 36px 44px; align-items: center; gap: 10px; font-size: 13px; }
+.genre-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.genre-bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.genre-bar i { display: block; height: 100%; background: #3987e5; }
+.genre-count, .genre-delta { text-align: right; font-variant-numeric: tabular-nums; }
+.genre-rows + button { margin-top: 8px; }
+.card-body .small-text { display: block; }

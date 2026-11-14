@@ -79,6 +79,7 @@ export interface ListAnime {
   updated_at: string | null
   studios: { mal_id: number; name: string }[]
   genres: { mal_id: number; name: string; kind: string }[]
+  follow_up?: boolean // a sequel or side story, which always has fewer members than what it follows
 }
 export interface RankedPerson {
   person: GNode

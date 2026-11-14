@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { api, LIST_STATUS_LABELS, type ListAnime, type ListStatus } from '../api'
 import { STATUS_COLORS } from '../graph/style'
 import { useStore } from '../store'
-import { navigate } from '../useHashRoute'
 import { fmt, SEEN, type Bucket } from './data'
 import { Gaps } from './Gaps'
 import { People } from './People'
+import { AnimeCard } from './AnimeCard'
 import { Recommendations } from './Recommendations'
+import { AlmostDone, Gems, GenreTaste, HotTakes } from './Taste'
 import { Timeline, type Thread } from './Timeline'
 
 const LANGS = ['Japanese', 'English', 'Korean', 'Mandarin', 'Spanish', 'French', 'German', 'Italian', 'Portuguese (BR)']
@@ -146,6 +147,11 @@ export function InsightsPage() {
             <People anime={anime} statuses={statusList} lang={lang} thread={thread} onThread={setThread} />
           </section>
 
+          <HotTakes anime={anime} />
+          <GenreTaste anime={anime} />
+          <Gems anime={anime} />
+          <AlmostDone anime={anime} />
+
           <section>
             <div className="section-head">
               <h2>Recommendations</h2>
@@ -174,30 +180,5 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
       <div className="stat-label">{label}</div>
       {sub && <div className="stat-sub muted">{sub}</div>}
     </div>
-  )
-}
-
-function AnimeCard({ a, dim }: { a: ListAnime; dim: boolean }) {
-  const mergePayload = useStore((s) => s.mergePayload)
-  const select = useStore((s) => s.select)
-  const open = () => {
-    mergePayload({
-      nodes: [{ id: `Anime:${a.mal_id}`, label: 'Anime', mal_id: a.mal_id, name: a.title, image_url: a.image_url, watched: a.status !== 'plan_to_watch', list_status: a.status, fetched: true, props: {} }],
-      edges: [],
-    })
-    select(`Anime:${a.mal_id}`)
-    navigate('/')
-  }
-  return (
-    <button className="card" style={{ opacity: dim ? 0.35 : 1 }} onClick={open} title="Open in graph">
-      {a.image_url ? <img src={a.image_url} alt="" /> : <div className="noimg" />}
-      <div className="card-body">
-        <strong>{a.title}</strong>
-        <span className="muted">
-          <i className="dot" style={{ background: STATUS_COLORS[a.status] }} /> {LIST_STATUS_LABELS[a.status]}
-          {a.my_score > 0 ? ` · ${a.my_score}/10` : ''}
-        </span>
-      </div>
-    </button>
   )
 }
