@@ -21,7 +21,7 @@ def _user() -> str:
 @router.get("")
 def get_tour() -> dict[str, Any]:
     """Your taste clusters and the people and studios that bridge them, with the queries that found them."""
-    return tour.tour(_user())
+    return tour.public(tour.tour(_user()))
 
 
 def _payload(ids: dict[str, list[int]] | None) -> dict[str, Any]:
@@ -36,7 +36,7 @@ def _payload(ids: dict[str, list[int]] | None) -> dict[str, Any]:
 
 @router.get("/cluster/{index}")
 def cluster_graph(index: int) -> dict[str, Any]:
-    """One cluster as graph data: its series and the people and studios behind two or more of them."""
+    """One cluster as graph data: all its anime and the people and studios behind two or more of them."""
     return _payload(tour.show_cluster(_user(), index))
 
 

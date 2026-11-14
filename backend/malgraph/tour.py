@@ -65,8 +65,13 @@ def _name(label: str, name: str | None) -> str:
     return games.natural(name) if label == "Person" else (name or "")
 
 
+def public(t: dict[str, Any]) -> dict[str, Any]:
+    """The tour without the fields kept for drawing it."""
+    return {k: v for k, v in t.items() if not k.startswith("_")}
+
+
 def tour(username: str) -> dict[str, Any]:
-    """Clusters and bridges for one user, cached for TTL seconds."""
+    """Clusters and bridges for one user, cached for TTL seconds. Fields starting with _ stay on the server."""
     with _lock:
         hit = _cache.get(username)
     if hit and time.time() - hit[0] < TTL:
@@ -122,6 +127,8 @@ def _build(username: str) -> dict[str, Any]:
         )
         clusters.append({
             "community": c,
+            # For drawing: every anime in the cluster and everyone linking two or more of them, which keeps it in one piece.
+            "_show": _ids(members, [makers[ref] for ref, did in made.items() if len(did & inside) >= 2]),
             "anime": len(members),
             "series": [{"mal_id": s["id"], "title": s["title"], "image_url": s["image_url"], "my_score": s["score"]} for s in series.values()],
             "makers": [{**makers[ref], "series": n} for n, ref in counts[:5]],
@@ -158,9 +165,12 @@ def _build(username: str) -> dict[str, Any]:
         if len(bridges) >= MAX_BRIDGES:
             break
 
+    show = []
     for c in clusters:
         del c["community"]
+        show.append(c.pop("_show"))
     return {
+        "_show": show,
         "anime": len(anime),
         "clustered": in_clusters,
         "clusters": clusters,
@@ -178,12 +188,9 @@ RETURN a, r, maker"""
 
 
 def show_cluster(username: str, index: int) -> dict[str, list[int]] | None:
-    """The anime and makers to draw for one cluster: its series and the makers behind two or more of them."""
-    t = tour(username)
-    if not 0 <= index < len(t["clusters"]):
-        return None
-    c = t["clusters"][index]
-    return _ids([s["mal_id"] for s in c["series"]], c["makers"])
+    """The anime and makers to draw for one cluster: all its anime and the makers behind two or more of them."""
+    show = tour(username)["_show"]
+    return show[index] if 0 <= index < len(show) else None
 
 
 def show_bridge(username: str, ref: str) -> dict[str, list[int]] | None:
