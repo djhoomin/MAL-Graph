@@ -9,7 +9,7 @@ from typing import Any, Iterator, Literal
 from fastapi import APIRouter, HTTPException, Query
 from starlette.concurrency import run_in_threadpool
 
-from .. import db, ingest, jobs, users
+from .. import db, ingest, jobs, tour, users
 from .. import jikan as jikan_client
 from ..jikan import JikanClient, JikanError
 from ..mal import MalError, iter_user_animelist
@@ -325,6 +325,7 @@ def sync_user(username: str, token: str | None = None) -> dict[str, Any]:
     except MalError as e:
         raise HTTPException(e.status if e.status in (403, 404) else 502, str(e))
     _last_sync[username.lower()] = time.time()
+    tour.invalidate(username)
     stubs = ingest.listed_stub_ids(username)
     queued = jobs.queue.enqueue(username, stubs) if stubs else 0
     return {"username": username, "synced": n, "unfetched": len(stubs), "expanding": queued > 0 or jobs.queue.status(username)["running"]}

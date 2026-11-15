@@ -744,6 +744,15 @@ def _ids(anime: list[int], makers: list[dict[str, Any]]) -> dict[str, list[int]]
     }
 
 
+def invalidate(username: str) -> None:
+    """Drop both tours' cached results, after the user's list changed."""
+    from . import voice_tour
+
+    with _lock:
+        _cache.pop(username, None)
+    voice_tour.forget(username)
+
+
 def forget(username: str) -> None:
     from . import jobs, voice_tour
 
