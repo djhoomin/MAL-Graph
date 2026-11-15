@@ -5,7 +5,7 @@ import typer
 from rich import print as rprint
 from rich.progress import Progress
 
-from . import db, ingest
+from . import db, ingest, jikan
 from .config import settings
 from .jikan import JikanClient, JikanError
 from .mal import iter_user_animelist
@@ -112,6 +112,32 @@ def enrich(
 def migrate() -> None:
     """Remove per-user flags that older versions stored on shared Anime nodes (safe to re-run)."""
     rprint(f"[green]cleaned {ingest.drop_legacy_user_props()} anime nodes[/green]")
+
+
+@app.command("fix-voices")
+def fix_voices(
+    min_favorites: int = typer.Option(500, help="Refetch voice actors for main characters with at least this many favourites"),
+    refetch: bool = typer.Option(True, help="Also refetch from Jikan, not only fill languages from the graph"),
+) -> None:
+    """Fill missing voice languages, and refetch the voice actor order of popular characters (safe to re-run)."""
+    rprint(f"[green]filled the language of {ingest.fill_voice_languages()} voice links[/green]")
+    if not refetch:
+        return
+    ids = ingest.voices_to_refresh(min_favorites)
+    rprint(f"refetching voice actors for {len(ids)} characters")
+    j = jikan.shared()
+    failed = []
+    with Progress() as progress:
+        task = progress.add_task("voices", total=len(ids))
+        for cid in ids:
+            try:
+                ingest.refresh_voices(j, cid)
+            except Exception as e:  # noqa: BLE001 - one character failing shouldn't stop the rest
+                failed.append((cid, str(e)[:80]))
+            progress.advance(task)
+    rprint(f"[green]filled {ingest.fill_voice_languages()} more[/green]")
+    if failed:
+        rprint(f"[yellow]{len(failed)} failed (re-run to retry):[/yellow] {failed[:5]}")
 
 
 @app.command()

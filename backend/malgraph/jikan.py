@@ -126,6 +126,9 @@ class JikanClient:
     def character_full(self, mal_id: int) -> dict[str, Any]:
         return self.get(f"characters/{mal_id}/full")["data"]
 
+    def character_voices(self, mal_id: int, *, refresh: bool = False) -> list[dict[str, Any]]:
+        return self.get(f"characters/{mal_id}/voices", refresh=refresh)["data"]
+
 
 _shared: JikanClient | None = None
 _shared_lock = threading.Lock()

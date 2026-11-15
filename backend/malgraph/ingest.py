@@ -152,11 +152,11 @@ def upsert_anime_characters(anime_id: int, rows: Iterable[dict[str, Any]]) -> No
         if c["mal_id"] is None:
             continue
         chars.append({**c, "role": row.get("role"), "favorites": row.get("favorites")})
-        for va in row.get("voice_actors") or []:
+        for rank, va in enumerate(row.get("voice_actors") or []):
             p = _ref(va.get("person"))
             if p["mal_id"] is None:
                 continue
-            voices.append({**p, "character_id": c["mal_id"], "language": va.get("language")})
+            voices.append({**p, "character_id": c["mal_id"], "language": va.get("language"), "rank": rank})
 
     if chars:
         db.run(
@@ -178,8 +178,8 @@ def upsert_anime_characters(anime_id: int, rows: Iterable[dict[str, Any]]) -> No
             MERGE (p:Person {mal_id: row.mal_id})
               SET p.name = row.name, p.image_url = coalesce(row.image_url, p.image_url), p.url = row.url
             MERGE (p)-[v:VOICES]->(c)
-              ON CREATE SET v.anime_ids = [$id], v.language = row.language
-              ON MATCH SET v.language = coalesce(row.language, v.language),
+              ON CREATE SET v.anime_ids = [$id], v.language = row.language, v.rank = row.rank
+              ON MATCH SET v.language = coalesce(row.language, v.language), v.rank = row.rank,
                            v.anime_ids = CASE WHEN $id IN coalesce(v.anime_ids, []) THEN v.anime_ids
                                               ELSE coalesce(v.anime_ids, []) + [$id] END
             """,
@@ -284,6 +284,7 @@ def expand_person(j: JikanClient, mal_id: int) -> dict[str, int]:
             """,
             id=mal_id, rows=voices,
         )
+        fill_voice_languages(mal_id)  # the person's page gives no languages
     # staff positions: group by anime
     positions: dict[int, dict[str, Any]] = {}
     for w in d.get("anime") or []:
@@ -345,11 +346,18 @@ def expand_character(j: JikanClient, mal_id: int) -> dict[str, int]:
             """,
             id=mal_id, rows=appearances,
         )
+    voices = write_character_voices(mal_id, d.get("voices") or [])
+    return {"anime": len(appearances), "voices": voices}
+
+
+def write_character_voices(mal_id: int, rows: list[dict[str, Any]]) -> int:
+    """A character's voice actors with their language, and `rank`, their place in MyAnimeList's list. The first in a
+    language is the character's main voice there. Later ones are often a younger version or a stand-in."""
     voices = []
-    for v in d.get("voices") or []:
+    for rank, v in enumerate(rows):
         p = _ref(v.get("person"))
         if p["mal_id"] is not None:
-            voices.append({**p, "language": v.get("language")})
+            voices.append({**p, "language": v.get("language"), "rank": rank})
     if voices:
         db.run(
             """
@@ -358,12 +366,55 @@ def expand_character(j: JikanClient, mal_id: int) -> dict[str, int]:
             MERGE (p:Person {mal_id: row.mal_id})
               SET p.name = row.name, p.image_url = coalesce(row.image_url, p.image_url), p.url = row.url
             MERGE (p)-[v:VOICES]->(c)
-              ON CREATE SET v.language = row.language, v.anime_ids = []
-              ON MATCH SET v.language = coalesce(row.language, v.language)
+              ON CREATE SET v.language = row.language, v.anime_ids = [], v.rank = row.rank
+              ON MATCH SET v.language = coalesce(row.language, v.language), v.rank = row.rank
             """,
             id=mal_id, rows=voices,
         )
-    return {"anime": len(appearances), "voices": len(voices)}
+    return len(voices)
+
+
+def refresh_voices(j: JikanClient, mal_id: int) -> int:
+    """Fetch a character's voice actors again, for their languages and order."""
+    return write_character_voices(mal_id, j.character_voices(mal_id, refresh=True))
+
+
+def fill_voice_languages(person_id: int | None = None) -> int:
+    """Give voice links without a language the one language the voice actor works in everywhere else.
+
+    A person's own page lists their roles without languages, so links made from it have none. Voice actors almost
+    always work in one language. Anyone with roles in more than one language is left alone. Returns links filled.
+    """
+    rows = db.run(
+        """
+        MATCH (p:Person)-[v:VOICES]->() WHERE v.language IS NULL AND ($id IS NULL OR p.mal_id = $id)
+        WITH DISTINCT p
+        MATCH (p)-[k:VOICES]->() WHERE k.language IS NOT NULL
+        WITH p, collect(DISTINCT k.language) AS langs WHERE size(langs) = 1
+        MATCH (p)-[v:VOICES]->() WHERE v.language IS NULL
+        SET v.language = langs[0]
+        RETURN count(v) AS n
+        """,
+        id=person_id,
+    )
+    return rows[0]["n"] if rows else 0
+
+
+def voices_to_refresh(min_favorites: int) -> list[int]:
+    """Popular main characters whose voice actors are unclear: a link without a language, or two voice actors in
+    Japanese or English with no order known between them."""
+    rows = db.run(
+        """
+        MATCH (:Anime)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character) WHERE c.favorites >= $min
+        WITH DISTINCT c
+        MATCH (p:Person)-[v:VOICES]->(c)
+        WITH c, v.language AS lang, count(p) AS n, sum(CASE WHEN v.rank IS NULL THEN 1 ELSE 0 END) AS unranked
+        WHERE lang IS NULL OR (lang IN ['Japanese', 'English'] AND n > 1 AND unranked > 0)
+        RETURN DISTINCT c.mal_id AS id, c.favorites AS f ORDER BY f DESC
+        """,
+        min=min_favorites,
+    )
+    return [r["id"] for r in rows]
 
 
 # --------------------------------------------------------------------------- user list
