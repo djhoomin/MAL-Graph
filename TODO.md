@@ -72,6 +72,9 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       studios and people with a single credit.
 - [x] **What each team made together.** Teams list other anime they worked on that you haven't seen. Anime only
       known by title are fetched in the background on a tour queue and appear on a later visit.
+- [x] **Graph tour, step 7.** How far apart your anime are: islands (connected components), the two series furthest
+      apart (the diameter, by breadth-first search between series) and the series at the centre. People born before
+      1900, such as composers credited when an anime plays their pieces, are left out of the tour.
 - [ ] **Theme draft.** Two to four friends take turns drafting characters for a Kiss Marry Kill roulette theme, then
       vote on the best team. Reuses the existing theme pools.
 - [ ] **Taste match (next up).** Compare two people's lists for a compatibility score with reasons: how closely they

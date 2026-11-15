@@ -579,6 +579,13 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .tour-rec-head h3 { margin: 0 0 4px; text-transform: none; }
 .tour-rec-head p { margin: 0; }
 .tour-paths { margin: 10px 0; padding-left: 18px; }
+.tour-chain { list-style: none; margin: 10px 0; padding: 0; }
+.tour-chain-anime { display: flex; align-items: center; gap: 10px; }
+.tour-chain-anime img, .tour-chain-anime .noimg { width: 36px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; background: var(--border); flex: none; }
+.tour-chain-maker { margin: 2px 0 2px 17px; padding: 4px 0 4px 26px; border-left: 2px solid var(--border); }
+.tour-spread { display: grid; gap: 4px; margin: 8px 0; }
+.tour-spread-row { display: grid; grid-template-columns: 4.5em 1fr 2.5em; align-items: center; gap: 8px; }
+.tour-spread-row .tour-spread-bar { height: 10px; border-radius: 3px; background: var(--accent); justify-self: start; }
 .tour-paths li { margin: 4px 0; }
 .tour-thread { display: grid; grid-template-columns: 44px 1fr; gap: 4px 10px; align-items: start; padding: 10px 0; border-top: 1px solid var(--border); }
 .tour-thread img, .tour-thread .noimg { width: 44px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; grid-row: span 2; background: var(--border); }

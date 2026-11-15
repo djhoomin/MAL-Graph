@@ -28,7 +28,7 @@ from __future__ import annotations
 import math
 import threading
 import time
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from typing import Any
 
 from . import db, games
@@ -74,6 +74,12 @@ CALL betweenness_centrality.get(graph, False, True) YIELD node, betweenness_cent
 WHERE NOT node:Anime
 RETURN labels(node)[0] AS kind, node.mal_id AS id, betweenness_centrality
 ORDER BY betweenness_centrality DESC LIMIT 20"""
+
+ISLANDS = GRAPH + """
+WITH project(path) AS graph
+CALL weakly_connected_components.get(graph) YIELD node, component_id
+WHERE node:Anime
+RETURN node.mal_id AS id, component_id"""
 
 LINKS = GRAPH + """
 RETURN a.mal_id AS anime, labels(maker)[0] AS label, maker.mal_id AS id, maker.name AS name"""
@@ -282,7 +288,10 @@ def _build(username: str) -> dict[str, Any]:
     twins, twin_show = _twins(username, anime, series_of, makers)
     recs, rec_show = _recs(username, anime, series_of, makers)
     teams, team_show = _teams(username, anime, series_of, makers)
+    distance, distance_show = _distance(username, anime, series_of, made, makers)
     return {
+        "_distance": distance_show,
+        "distance": distance,
         "_show": show,
         "_twins": twin_show,
         "_recs": rec_show,
@@ -297,7 +306,7 @@ def _build(username: str) -> dict[str, Any]:
         "clusters": clusters,
         "bridges": bridges,
         "makers": len(makers),
-        "queries": {"clusters": CLUSTERS, "bridges": BRIDGES, "cuts": CUTS, "twins": TWINS, "recs": RECS, "teams": TEAMS, "team_more": TEAM_MORE},
+        "queries": {"clusters": CLUSTERS, "bridges": BRIDGES, "cuts": CUTS, "twins": TWINS, "recs": RECS, "teams": TEAMS, "team_more": TEAM_MORE, "islands": ISLANDS},
     }
 
 
@@ -569,6 +578,118 @@ def _team_more(username: str, members: list[dict[str, Any]], series_of: dict[int
         if len(picked) >= TEAM_RECS:
             break
     return picked
+
+
+def _distance(username: str, anime: dict[int, Any], series_of: dict[int, int], made: dict[str, set[int]], makers: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, list[int]]]]:
+    """Islands, the two series furthest apart and the series at the centre.
+
+    Islands are the connected components apart from the biggest one. Distances are measured between series, with all
+    of a series' anime merged into one point, so a sequel never pads a chain. A breadth-first search from every series
+    gives its eccentricity, the distance to the series furthest from it. The largest is the diameter, and the series
+    with the smallest are the centre. Steps count anime, so two anime with a maker in common are one step apart.
+
+    The first drawing is the chain between the far ends, and the others are the islands in order."""
+    component: dict[int, int] = {r["id"]: r["component_id"] for r in db.run(ISLANDS, user=username) if r["id"] in anime}
+    parts: dict[int, list[int]] = defaultdict(list)
+    for a, c in component.items():
+        parts[c].append(a)
+    ordered = sorted(parts.values(), key=lambda m: (-len({series_of[a] for a in m}), -len(m), min(m)))
+    if not ordered:
+        return {"islands": [], "main": {"anime": 0, "series": 0}, "unlinked": len(anime), "far": None, "radius": 0, "center": [], "spread": []}, []
+
+    def best(ids: Any) -> int:
+        return max(ids, key=lambda a: (anime[a]["score"], anime[a]["members"], -a))
+
+    show: list[dict[str, list[int]]] = []
+    islands = []
+    for members in ordered[1:]:
+        inside = set(members)
+        who = _island_makers(members, made, makers)
+        one: dict[int, int] = {}
+        for a in sorted(members, key=lambda a: (-anime[a]["score"], -anime[a]["members"], a)):
+            one.setdefault(series_of[a], a)
+        islands.append({
+            "shows": [_card(anime[a]) for a in one.values()],
+            "makers": [{k: m[k] for k in ("id", "label", "name")} for m in sorted(who, key=lambda m: (-len(made[m["id"]] & inside), m["name"]))],
+        })
+
+    # The main component as series and makers, each series joined to everyone behind any of its anime.
+    main = set(ordered[0])
+    adj: dict[str, set[str]] = defaultdict(set)
+    for ref, did in made.items():
+        for a in did & main:
+            s = f"S:{series_of[a]}"
+            adj[s].add(ref)
+            adj[ref].add(s)
+    series = sorted(n for n in adj if n.startswith("S:"))
+    known = {s: max(anime[a]["members"] for a in main if f"S:{series_of[a]}" == s) for s in series}
+
+    def bfs(start: str) -> tuple[dict[str, int], dict[str, str]]:
+        dist, prev, queue = {start: 0}, {}, deque([start])
+        while queue:
+            x = queue.popleft()
+            for y in sorted(adj[x]):
+                if y not in dist:
+                    dist[y], prev[y] = dist[x] + 1, x
+                    queue.append(y)
+        return dist, prev
+
+    ecc: dict[str, int] = {}
+    far_pair: tuple[int, int, str, str] | None = None
+    for s in series:
+        dist, _ = bfs(s)
+        ecc[s] = max(dist[t] for t in series) // 2
+        for t in series:
+            if t > s and dist[t] // 2 == ecc[s]:
+                key = (dist[t] // 2, known[s] + known[t], s, t)
+                if far_pair is None or key[:2] > far_pair[:2]:
+                    far_pair = key
+
+    far = None
+    if far_pair and far_pair[0] > 0:
+        _, _, s, t = far_pair
+        _, prev = bfs(s)
+        nodes = [t]
+        while nodes[-1] != s:
+            nodes.append(prev[nodes[-1]])
+        nodes.reverse()
+        chain = []
+        for i, n in enumerate(nodes):
+            if n.startswith("S:"):
+                # The series' best anime among those linked to the makers on either side of it in the chain.
+                sid = int(n[2:])
+                near = [nodes[j] for j in (i - 1, i + 1) if 0 <= j < len(nodes)]
+                linked = [a for a in main if series_of[a] == sid and all(a in made[m] for m in near)]
+                linked = linked or [a for a in main if series_of[a] == sid and any(a in made[m] for m in near)]
+                chain.append({"anime": _card(anime[best(linked)])})
+            else:
+                chain.append({"maker": {k: makers[n][k] for k in ("id", "label", "name")}})
+        far = {"steps": far_pair[0], "chain": chain}
+        show.append(_ids([c["anime"]["mal_id"] for c in chain if "anime" in c], [makers[n] for n in nodes if not n.startswith("S:")]))
+    else:
+        show.append(_ids([], []))
+    for members in ordered[1:]:
+        show.append(_ids(sorted(members), _island_makers(members, made, makers)))
+
+    radius = min(ecc.values()) if ecc else 0
+    center = sorted((s for s in series if ecc[s] == radius), key=lambda s: -known[s])
+    spread = Counter(ecc.values())
+    return {
+        "islands": islands,
+        "main": {"anime": len(main), "series": len(series)},
+        "unlinked": len(anime) - len(component),  # anime with none of the credits the tour counts
+        "far": far,
+        "radius": radius,
+        "center": [_card(anime[best([a for a in main if series_of[a] == int(s[2:])])]) for s in center[:6]],
+        "spread": [{"steps": k, "series": spread[k]} for k in sorted(spread)],
+    }, show
+
+
+def _island_makers(members: list[int], made: dict[str, set[int]], makers: dict[str, Any]) -> list[dict[str, Any]]:
+    """Who holds an island together: the makers behind two or more of its anime, or everyone behind a lone anime."""
+    inside = set(members)
+    least = 2 if len(members) > 1 else 1
+    return [makers[ref] for ref, did in made.items() if len(did & inside) >= least]
 
 
 def _card(a: dict[str, Any]) -> dict[str, Any]:

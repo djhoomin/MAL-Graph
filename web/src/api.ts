@@ -457,6 +457,17 @@ export interface TourTeam {
   /** What they made together that you haven't seen, with the members of a bigger team who didn't work on it. */
   more: { mal_id: number; title: string; image_url: string | null; mal_score: number | null; type: string | null; year: number | null; without: string[] }[]
 }
+/** How far apart your anime are: the islands, the two series furthest apart and the series at the centre. */
+export interface TourDistance {
+  islands: { shows: { mal_id: number; title: string; image_url: string | null }[]; makers: { id: string; label: string; name: string }[] }[]
+  main: { anime: number; series: number }
+  unlinked: number
+  /** The chain between the far ends, alternating anime and the people or studios that link them. */
+  far: { steps: number; chain: ({ anime: { mal_id: number; title: string; image_url: string | null } } | { maker: { id: string; label: string; name: string } })[] } | null
+  radius: number
+  center: { mal_id: number; title: string; image_url: string | null }[]
+  spread: { steps: number; series: number }[]
+}
 export interface Tour {
   anime: number
   clustered: number
@@ -468,7 +479,8 @@ export interface Tour {
   twins: TourTwins[]
   recs: TourRec[]
   teams: TourTeam[]
-  queries: { clusters: string; bridges: string; cuts: string; twins: string; recs: string; teams: string; team_more: string }
+  distance: TourDistance
+  queries: { clusters: string; bridges: string; cuts: string; twins: string; recs: string; teams: string; team_more: string; islands: string }
 }
 export const tourApi = {
   get: () => req<Tour>('/api/tour'),
@@ -477,6 +489,8 @@ export const tourApi = {
   twins: (index: number) => req<GraphPayload>(`/api/tour/twins/${index}`),
   rec: (index: number) => req<GraphPayload>(`/api/tour/recs/${index}`),
   team: (index: number) => req<GraphPayload>(`/api/tour/teams/${index}`),
+  /** 0 is the chain between the far ends, and 1 onwards are the islands. */
+  distance: (index: number) => req<GraphPayload>(`/api/tour/distance/${index}`),
 }
 
 export const mysteryApi = {

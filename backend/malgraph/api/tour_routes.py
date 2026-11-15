@@ -47,6 +47,6 @@ def bridge_graph(ref: str) -> dict[str, Any]:
 
 
 @router.get("/{step}/{index}")
-def step_graph(step: Literal["twins", "recs", "teams"], index: int) -> dict[str, Any]:
-    """One card of the twins, recommendations or teams step as graph data."""
+def step_graph(step: Literal["twins", "recs", "teams", "distance"], index: int) -> dict[str, Any]:
+    """One card of the twins, recommendations, teams or distance step as graph data."""
     return _payload(tour.show_item(_user(), step, index))

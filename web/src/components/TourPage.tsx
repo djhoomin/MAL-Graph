@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster, type TourCut, type TourRec, type TourTeam, type TourThread, type TourTwins } from '../api'
+import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster, type TourCut, type TourDistance, type TourRec, type TourTeam, type TourThread, type TourTwins } from '../api'
 import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
@@ -11,6 +11,7 @@ const STEPS = [
   ['Twins', 'Twins'],
   ['Paths', 'Paths to new shows'],
   ['Teams', 'Creative teams'],
+  ['Distance', 'How far apart'],
 ] as const
 const STEP_KEY = 'malgraph.tour.step'
 
@@ -87,6 +88,7 @@ export function TourPage() {
         {tour && step === 3 && <Twins tour={tour} />}
         {tour && step === 4 && <Recs tour={tour} />}
         {tour && step === 5 && <Teams tour={tour} />}
+        {tour && step === 6 && <Distance tour={tour} />}
         {tour && (
           <div className="kmk-actions tour-nav">
             {step > 0 && <button onClick={() => go(step - 1)}>Back</button>}
@@ -523,6 +525,93 @@ function TeamCard({ index, team }: { index: number; team: TourTeam }) {
         </>
       )}
       <ShowButton load={() => tourApi.team(index)} />
+    </section>
+  )
+}
+
+function Distance({ tour }: { tour: Tour }) {
+  const d = tour.distance
+  if (!d.main.series) return <p className="muted">Your list is too small to measure yet. Sync more of it and come back.</p>
+  return (
+    <>
+      <h2>How far apart are your anime?</h2>
+      <p>Two anime are one step apart when the same director, writer, composer, character designer, original creator or studio worked on both. Most of your list connects this way, and the rest sits on islands of its own.</p>
+      <Lesson title="The graph idea: shortest paths, the diameter and the centre" query={tour.queries.islands} note="This is the query that found the islands. $user is your MyAnimeList name. The distances were measured on the same graph with a breadth-first search from each of your series.">
+        <p>The distance between two anime is the fewest steps it takes to get from one to the other. A breadth-first search finds it by visiting everything one step away, then everything two steps away, and so on until it runs out.</p>
+        <p>The longest of these shortest distances is the graph's diameter, and the two anime at its ends are the furthest apart in your list. Each anime also has its own longest distance to anything else, called its eccentricity. The anime where it is smallest make up the centre of the graph.</p>
+        <p>When a graph falls into pieces that no path joins, the pieces are called connected components. Each series counts as one point here, so sequels don't add steps.</p>
+      </Lesson>
+      {d.far && <FarEnds far={d.far} />}
+      <Centre distance={d} />
+      <h3>Islands</h3>
+      {d.islands.length ? (
+        <p>
+          {d.main.anime} of your {tour.anime} anime connect into one graph. {d.islands.length === 1 ? 'This island shares' : `These ${d.islands.length} islands share`} nobody with it.
+          {d.unlinked > 0 && ` ${d.unlinked} more ${d.unlinked === 1 ? 'has' : 'have'} none of the credits the tour counts yet.`}
+        </p>
+      ) : (
+        <p>All of your anime connect into one graph, so there are no islands.</p>
+      )}
+      {d.islands.map((island, i) => (
+        <section key={island.shows[0]?.mal_id ?? i} className="tour-card">
+          <Covers items={island.shows} />
+          <p className="small-text">
+            {island.shows.length === 1 ? 'Made by ' : 'Linked by '}
+            {and([...island.makers.slice(0, 4).map((m) => m.name), ...(island.makers.length > 4 ? [`${island.makers.length - 4} more`] : [])])}.
+          </p>
+          <ShowButton load={() => tourApi.distance(i + 1)} />
+        </section>
+      ))}
+    </>
+  )
+}
+
+function FarEnds({ far }: { far: NonNullable<TourDistance['far']> }) {
+  const ends = far.chain.filter((c): c is { anime: { mal_id: number; title: string; image_url: string | null } } => 'anime' in c)
+  return (
+    <section className="tour-card">
+      <h3>The far ends</h3>
+      <p className="small-text">
+        {ends[0].anime.title} and {ends[ends.length - 1].anime.title} are {far.steps} steps apart, further than any other two of your series.
+      </p>
+      <ol className="tour-chain">
+        {far.chain.map((c, i) =>
+          'anime' in c ? (
+            <li key={i} className="tour-chain-anime">
+              {c.anime.image_url ? <img src={c.anime.image_url} alt="" loading="lazy" /> : <div className="noimg" />}
+              <span>{c.anime.title}</span>
+            </li>
+          ) : (
+            <li key={i} className="tour-chain-maker muted small-text">
+              {c.maker.name}
+            </li>
+          ),
+        )}
+      </ol>
+      <ShowButton load={() => tourApi.distance(0)} />
+    </section>
+  )
+}
+
+function Centre({ distance: d }: { distance: TourDistance }) {
+  const most = Math.max(...d.spread.map((s) => s.series))
+  return (
+    <section className="tour-card">
+      <h3>The centre</h3>
+      <p className="small-text">
+        {d.center.length === 1 ? 'This series is' : 'These series are'} at most {d.radius} steps from everything else in your list.
+      </p>
+      <Covers items={d.center} />
+      <p className="small-text">This is how far each of your {d.main.series} connected series is from the one furthest from it.</p>
+      <div className="tour-spread">
+        {d.spread.map((s) => (
+          <div key={s.steps} className="tour-spread-row small-text">
+            <span>{s.steps} steps</span>
+            <span className="tour-spread-bar" style={{ width: `${(s.series / most) * 100}%` }} />
+            <span className="muted">{s.series}</span>
+          </div>
+        ))}
+      </div>
     </section>
   )
 }
