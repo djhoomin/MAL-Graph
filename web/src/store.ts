@@ -148,7 +148,9 @@ export const useStore = create<State>((set, get) => ({
       const edges = { ...s.edges }
       for (const n of p.nodes) nodes[n.id] = { ...nodes[n.id], ...n }
       for (const e of p.edges) edges[e.id] = e
-      return { nodes, edges, selected: opts?.select ?? s.selected }
+      // While a path is highlighted everything else is faded, so what was just added joins the highlight and shows.
+      const highlight = s.highlight.size ? new Set([...s.highlight, ...p.nodes.map((n) => n.id), ...p.edges.map((e) => e.id)]) : s.highlight
+      return { nodes, edges, highlight, selected: opts?.select ?? s.selected }
     }),
   removeNode: (id) =>
     set((s) => {
