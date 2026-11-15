@@ -117,6 +117,9 @@ class JikanClient:
     def anime_staff(self, mal_id: int) -> list[dict[str, Any]]:
         return self.get(f"anime/{mal_id}/staff")["data"]
 
+    def person(self, mal_id: int) -> dict[str, Any]:
+        return self.get(f"people/{mal_id}")["data"]
+
     def person_full(self, mal_id: int) -> dict[str, Any]:
         return self.get(f"people/{mal_id}/full")["data"]
 

@@ -52,13 +52,16 @@ TEAM_FETCH = 40  # stubs a tour may queue for fetching at once
 TIMELINE_MAKERS = 12  # people and studios offered as highlights on a cluster's timeline
 SEASONS = ["winter", "spring", "summer", "fall"]
 
-# The tour's graph. It is written out in full, since the app shows it.
+# The tour's graph. It is written out in full, since the app shows it. People born before 1900 are left out: they are
+# composers like Beethoven and Chopin, credited for Music when an anime plays their pieces, and they would tie together
+# shows that share nothing else.
 GRAPH = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)
 WHERE l.status <> 'plan_to_watch'
 MATCH path = (a)-[r]-(maker)
-WHERE type(r) = 'PRODUCED_BY'
+WHERE (type(r) = 'PRODUCED_BY'
    OR (type(r) = 'WORKED_ON' AND any(job IN r.positions WHERE job IN
-       ['Director', 'Series Composition', 'Music', 'Character Design', 'Original Creator']))"""
+       ['Director', 'Series Composition', 'Music', 'Character Design', 'Original Creator'])))
+  AND coalesce(maker.birthday, '9999') >= '1900'"""
 
 CLUSTERS = GRAPH + """
 WITH project(path) AS graph
@@ -83,9 +86,10 @@ RETURN a.mal_id AS id, a.title AS title, a.image_url AS image_url, coalesce(a.me
 TWINS = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)
 WHERE l.status <> 'plan_to_watch'
 MATCH (a)-[r]-(maker)
-WHERE type(r) = 'PRODUCED_BY'
+WHERE (type(r) = 'PRODUCED_BY'
    OR (type(r) = 'WORKED_ON' AND any(job IN r.positions WHERE job IN
-       ['Director', 'Series Composition', 'Music', 'Character Design', 'Original Creator']))
+       ['Director', 'Series Composition', 'Music', 'Character Design', 'Original Creator'])))
+  AND coalesce(maker.birthday, '9999') >= '1900'
 WITH a, collect(DISTINCT maker) AS makers
 WITH collect({anime: a, makers: makers}) AS shows
 UNWIND shows AS x
@@ -110,7 +114,7 @@ WHERE l.score >= 8
 MATCH (a)-[r1]-(maker)-[r2]-(rec:Anime)
 WHERE (type(r1) = 'PRODUCED_BY' OR (type(r1) = 'WORKED_ON' AND any(job IN r1.positions WHERE job IN $jobs)))
   AND (type(r2) = 'PRODUCED_BY' OR (type(r2) = 'WORKED_ON' AND any(job IN r2.positions WHERE job IN $jobs)))
-  AND NOT (u)-[:LISTED]->(rec)
+  AND coalesce(maker.birthday, '9999') >= '1900' AND NOT (u)-[:LISTED]->(rec)
   AND rec.type IN ['TV', 'Movie', 'ONA'] AND rec.score >= 7 AND rec.members >= $min_members
   AND NOT (rec)-[:RELATED_TO {relation: 'Prequel'}]->() AND NOT (rec)-[:RELATED_TO {relation: 'Parent Story'}]->()
 WITH rec, maker, max(l.score) AS best, collect(DISTINCT a.mal_id) AS because
@@ -144,6 +148,14 @@ RETURN rec.mal_id AS id, rec.title AS title, rec.image_url AS image_url, rec.sco
        rec.type AS type, rec.year AS year, rec.fetched_at IS NOT NULL AS fetched, collect(DISTINCT p.mal_id) AS people"""
 
 
+# People behind two or more of your anime whose birthday hasn't been looked up. Their profiles are fetched in the
+# background, so a composer who died long ago drops out of the tour on a later visit.
+UNCHECKED = GRAPH + """
+WITH maker, count(DISTINCT a) AS n
+WHERE maker:Person AND n >= 2 AND maker.fetched_at IS NULL AND maker.checked_at IS NULL
+RETURN maker.mal_id AS id ORDER BY n DESC"""
+
+
 def _ref(label: str, mal_id: Any) -> str:
     return f"{label}:{mal_id}"
 
@@ -174,6 +186,11 @@ def tour(username: str) -> dict[str, Any]:
 
 
 def _build(username: str) -> dict[str, Any]:
+    from . import jobs
+
+    unchecked = [f"Person:{r['id']}" for r in db.run(UNCHECKED, user=username)]
+    if unchecked:
+        jobs.queue.enqueue(f"tour:{username}", unchecked)
     franchise = games.recent_franchises()
     anime = {r["id"]: r for r in db.run(ANIME, user=username)}
     series_of = {a: franchise.get(a, a) for a in anime}
@@ -547,7 +564,8 @@ def _team_more(username: str, members: list[dict[str, Any]], series_of: dict[int
         if series in taken:
             continue
         taken.add(series)
-        picked.append({k: r[k] for k in ("title", "image_url", "mal_score", "type", "year")} | {"mal_id": r["id"], "people": len(r["people"])})
+        without = [m["name"] for m in members if m["mal_id"] not in r["people"]]
+        picked.append({k: r[k] for k in ("title", "image_url", "mal_score", "type", "year")} | {"mal_id": r["id"], "without": without})
         if len(picked) >= TEAM_RECS:
             break
     return picked

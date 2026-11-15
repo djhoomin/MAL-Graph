@@ -234,6 +234,15 @@ def expand_anime(j: JikanClient, mal_id: int) -> dict[str, int]:
 
 # --------------------------------------------------------------------------- person
 
+def check_person(j: JikanClient, mal_id: int) -> None:
+    """/people/{id}: a person's birthday and favourites, without their credits. Sets checked_at, not fetched_at."""
+    d = j.person(mal_id)
+    db.run(
+        "MATCH (p:Person {mal_id: $id}) SET p.birthday = $birthday, p.favorites = $favorites, p.checked_at = $now",
+        id=mal_id, birthday=d.get("birthday"), favorites=d.get("favorites"), now=_now(),
+    )
+
+
 def expand_person(j: JikanClient, mal_id: int) -> dict[str, int]:
     """/people/{id}/full: voice roles (anime + character, no language) and staff positions."""
     d = j.person_full(mal_id)

@@ -517,7 +517,7 @@ function TeamCard({ index, team }: { index: number; team: TourTeam }) {
           <Covers
             items={team.more.map((m) => ({
               ...m,
-              note: [m.mal_score != null && `MAL ${m.mal_score.toFixed(2)}`, m.people < team.people.length && `${m.people} of the ${team.people.length}`].filter(Boolean).join(', '),
+              note: [m.mal_score != null && `MAL ${m.mal_score.toFixed(2)}`, m.without.length > 0 && `without ${m.without.join(' and ')}`].filter(Boolean).join(', '),
             }))}
           />
         </>

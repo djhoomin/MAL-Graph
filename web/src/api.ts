@@ -454,8 +454,8 @@ export interface TourTeam {
   people: { id: string; name: string }[]
   series: number
   shows: { mal_id: number; title: string; image_url: string | null }[]
-  /** What they made together that you haven't seen, with how many of the team worked on it. */
-  more: { mal_id: number; title: string; image_url: string | null; mal_score: number | null; type: string | null; year: number | null; people: number }[]
+  /** What they made together that you haven't seen, with the members of a bigger team who didn't work on it. */
+  more: { mal_id: number; title: string; image_url: string | null; mal_score: number | null; type: string | null; year: number | null; without: string[] }[]
 }
 export interface Tour {
   anime: number

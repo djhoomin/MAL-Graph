@@ -26,13 +26,13 @@ class FetchQueue:
         self._pending: dict[str, deque[int]] = {}
         self._order: deque[str] = deque()  # users with pending work, in turn order
         self._progress: dict[str, dict[str, Any]] = {}
-        self._current: tuple[str, int] | None = None
+        self._current: tuple[str, int | str] | None = None
         self._thread: threading.Thread | None = None
 
     # ------------------------------------------------------------------ public
 
-    def enqueue(self, username: str, ids: list[int]) -> int:
-        """Queue these anime for `username`. Returns how many were newly queued."""
+    def enqueue(self, username: str, ids: list[int] | list[str]) -> int:
+        """Queue these anime for `username`, or people's profiles as "Person:<id>". Returns how many were newly queued."""
         with self._cv:
             queue = self._pending.get(username)
             active = queue is not None or (self._current is not None and self._current[0] == username)
@@ -78,7 +78,7 @@ class FetchQueue:
 
     # ------------------------------------------------------------------ worker
 
-    def _next(self) -> tuple[str, int] | None:
+    def _next(self) -> tuple[str, int | str] | None:
         """Pop the next anime, taking turns between users. Caller holds the lock."""
         while self._order:
             username = self._order[0]
@@ -118,9 +118,12 @@ class FetchQueue:
                     p["finished_at"] = time.time()
                     users.invalidate(username)  # newly fetched relations can widen the franchise set
 
-    def _fetch(self, mal_id: int) -> str | None:
+    def _fetch(self, mal_id: int | str) -> str | None:
         """Fetch one anime unless another user's job got there first. Returns an error message or None."""
         try:
+            if isinstance(mal_id, str):
+                ingest.check_person(jikan.shared(), int(mal_id.split(":", 1)[1]))
+                return None
             if db.run("MATCH (a:Anime {mal_id: $id}) WHERE a.fetched_at IS NOT NULL RETURN 1 AS x", id=mal_id):
                 return None
             ingest.expand_anime(jikan.shared(), mal_id)
