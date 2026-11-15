@@ -1,7 +1,6 @@
 """'Ask the graph': a tool-using agent over the graph API, run through OpenRouter (OpenAI-compatible)."""
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
@@ -11,9 +10,12 @@ import uuid
 from pathlib import Path
 from typing import Any, AsyncIterator
 
-from openai import AsyncOpenAI
+from langchain_core.messages import AIMessage, HumanMessage, convert_to_messages
+from langchain_core.runnables import RunnableConfig
+from langgraph.errors import GraphRecursionError
+from langsmith import tracing_context
 
-from . import db, ingest, mal, users
+from . import ask_graph, db, ingest, mal, users
 from .config import settings
 from .api import queries as Q
 from .api import routes as R
@@ -55,6 +57,8 @@ metadata for anime those people share. For RECOMMENDATIONS, follow this playbook
 
 Guidance:
 - Prefer the dedicated tools; use cypher_read for anything they can't express. Keep queries small; always add LIMIT.
+- For "how are X and Y connected", search for both, then call shortest_path once with all_paths=true. Its paths are the
+  answer, so explain them instead of probing the two with many cypher_read queries.
 - Japanese is the default voice-actor language unless the user says otherwise (VOICES.language = 'Japanese').
 - When the user asks to see something, call show_on_canvas with the relevant node refs so it appears in their graph view.
 - The written answer must contain the results themselves: name every anime, character or person you found, with the
@@ -440,6 +444,7 @@ def forget_conversations(username: str) -> None:
         _sessions.pop(key, None)
     if folder.exists():
         shutil.rmtree(folder)
+    ask_graph.delete_threads(folder.name)
 
 
 def migrate_conversations() -> int:
@@ -457,7 +462,7 @@ def migrate_conversations() -> int:
 
 def _new_conversation(cid: str) -> dict[str, Any]:
     now = time.time()
-    return {"id": cid, "title": "", "model": settings.openrouter_model, "created_at": now, "updated_at": now, "messages": [], "turns": []}
+    return {"id": cid, "title": "", "model": settings.openrouter_model, "created_at": now, "updated_at": now, "turns": []}
 
 
 def load_conversation(cid: str) -> dict[str, Any] | None:
@@ -500,6 +505,7 @@ def list_conversations() -> list[dict[str, Any]]:
 def delete_conversation(cid: str) -> bool:
     _sessions.pop(_key(cid), None)
     path = _conv_path(cid)
+    ask_graph.delete_threads(_user_dir().name, cid)
     if path.exists():
         path.unlink()
         return True
@@ -520,7 +526,7 @@ def _session(session_id: str | None) -> tuple[str, dict[str, Any], bool]:
     if session_id:
         conv = load_conversation(session_id)
         if conv is not None:
-            return session_id, conv, bool(conv["messages"])
+            return session_id, conv, bool(conv["turns"])
     cid = uuid.uuid4().hex
     conv = _new_conversation(cid)
     _sessions[_key(cid)] = conv
@@ -532,18 +538,18 @@ def configured() -> bool:
 
 
 async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[str, Any]]:
-    """Run one user turn; yields UI events (tool_call, tool_result, canvas, cards, answer, done, error)."""
+    """Run one user turn through the LangGraph agent in ask_graph; yields UI events (session, tool_call, tool_error,
+    canvas, cards, answer, error, done).
+
+    The conversation file keeps the title and the rendered turns. The model's messages live in the LangGraph thread."""
     if not configured():
         yield {"type": "error", "message": "OPENROUTER_API_KEY is not configured on the server"}
         return
     sid, conv, resumed = _session(session_id)
     # Unknown/expired session ids start a new conversation; the UI shows a notice when that happens mid-chat.
     yield {"type": "session", "id": sid, "model": settings.openrouter_model, "resumed": resumed}
-    client = AsyncOpenAI(api_key=settings.openrouter_api_key, base_url=settings.openrouter_base,
-                         default_headers={"HTTP-Referer": "https://github.com/djhoomin/MAL-Graph", "X-Title": "MAL-Graph"})
-    system = SYSTEM_PROMPT.format(username=users.current_username() or "the user")
-    messages: list[dict[str, Any]] = conv["messages"]
-    messages.append({"role": "user", "content": user_message})
+    username = users.current_username()
+    system = SYSTEM_PROMPT.format(username=username or "the user")
     if not conv["title"]:
         conv["title"] = user_message.strip()[:80]
     turn: dict[str, Any] = {"role": "assistant", "text": "", "steps": [], "cards": [], "usage": None, "error": None}
@@ -551,75 +557,68 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
     conv["turns"].append(turn)
     ctx = ToolContext()
     usage = {"prompt_tokens": 0, "completion_tokens": 0, "cached_tokens": 0}
-    # OpenRouter sticky sessions: route every request of a conversation to the same provider so prompt caching
-    # (automatic on DeepSeek/OpenAI; cache_control breakpoints on Anthropic) actually hits.
-    extra_body = {"session_id": sid, "cache_control": {"type": "ephemeral"}}
 
-    nudged = False  # asked once already for an answer after an empty reply
+    saver = await ask_graph.checkpointer()
+    graph = ask_graph.build(ask_graph.make_model(sid), ask_graph.make_tools(TOOLS), system, saver)
+    config: RunnableConfig = {
+        "configurable": {"thread_id": ask_graph.thread_id(_user_dir().name, sid)},
+        "recursion_limit": 2 * MAX_STEPS + 3,
+        "run_name": "Ask",
+        "tags": ["ask"],
+        "metadata": {"conversation": sid, "model": settings.openrouter_model, "username": username},
+    }
+    # Conversations from before LangGraph keep their messages in the file. Move them into the thread once.
+    if conv.get("messages"):
+        if not (await graph.aget_state(config)).values.get("messages"):
+            await graph.aupdate_state(config, {"messages": convert_to_messages(conv["messages"])}, as_node="agent")
+        conv["messages"] = []
+
+    steps: dict[str, dict[str, Any]] = {}  # tool call id -> step, to mark errors
+    token = ask_graph.turn_context.set(ctx)
     try:
-        for _ in range(MAX_STEPS):
-            resp = await client.chat.completions.create(
-                model=settings.openrouter_model, messages=[{"role": "system", "content": system}, *messages],
-                tools=TOOLS, tool_choice="auto", max_tokens=4000, extra_body=extra_body,
-            )
-            if resp.usage:
-                usage["prompt_tokens"] += resp.usage.prompt_tokens or 0
-                usage["completion_tokens"] += resp.usage.completion_tokens or 0
-                details = getattr(resp.usage, "prompt_tokens_details", None)
-                usage["cached_tokens"] += (getattr(details, "cached_tokens", None) or 0) if details else 0
-            msg = resp.choices[0].message
-            if not msg.tool_calls and not (msg.content or "").strip():
-                # An empty reply, usually because the model spent its token budget thinking (finish_reason
-                # "length"). Ask once for the answer itself rather than ending the turn with nothing.
-                log.warning("empty model reply (finish_reason=%s)", resp.choices[0].finish_reason)
-                if not nudged:
-                    nudged = True
-                    messages.append({"role": "user", "content": "Please write your answer now, from the results you already have. List the results themselves."})
-                    continue
-                turn["text"] = "I couldn't put an answer together this time. Try asking again, or ask a narrower question."
-                yield {"type": "answer", "text": turn["text"]}
-                break
-            messages.append({"role": "assistant", "content": msg.content or "", **({"tool_calls": [tc.model_dump() for tc in msg.tool_calls]} if msg.tool_calls else {})})
-            if not msg.tool_calls:
-                turn["text"] = msg.content or ""
-                yield {"type": "answer", "text": turn["text"]}
-                break
-            for tc in msg.tool_calls:
-                name = tc.function.name
-                try:
-                    args = json.loads(tc.function.arguments or "{}")
-                except json.JSONDecodeError:
-                    args = {}
-                step = {"name": name, "args": args}
-                turn["steps"].append(step)
-                yield {"type": "tool_call", "name": name, "args": args}
-                try:
-                    result = await asyncio.to_thread(execute_tool, name, args, ctx)
-                    content = json.dumps(result, ensure_ascii=False, default=str)
-                    if len(content) > 60_000:
-                        content = content[:60_000] + '... (truncated)"}'
-                except Exception as e:  # noqa: BLE001 - report tool failures to the model
-                    content = json.dumps({"error": str(e)})
-                    step["error"] = str(e)
-                    yield {"type": "tool_error", "name": name, "message": str(e)}
-                messages.append({"role": "tool", "tool_call_id": tc.id, "content": content})
-                while ctx.canvas:
-                    yield {"type": "canvas", "payload": ctx.canvas.pop(0)}
-                while ctx.cards:
-                    group = ctx.cards.pop(0)
-                    turn["cards"].append(group)
-                    yield {"type": "cards", **group}
-        else:
-            turn["text"] = "I ran out of steps before finishing. Try a narrower question."
+        with tracing_context(enabled=ask_graph.traced(username)):
+            async for update in graph.astream({"messages": [HumanMessage(user_message)], "nudged": False}, config, stream_mode="updates"):
+                for node, change in update.items():
+                    if node == "agent":
+                        reply: AIMessage = change["messages"][-1]
+                        meta = reply.usage_metadata or {}
+                        usage["prompt_tokens"] += meta.get("input_tokens", 0)
+                        usage["completion_tokens"] += meta.get("output_tokens", 0)
+                        usage["cached_tokens"] += (meta.get("input_token_details") or {}).get("cache_read", 0) or 0
+                        for call in reply.tool_calls:
+                            step = {"name": call["name"], "args": call["args"]}
+                            steps[call["id"] or ""] = step
+                            turn["steps"].append(step)
+                            yield {"type": "tool_call", "name": call["name"], "args": call["args"]}
+                        if not reply.tool_calls and reply.text.strip():
+                            turn["text"] = reply.text
+                            yield {"type": "answer", "text": turn["text"]}
+                        elif not reply.tool_calls:
+                            log.warning("empty model reply (finish_reason=%s)", reply.response_metadata.get("finish_reason"))
+                    elif node == "tools":
+                        for m in ask_graph.tool_errors(change):
+                            message = m.text.removeprefix("Error: ")
+                            if m.tool_call_id in steps:
+                                steps[m.tool_call_id]["error"] = message
+                            yield {"type": "tool_error", "name": m.name, "message": message}
+                        while ctx.canvas:
+                            yield {"type": "canvas", "payload": ctx.canvas.pop(0)}
+                        while ctx.cards:
+                            group = ctx.cards.pop(0)
+                            turn["cards"].append(group)
+                            yield {"type": "cards", **group}
+        if not turn["text"]:
+            turn["text"] = "I couldn't put an answer together this time. Try asking again, or ask a narrower question."
             yield {"type": "answer", "text": turn["text"]}
+    except GraphRecursionError:
+        turn["text"] = "I ran out of steps before finishing. Try a narrower question."
+        yield {"type": "answer", "text": turn["text"]}
     except Exception as e:  # noqa: BLE001
+        log.exception("ask failed")
         turn["error"] = f"{type(e).__name__}: {e}"
         yield {"type": "error", "message": turn["error"]}
-    # keep the model transcript bounded (the rendered turns are kept in full)
-    if len(messages) > 60:
-        del messages[: len(messages) - 60]
-        while messages and messages[0]["role"] != "user":
-            del messages[0]
+    finally:
+        ask_graph.turn_context.reset(token)
     turn["usage"] = usage
     save_conversation(conv)
     yield {"type": "done", "usage": usage}

@@ -75,6 +75,10 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
 - [x] **Graph tour, step 7.** How far apart your anime are: islands (connected components), the two series furthest
       apart (the diameter, by breadth-first search between series) and the series at the centre. People born before
       1900, such as composers credited when an anime plays their pieces, are left out of the tour.
+- [x] **Ask on LangGraph, with LangSmith evals.** The hand-written tool loop became a LangGraph StateGraph (agent,
+      ToolNode, a nudge node for empty replies) with conversations as threads in a SQLite checkpointer. Runs of the
+      users in LANGSMITH_TRACE_USERS are traced to LangSmith. `malgraph eval-ask` scores ten questions on correctness
+      (checked against the graph), private lists, a tool budget and tool errors, locally or as a LangSmith experiment.
 - [x] **Voice lens for the tour.** The same graph ideas on a graph joined only by the Japanese voice actors of main
       characters, as a Voices switch on the tour with bridges, twins, duos and distance. Clusters and paths were left
       out, since leads work on too many shows a year to say much about taste. On Manned00d's list this has no islands, a diameter of 5 series and a radius of 3, against 7 and 4

@@ -121,5 +121,16 @@ def stats() -> None:
         rprint(f"{k:>18}: {v}")
 
 
+@app.command()
+def eval_ask(
+    user: str = typer.Option(None, help="Whose list the questions are about. Defaults to MAL_USERNAME"),
+    langsmith: bool = typer.Option(False, help="Record the run as a LangSmith experiment (needs LANGSMITH_API_KEY)"),
+    prefix: str = typer.Option("ask", help="LangSmith experiment name prefix"),
+    only: str = typer.Option("", help="Comma list of checks to run, locally only"),
+) -> None:
+    """Run the Ask agent on the eval questions and score the answers against the graph."""
+    from . import ask_eval
+
+    ask_eval.main(user or settings.mal_username, langsmith, prefix, [c for c in only.split(",") if c] or None)
 if __name__ == "__main__":
     app()
