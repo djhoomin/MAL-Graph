@@ -515,6 +515,35 @@ export const tourApi = {
   voice: (step: VoiceStep, index: number) => req<GraphPayload>(`/api/tour/voices/${step}/${index}`),
 }
 
+/** Yay or Nay: what a player's yays or nays have in common, against their overall yay rate. */
+export interface YayPattern {
+  kind: 'voice' | 'studio' | 'genre' | 'series'
+  label: string
+  yay: number
+  total: number
+}
+export interface YayPatterns {
+  votes: number
+  yay: number
+  need: number // votes still needed before patterns show
+  likes: YayPattern[]
+  dislikes: YayPattern[]
+}
+export interface YayDaily {
+  date: string
+  cards: KmkCard[]
+  votes: Record<string, number> // character mal_id -> 1 for yay, 0 for nay
+  done: boolean
+  results?: Record<string, { players: number; yay: number }> // once done
+  patterns?: YayPatterns // once done
+}
+export const yayApi = {
+  daily: () => req<YayDaily>('/api/yay/daily'),
+  voteDaily: (character: number, yay: boolean) => req<YayDaily>('/api/yay/daily', post({ character, yay })),
+  mine: () => req<{ cards: KmkCard[]; patterns: YayPatterns }>('/api/yay/mine'),
+  voteMine: (character: number, yay: boolean) => req<{ patterns: YayPatterns }>('/api/yay/mine', post({ character, yay })),
+}
+
 export const mysteryApi = {
   daily: () => req<Mystery>('/api/mystery/daily'),
   move: (action: 'clue' | 'guess' | 'give_up', guess?: number) => req<Mystery>('/api/mystery/daily', post({ action, guess })),

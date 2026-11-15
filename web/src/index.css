@@ -610,3 +610,37 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .tour-timeline-picked { min-height: 1.4em; margin: 8px 0 0; }
 .tour-nav { margin-top: 20px; }
 .tour-card-head h3 { text-transform: none; letter-spacing: normal; color: inherit; }
+
+/* Yay or Nay */
+.yay-stage { display: flex; flex-direction: column; align-items: center; gap: 14px; margin: 18px 0 6px; }
+.yay-stack { position: relative; width: min(260px, 72vw); }
+.yay-stack .kmk-card { width: 100%; }
+.yay-next { position: absolute; inset: 0; transform: scale(0.95) translateY(8px); opacity: 0.5; pointer-events: none; }
+.yay-top { position: relative; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
+.yay-top:active { cursor: grabbing; }
+.yay-top.settle { transition: transform 0.18s ease-out; }
+.yay-top img { pointer-events: none; -webkit-user-drag: none; }
+.yay-stamp { position: absolute; top: 22px; padding: 4px 12px; border: 3px solid; border-radius: 8px; font-size: 22px; font-weight: 700; text-transform: uppercase; pointer-events: none; background: rgba(0, 0, 0, 0.35); }
+.yay-stamp.yay { left: 18px; color: #4cc38a; transform: rotate(-12deg); }
+.yay-stamp.nay { right: 18px; color: #f06a6a; transform: rotate(12deg); }
+.yay-buttons { display: flex; gap: 12px; }
+.yay-buttons button { min-width: 110px; height: 44px; font-size: 16px; font-weight: 600; border-radius: 22px; }
+.yay-buttons .yay { color: #4cc38a; border-color: #4cc38a; }
+.yay-buttons .nay { color: #f06a6a; border-color: #f06a6a; }
+.yay-count { text-align: center; }
+.yay-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin: 14px 0; }
+.yay-results .kmk-card { position: relative; }
+.yay-results .yay-mine { border-color: #4cc38a; }
+.yay-results .nay-mine { border-color: #f06a6a; opacity: 0.85; }
+.yay-badge { font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.yay-badge.yay { color: #4cc38a; }
+.yay-badge.nay { color: #f06a6a; }
+.yay-share { position: relative; display: block; width: 100%; height: 18px; border-radius: 9px; overflow: hidden; background: var(--border); }
+.yay-share i { position: absolute; inset: 0 auto 0 0; background: rgba(76, 195, 138, 0.45); }
+.yay-share b { position: relative; font-size: 11px; line-height: 18px; }
+.yay-patterns { margin: 22px 0 8px; }
+.yay-patterns h2 { font-size: 18px; margin: 0 0 6px; }
+.yay-pattern-list h3 { font-size: 14px; margin: 12px 0 4px; }
+.yay-pattern-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-width: 460px; }
+.yay-pattern-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.yay-pattern-list b { white-space: nowrap; font-weight: 600; }

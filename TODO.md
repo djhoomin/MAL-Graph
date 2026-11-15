@@ -53,6 +53,10 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
 - [x] **Mystery character.** Guess a character from clues revealed one at a time from the graph, for example "voiced
       by someone who also played X", "from a Fall 2019 anime" or "made by the studio behind Y". Fewer clues score more.
       Fits a daily format with an anonymous tally.
+- [x] **Yay or Nay.** Swipe right or left on character cards, as a daily stack of 20 with each card's yay share and as
+      an endless stack from your list. Your patterns shows the voice actors, studios, genres and series your yays and
+      nays lean towards. It asks no question on purpose: a "Smash or Pass" framing would need age data the graph lacks.
+- [ ] **Yay or Nay on a real phone.** The swipe is built on pointer events and tested with a mouse and keyboard only.
 - [ ] **Who's the link.** Two anime, and the player names a person who worked on both using search. Rarer answers
       score more, so a much-cast voice actor is worth less than the shared sound director.
 - [ ] **Voice chain.** Build the longest chain alternating character, voice actor, character through anime you've

@@ -46,13 +46,16 @@ export function HelpPage() {
             <a href="#/kmk">Kiss Marry Kill</a> gives you three characters to kiss, marry and kill, and keeps your harem, hookups, graveyard and terrarium in your collection.
           </li>
           <li>
+            <a href="#/yay">Yay or Nay</a> deals character cards to swipe right or left on, and shows what the ones you said yay to have in common.
+          </li>
+          <li>
             <a href="#/odd">Odd one out</a> shows four characters, and you pick the one that doesn't share the link the other three have.
           </li>
           <li>
             <a href="#/mystery">Mystery character</a> asks you to guess a character from clues that get more specific the more you need.
           </li>
         </ul>
-        <p>Golf, Odd one out, Mystery character and Today's three in Kiss Marry Kill are daily games. They're the same for everyone, they change at midnight UTC, and afterwards you can see how everyone else did. Other players only ever see counts, never names.</p>
+        <p>Golf, Odd one out, Mystery character, Today's three in Kiss Marry Kill and Today's stack in Yay or Nay are daily games. They're the same for everyone, they change at midnight UTC, and afterwards you can see how everyone else did. Other players only ever see counts, never names.</p>
       </article>
     </div>
   )

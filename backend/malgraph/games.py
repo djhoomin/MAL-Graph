@@ -1,4 +1,4 @@
-"""Shared storage for the daily games (Odd one out, Mystery character and Daily Kiss Marry Kill).
+"""Shared storage for the daily games (Odd one out, Mystery character, Daily Kiss Marry Kill and Yay or Nay).
 
 Each game has one puzzle per UTC day, made from the date as a random seed and saved so it stays the same all day
 even as the graph grows. Each player's play of the day is stored per game and day under their username, so it can
@@ -17,7 +17,7 @@ from typing import Any
 
 from .config import settings
 
-GAMES = ("odd", "mystery", "kmk")
+GAMES = ("odd", "mystery", "kmk", "yay")
 
 _make_locks = {g: threading.Lock() for g in GAMES}  # one puzzle is made at a time per game
 _play_lock = threading.Lock()

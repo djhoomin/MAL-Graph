@@ -15,6 +15,7 @@ import { OddPage } from './components/OddPage'
 import { RosterPage } from './components/RosterPage'
 import { SearchBar } from './components/SearchBar'
 import { TourPage } from './components/TourPage'
+import { YayPage } from './components/YayPage'
 import { SyncPill, Welcome } from './components/Welcome'
 import { useGolf } from './golf'
 import { InsightsPage } from './insights/InsightsPage'
@@ -31,6 +32,7 @@ export default function App() {
   if (route[0] === 'kmk') return <KmkPage />
   if (route[0] === 'odd') return <OddPage />
   if (route[0] === 'mystery') return <MysteryPage />
+  if (route[0] === 'yay') return <YayPage />
   return <GraphPage />
 }
 

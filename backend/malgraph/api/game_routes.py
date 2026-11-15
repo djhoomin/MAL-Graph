@@ -1,4 +1,5 @@
-"""/api/odd and /api/mystery: Odd one out and Mystery character. Daily Kiss Marry Kill lives in kmk_routes."""
+"""/api/odd, /api/mystery and /api/yay: Odd one out, Mystery character and Yay or Nay. Daily Kiss Marry Kill lives in
+kmk_routes."""
 from __future__ import annotations
 
 from typing import Any
@@ -7,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from .. import games, mystery, odd, users
+from .. import games, mystery, odd, users, yay
 
 router = APIRouter()
 
@@ -158,3 +159,58 @@ async def mystery_mine_move(body: MineMove) -> dict[str, Any]:
         raise HTTPException(410, "This game has expired. Start a new one.")
     puzzle, play, correct = moved
     return {**(await run_in_threadpool(_mystery_view, puzzle, play, correct)), "token": body.token}
+
+
+# --------------------------------------------------------------------------- Yay or Nay
+
+def _yay_daily(username: str) -> dict[str, Any]:
+    puzzle = yay.daily()
+    play = games.my_play(yay.GAME, puzzle["date"], username)
+    votes = play["votes"] if play else {}
+    done = all(str(c) in votes for c in puzzle["cards"])
+    out: dict[str, Any] = {
+        "date": puzzle["date"],
+        "cards": games.character_cards(puzzle["cards"]),
+        "votes": votes,  # character id -> 1 for yay, 0 for nay
+        "done": done,
+    }
+    if done:
+        out["results"] = yay.results(puzzle)  # character id -> players and yays, counts only
+        out["patterns"] = yay.patterns(username)
+    return out
+
+
+@router.get("/api/yay/daily")
+async def yay_daily() -> dict[str, Any]:
+    return await run_in_threadpool(_yay_daily, _user())
+
+
+class YayVote(BaseModel):
+    character: int
+    yay: bool
+
+
+@router.post("/api/yay/daily")
+async def yay_daily_vote(body: YayVote) -> dict[str, Any]:
+    username = _user()
+    try:
+        await run_in_threadpool(yay.vote, username, body.character, body.yay, True)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return await run_in_threadpool(_yay_daily, username)
+
+
+@router.get("/api/yay/mine")
+async def yay_mine() -> dict[str, Any]:
+    username = _user()
+    ids = await run_in_threadpool(yay.mine_cards, username)
+    if not ids:
+        raise HTTPException(404, "There are no characters left to vote on. Sync your list, or play today's stack.")
+    return {"cards": await run_in_threadpool(games.character_cards, ids), "patterns": await run_in_threadpool(yay.patterns, username)}
+
+
+@router.post("/api/yay/mine")
+async def yay_mine_vote(body: YayVote) -> dict[str, Any]:
+    username = _user()
+    await run_in_threadpool(yay.vote, username, body.character, body.yay, False)
+    return {"patterns": await run_in_threadpool(yay.patterns, username)}
