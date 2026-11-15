@@ -22,6 +22,7 @@ LangSmith. Nobody else's questions or lists leave the server that way.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sqlite3
@@ -120,26 +121,35 @@ def build(model: ChatOpenAI, tools: list[StructuredTool], system: str, checkpoin
 
 
 _saver: AsyncSqliteSaver | None = None
+_opening: asyncio.Lock | None = None
 
 
 async def checkpointer() -> AsyncSqliteSaver:
-    """One SQLite checkpointer for every conversation, opened on first use in the server's event loop."""
-    global _saver
+    """One SQLite checkpointer for every conversation, opened on first use in the server's event loop.
+
+    The lock stops two questions arriving together from each opening a connection. The one left over would never be
+    closed, and its thread would keep a script from exiting.
+    """
+    global _saver, _opening
     if _saver is None:
-        path = settings.conversations_dir / "checkpoints.sqlite"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        saver = AsyncSqliteSaver(await aiosqlite.connect(str(path)))
-        await saver.setup()
-        _saver = saver
+        _opening = _opening or asyncio.Lock()
+        async with _opening:
+            if _saver is None:
+                path = settings.conversations_dir / "checkpoints.sqlite"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                saver = AsyncSqliteSaver(await aiosqlite.connect(str(path)))
+                await saver.setup()
+                _saver = saver
     return _saver
 
 
 async def close() -> None:
     """Close the checkpointer's connection, for scripts that exit (the server keeps it open)."""
-    global _saver
+    global _saver, _opening
     if _saver is not None:
         await _saver.conn.close()
         _saver = None
+    _opening = None  # a lock belongs to one event loop
 
 
 def thread_id(user_folder: str, conversation_id: str) -> str:

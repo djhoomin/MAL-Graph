@@ -125,11 +125,12 @@ def _check_hanazawa_roles(answer: str, user: str, steps: list[dict[str, Any]]) -
     rows = db.run(
         "MATCH (p:Person)-[v:VOICES {language: 'Japanese'}]->(c:Character)<-[:HAS_CHARACTER]-(a:Anime)<-[l:LISTED]-(:User {username: $u}) "
         "WHERE p.name IN ['Hanazawa, Kana', 'Kana Hanazawa'] AND l.status <> 'plan_to_watch' AND a.mal_id IN v.anime_ids "
-        "RETURN DISTINCT c.name AS name", u=user)
-    groups = [_names(r["name"]) for r in rows]
-    hit = _hits(answer, groups)
-    need = min(3, len(groups))
-    return min(1.0, hit / need) if need else 1.0, f"{hit} of {len(groups)} roles named"
+        "RETURN DISTINCT c.mal_id AS id, c.name AS name", u=user)
+    # A role counts when the answer names it or the agent showed it on a card or the canvas.
+    shown = set(_shown(steps, "Character"))
+    hit = sum(1 for r in rows if r["id"] in shown or _mentions(answer, _names(r["name"])))
+    need = min(3, len(rows))
+    return min(1.0, hit / need) if need else 1.0, f"{hit} of {len(rows)} roles named or shown"
 
 
 def _check_chainsaw_jjk(answer: str, user: str, steps: list[dict[str, Any]]) -> tuple[float, str]:
