@@ -33,6 +33,8 @@ export function InsightsPage() {
   }, [refreshUser])
 
   const statusList = useMemo(() => STATUS_ORDER.filter((s) => statuses.has(s)), [statuses])
+  // Gaps only follow on from anime you're still with, not ones you dropped or put on hold.
+  const gapStatuses = useMemo(() => statusList.filter((s) => s === 'completed' || s === 'watching'), [statusList])
   const anime = useMemo(() => (all ?? []).filter((a) => statuses.has(a.status)), [all, statuses])
 
   const kpi = useMemo(() => {
@@ -165,7 +167,7 @@ export function InsightsPage() {
               <h2>Gaps</h2>
               <span className="muted">related anime you haven't seen</span>
             </div>
-            <Gaps statuses={statusList} />
+            <Gaps statuses={gapStatuses} />
           </section>
         </div>
       )}

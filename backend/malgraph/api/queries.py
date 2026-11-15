@@ -133,12 +133,12 @@ INSIGHTS_STAFF = """
     ORDER BY size(anime_ids) DESC, p.name LIMIT $limit
 """
 
-# Related anime (sequels etc.) of listed anime that are not on the list.
+# Related anime (sequels etc.) of listed anime that are not on the list in any status, Plan to Watch included.
 INSIGHTS_GAPS = """
     MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)-[r:RELATED_TO]->(b:Anime)
     WHERE l.status IN $statuses AND r.relation IN $relations AND NOT (u)-[:LISTED]->(b)
     RETURN b.mal_id AS mal_id, b.title AS title, b.image_url AS image_url, b.score AS score, b.type AS type,
-           b.year AS year, b.fetched_at IS NOT NULL AS fetched,
+           b.year AS year, b.season AS season, b.aired_from AS aired_from, b.status AS airing, b.fetched_at IS NOT NULL AS fetched,
            collect({relation: r.relation, mal_id: a.mal_id, title: a.title, my_score: l.score, status: l.status}) AS via
     ORDER BY size(via) DESC, mal_id
 """

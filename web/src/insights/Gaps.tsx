@@ -12,7 +12,9 @@ export function Gaps({ statuses }: { statuses: ListStatus[] }) {
   const run = useStore((s) => s.run)
 
   const load = () =>
-    api
+    statuses.length === 0
+      ? Promise.resolve(setGaps([]))
+      : api
       .insightsGaps(statuses)
       .then((r) => setGaps(r.gaps))
       .catch((e) => setErr((e as Error).message))
@@ -50,6 +52,10 @@ export function Gaps({ statuses }: { statuses: ListStatus[] }) {
     await load()
   }
   const unfetched = rows.filter((g) => !g.fetched).length
+  const out = rows.filter((g) => g.airing !== 'Not yet aired')
+  const coming = rows
+    .filter((g) => g.airing === 'Not yet aired')
+    .sort((a, b) => (a.aired_from ?? '9999').localeCompare(b.aired_from ?? '9999') || a.title.localeCompare(b.title))
 
   return (
     <div>
@@ -71,7 +77,9 @@ export function Gaps({ statuses }: { statuses: ListStatus[] }) {
           </button>
         ))}
         <span className="spacer" />
-        <span className="muted">{rows.length} unseen</span>
+        <span className="muted">
+          {out.length} to watch{coming.length > 0 && `, ${coming.length} not aired yet`}
+        </span>
         {unfetched > 0 && (
           <button className="small" disabled={!!progress} onClick={() => void fetchAll()}>
             {progress ? `fetching ${progress.done}/${progress.total}…` : `fetch details for all (${unfetched})`}
@@ -79,34 +87,58 @@ export function Gaps({ statuses }: { statuses: ListStatus[] }) {
         )}
       </div>
       {err && <div className="error">{err}</div>}
-      {gaps && rows.length === 0 && <div className="muted">Nothing — you're caught up on these.</div>}
-      <div className="gap-grid">
-        {rows.slice(0, 60).map((g) => (
-          <div key={g.mal_id} className="gap">
-            {g.image_url ? <img src={g.image_url} alt="" /> : <span className="noimg" />}
-            <div className="gap-body">
-              <a href={`https://myanimelist.net/anime/${g.mal_id}`} target="_blank" rel="noreferrer" className="gap-title">
-                {g.title}
-              </a>
-              <div className="muted">
-                {g.type ?? ''} {g.year ?? ''} {g.score ? `· MAL ${g.score}` : ''}
-                {!g.fetched && (
-                  <button className="link" onClick={() => void fetchOne(g)}>
-                    {' '}
-                    fetch details
-                  </button>
-                )}
-              </div>
-              {g.via.slice(0, 2).map((v) => (
-                <div key={v.mal_id + v.relation} className="via">
-                  {v.relation.toLowerCase()} of <em>{v.title}</em>
-                  {v.my_score > 0 && <span className="muted"> · you gave it {v.my_score}</span>}
-                </div>
-              ))}
+      <p className="muted small-text">These follow on from anime you've completed or are watching, not ones you dropped or put on hold. Anything already on your list is left out, Plan to Watch included.</p>
+      {gaps && rows.length === 0 && <div className="muted">You're caught up on these.</div>}
+      <GapGrid rows={out.slice(0, 60)} fetchOne={fetchOne} />
+      {coming.length > 0 && (
+        <>
+          <h3 className="gap-head">Not aired yet</h3>
+          <GapGrid rows={coming.slice(0, 60)} fetchOne={fetchOne} />
+        </>
+      )}
+    </div>
+  )
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** When an anime that hasn't aired is due, as precisely as MyAnimeList knows it. */
+function due(g: Gap): string {
+  if (g.season && g.year) return `${g.season[0].toUpperCase()}${g.season.slice(1)} ${g.year}`
+  const m = g.aired_from?.match(/^(\d{4})-(\d{2})/)
+  if (m) return `${MONTHS[Number(m[2]) - 1]} ${m[1]}`
+  return g.year ? String(g.year) : 'No date yet'
+}
+
+function GapGrid({ rows, fetchOne }: { rows: Gap[]; fetchOne: (g: Gap) => Promise<void> }) {
+  return (
+    <div className="gap-grid">
+      {rows.map((g) => (
+        <div key={g.mal_id} className="gap">
+          {g.image_url ? <img src={g.image_url} alt="" /> : <span className="noimg" />}
+          <div className="gap-body">
+            <a href={`https://myanimelist.net/anime/${g.mal_id}`} target="_blank" rel="noreferrer" className="gap-title">
+              {g.title}
+            </a>
+            <div className="muted">
+              {g.airing === 'Not yet aired' ? `${g.type ?? ''} ${due(g)}` : `${g.type ?? ''} ${g.year ?? ''} ${g.score ? `· MAL ${g.score}` : ''}`}
+              {g.airing === 'Currently Airing' && ' · airing'}
+              {!g.fetched && (
+                <button className="link" onClick={() => void fetchOne(g)}>
+                  {' '}
+                  fetch details
+                </button>
+              )}
             </div>
+            {g.via.slice(0, 2).map((v) => (
+              <div key={v.mal_id + v.relation} className="via">
+                {v.relation.toLowerCase()} of <em>{v.title}</em>
+                {v.my_score > 0 && <span className="muted"> · you gave it {v.my_score}</span>}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   )
 }

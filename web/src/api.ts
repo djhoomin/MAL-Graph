@@ -94,6 +94,10 @@ export interface Gap {
   score: number | null
   type: string | null
   year: number | null
+  season: string | null
+  aired_from: string | null
+  /** MyAnimeList's airing status, such as "Not yet aired". Null until the anime is fetched. */
+  airing: string | null
   fetched: boolean
   via: { relation: string; mal_id: number; title: string; my_score: number; status: ListStatus }[]
 }

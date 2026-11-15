@@ -273,7 +273,7 @@ def insights_people(
 
 
 @router.get("/insights/gaps")
-def insights_gaps(statuses: str | None = "completed,watching,on_hold", relations: str | None = None) -> dict[str, Any]:
+def insights_gaps(statuses: str | None = "completed,watching", relations: str | None = None) -> dict[str, Any]:
     rels = [r for r in (relations or "").split(",") if r] or GAP_RELATIONS
     return {"gaps": [r.data() for r in _records(Q.INSIGHTS_GAPS, statuses=_statuses(statuses), relations=rels)]}
 

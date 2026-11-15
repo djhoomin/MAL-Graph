@@ -95,4 +95,5 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
 - [x] **Odd one out and Mystery character on a real phone.** Checked at phone width in a desktop browser only.
 - [x] **Graph tour's "Show on the graph" in a real browser.** The layout and fit run on an animation, which the
       automated test browser never plays because its tab is hidden. The positions it computes look right.
-- [ ] **Insights timeline on a phone.** The y-axis labels scroll out of view along with the chart.
+- [x] **Insights timeline on a phone.** The y-axis labels scroll out of view along with the chart. Checked on a phone
+      and fine.
