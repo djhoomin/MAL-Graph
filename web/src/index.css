@@ -471,6 +471,7 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .odd-reveal p { margin: 4px 0; }
 .good { color: #4cc38a; }
 .bad { color: #ff4f6a; }
+.warn { color: #f5b642; }
 .game-done { margin: 16px 0; }
 .game-done h2 { margin: 0 0 8px; }
 .golf-bar.mine span { color: var(--accent); font-weight: 600; }

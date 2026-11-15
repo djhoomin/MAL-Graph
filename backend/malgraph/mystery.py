@@ -177,6 +177,23 @@ def act(username: str, action: str, guess: int | None = None) -> tuple[dict[str,
     return puzzle, play, correct[0]
 
 
+def right_anime(answer: int, guesses: list[int]) -> list[int]:
+    """The wrong guesses who appear in the answer's anime or anything in its franchise, like the right band in Bandle."""
+    wrong = [g for g in guesses if g != answer]
+    if not wrong:
+        return []
+    franchise = games.recent_franchises()
+    rows = db.run(
+        "MATCH (a:Anime)-[:HAS_CHARACTER]->(c:Character) WHERE c.mal_id IN $ids RETURN c.mal_id AS c, a.mal_id AS a",
+        ids=[answer, *wrong],
+    )
+    shows: dict[int, set[int]] = {}
+    for r in rows:
+        shows.setdefault(r["c"], set()).add(franchise.get(r["a"], r["a"]))
+    target = shows.get(answer, set())
+    return [g for g in wrong if shows.get(g, set()) & target]
+
+
 def summary(puzzle: dict[str, Any]) -> dict[str, Any]:
     done = [p for p in games.plays("mystery", puzzle["date"]).values() if p["done"]]
     solved = [p["clues"] for p in done if p["solved"]]

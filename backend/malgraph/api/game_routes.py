@@ -93,6 +93,7 @@ def _mystery_view(puzzle: dict[str, Any], play: dict[str, Any], correct: bool | 
         "clues": puzzle["clues"][: play["clues"]],
         "used": play["clues"],  # clues shown when the game ended, for the score
         "guesses": [c["character"] for c in games.character_cards(play["guesses"])],
+        "right_anime": mystery.right_anime(puzzle["answer"], play["guesses"]),  # wrong guesses from the answer's anime
         "solved": play["solved"],
         "done": play["done"],
     }

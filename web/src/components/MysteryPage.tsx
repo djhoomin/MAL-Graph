@@ -63,7 +63,7 @@ function Game({ mine = false }: { mine?: boolean }) {
   const [game, setGame] = useState<Mystery | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [miss, setMiss] = useState<string | null>(null) // the name of the last wrong guess
+  const [miss, setMiss] = useState<GNode | null>(null) // the last wrong guess
 
   const load = useCallback(() => {
     setGame(null)
@@ -72,6 +72,8 @@ function Game({ mine = false }: { mine?: boolean }) {
     ;(mine ? mysteryApi.mine() : mysteryApi.daily()).then(setGame, (e) => setError(errorText(e)))
   }, [mine])
   useEffect(load, [load])
+
+  const close = (g: GNode) => g.mal_id != null && !!game?.right_anime?.includes(g.mal_id)
 
   const move = async (action: 'clue' | 'guess' | 'give_up', guess?: GNode) => {
     if (!game) return
@@ -82,7 +84,7 @@ function Game({ mine = false }: { mine?: boolean }) {
       const g = guess?.mal_id ?? undefined
       const next = game.token ? await mysteryApi.moveMine(game.token, action, g) : await mysteryApi.move(action, g)
       setGame(next)
-      if (action === 'guess' && next.correct === false && guess) setMiss(guess.name)
+      if (action === 'guess' && next.correct === false && guess) setMiss(guess)
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -108,7 +110,11 @@ function Game({ mine = false }: { mine?: boolean }) {
                 Clue {game.clues.length} of {game.total}
               </div>
               <GuessBox disabled={busy} exclude={new Set(game.guesses.map((g) => g.id))} onGuess={(n) => void move('guess', n)} />
-              {miss && <p className="bad">It isn't {miss}.</p>}
+              {miss && (
+                <p className={close(miss) ? 'warn' : 'bad'}>
+                  It isn't {miss.name}{close(miss) ? ', but the anime is right.' : '.'}
+                </p>
+              )}
               <div className="kmk-actions">
                 <button onClick={() => void move('clue')} disabled={busy || game.clues.length >= game.total}>
                   Show another clue
@@ -120,7 +126,9 @@ function Game({ mine = false }: { mine?: boolean }) {
             </>
           )}
           {game.guesses.length > 0 && !game.solved && (
-            <div className="mystery-guesses muted small-text">Guessed so far: {game.guesses.map((g) => g.name).join(', ')}</div>
+            <div className="mystery-guesses muted small-text">
+              Guessed so far: {game.guesses.map((g) => (close(g) ? `${g.name} (right anime)` : g.name)).join(', ')}
+            </div>
           )}
           {game.done && game.answer && <Result game={game} onAnother={mine ? load : undefined} />}
         </>
