@@ -75,6 +75,11 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
 - [x] **Graph tour, step 7.** How far apart your anime are: islands (connected components), the two series furthest
       apart (the diameter, by breadth-first search between series) and the series at the centre. People born before
       1900, such as composers credited when an anime plays their pieces, are left out of the tour.
+- [x] **Voice lens for the tour.** The same graph ideas on a graph joined only by the Japanese voice actors of main
+      characters, as a Voices switch on the tour with bridges, twins, duos and distance. Clusters and paths were left
+      out, since leads work on too many shows a year to say much about taste. On Manned00d's list this has no islands, a diameter of 5 series and a radius of 3, against 7 and 4
+      for the makers' graph, and the busiest leads (Rie Takahashi, Sora Amamiya, Asami Seto, Ayane Sakura) each voice
+      a main role in 9 series. Generations of voice actors may still form islands on lists that go back decades.
 - [ ] **Theme draft.** Two to four friends take turns drafting characters for a Kiss Marry Kill roulette theme, then
       vote on the best team. Reuses the existing theme pools.
 - [ ] **Taste match (next up).** Compare two people's lists for a compatibility score with reasons: how closely they

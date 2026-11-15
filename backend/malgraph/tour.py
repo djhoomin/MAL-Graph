@@ -288,7 +288,8 @@ def _build(username: str) -> dict[str, Any]:
     twins, twin_show = _twins(username, anime, series_of, makers)
     recs, rec_show = _recs(username, anime, series_of, makers)
     teams, team_show = _teams(username, anime, series_of, makers)
-    distance, distance_show = _distance(username, anime, series_of, made, makers)
+    component = {r["id"]: r["component_id"] for r in db.run(ISLANDS, user=username) if r["id"] in anime}
+    distance, distance_show = _distance(component, anime, series_of, made, makers)
     return {
         "_distance": distance_show,
         "distance": distance,
@@ -580,7 +581,7 @@ def _team_more(username: str, members: list[dict[str, Any]], series_of: dict[int
     return picked
 
 
-def _distance(username: str, anime: dict[int, Any], series_of: dict[int, int], made: dict[str, set[int]], makers: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, list[int]]]]:
+def _distance(component: dict[int, int], anime: dict[int, Any], series_of: dict[int, int], made: dict[str, set[int]], makers: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, list[int]]]]:
     """Islands, the two series furthest apart and the series at the centre.
 
     Islands are the connected components apart from the biggest one. Distances are measured between series, with all
@@ -589,7 +590,6 @@ def _distance(username: str, anime: dict[int, Any], series_of: dict[int, int], m
     with the smallest are the centre. Steps count anime, so two anime with a maker in common are one step apart.
 
     The first drawing is the chain between the far ends, and the others are the islands in order."""
-    component: dict[int, int] = {r["id"]: r["component_id"] for r in db.run(ISLANDS, user=username) if r["id"] in anime}
     parts: dict[int, list[int]] = defaultdict(list)
     for a, c in component.items():
         parts[c].append(a)
@@ -745,8 +745,9 @@ def _ids(anime: list[int], makers: list[dict[str, Any]]) -> dict[str, list[int]]
 
 
 def forget(username: str) -> None:
-    from . import jobs
+    from . import jobs, voice_tour
 
     with _lock:
         _cache.pop(username, None)
+    voice_tour.forget(username)
     jobs.queue.cancel(f"tour:{username}")

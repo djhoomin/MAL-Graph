@@ -468,6 +468,20 @@ export interface TourDistance {
   center: { mal_id: number; title: string; image_url: string | null }[]
   spread: { steps: number; series: number }[]
 }
+type TourCover = { mal_id: number; title: string; image_url: string | null; note?: string }
+/** The voice tour: the graph joined only by the Japanese voice actors of main characters. Notes are character names. */
+export interface VoiceTour {
+  anime: number
+  voiced: number
+  voices: number
+  bridges: { id: string; label: string; name: string; series: number; count_rank: number; shows: TourCover[] }[]
+  /** roles[i] is who the voice actor plays in shows[i]. */
+  twins: { shows: TourCover[]; shared: { id: string; name: string; roles: string[] }[]; either: number; jaccard: number }[]
+  duos: { people: { id: string; name: string }[]; series: number; shows: TourCover[] }[]
+  distance: TourDistance
+  queries: { bridges: string; twins: string; duos: string; islands: string }
+}
+export type VoiceStep = 'bridges' | 'twins' | 'duos' | 'distance'
 export interface Tour {
   anime: number
   clustered: number
@@ -491,6 +505,8 @@ export const tourApi = {
   team: (index: number) => req<GraphPayload>(`/api/tour/teams/${index}`),
   /** 0 is the chain between the far ends, and 1 onwards are the islands. */
   distance: (index: number) => req<GraphPayload>(`/api/tour/distance/${index}`),
+  voices: () => req<VoiceTour>('/api/tour/voices'),
+  voice: (step: VoiceStep, index: number) => req<GraphPayload>(`/api/tour/voices/${step}/${index}`),
 }
 
 export const mysteryApi = {

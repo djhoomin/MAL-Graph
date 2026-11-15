@@ -579,6 +579,7 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .tour-rec-head h3 { margin: 0 0 4px; text-transform: none; }
 .tour-rec-head p { margin: 0; }
 .tour-paths { margin: 10px 0; padding-left: 18px; }
+.tour-lens { margin: 4px 0 10px; }
 .tour-chain { list-style: none; margin: 10px 0; padding: 0; }
 .tour-chain-anime { display: flex; align-items: center; gap: 10px; }
 .tour-chain-anime img, .tour-chain-anime .noimg { width: 36px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; background: var(--border); flex: none; }

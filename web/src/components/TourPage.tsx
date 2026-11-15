@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster, type TourCut, type TourDistance, type TourRec, type TourTeam, type TourThread, type TourTwins } from '../api'
+import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster, type TourCut, type TourDistance, type TourRec, type TourTeam, type TourThread, type TourTwins, type VoiceTour } from '../api'
 import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
@@ -14,13 +14,38 @@ const STEPS = [
   ['Distance', 'How far apart'],
 ] as const
 const STEP_KEY = 'malgraph.tour.step'
+const VOICE_STEPS = [
+  ['Bridges', 'The bridges'],
+  ['Twins', 'Twins'],
+  ['Duos', 'Duos'],
+  ['Distance', 'How far apart'],
+] as const
+const VOICE_STEP_KEY = 'malgraph.tour.voiceStep'
+const LENS_KEY = 'malgraph.tour.lens'
+type Lens = 'makers' | 'voices'
 
-function loadStep(): number {
+function loadStep(key: string, count: number): number {
   try {
-    const n = Number(localStorage.getItem(STEP_KEY))
-    return n >= 0 && n < STEPS.length ? n : 0
+    const n = Number(localStorage.getItem(key))
+    return n >= 0 && n < count ? n : 0
   } catch {
     return 0
+  }
+}
+
+function loadLens(): Lens {
+  try {
+    return localStorage.getItem(LENS_KEY) === 'voices' ? 'voices' : 'makers'
+  } catch {
+    return 'makers'
+  }
+}
+
+function save(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    /* storage blocked: the tour starts at the beginning next time */
   }
 }
 
@@ -30,7 +55,9 @@ async function showOnGraph(load: () => Promise<GraphPayload>, select?: string) {
   const payload = await load()
   const { clear, setFilter, filters } = useStore.getState()
   // The tour's links are mostly staff credits, which the graph hides by default.
-  if (!filters.rels.WORKED_ON) setFilter({ rels: { ...filters.rels, WORKED_ON: true } })
+  // The voice tour's links go through characters, so those are switched on too.
+  if (!filters.rels.WORKED_ON || !filters.rels.VOICES || !filters.rels.HAS_CHARACTER || !filters.labels.Character)
+    setFilter({ rels: { ...filters.rels, WORKED_ON: true, VOICES: true, HAS_CHARACTER: true }, labels: { ...filters.labels, Character: true } })
   clear()
   navigate('')
   setTimeout(() => {
@@ -42,21 +69,30 @@ async function showOnGraph(load: () => Promise<GraphPayload>, select?: string) {
 /** The graph tour: questions about your list that only the graph's structure can answer. */
 export function TourPage() {
   const [tour, setTour] = useState<Tour | null>(null)
+  const [voices, setVoices] = useState<VoiceTour | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [step, setStep] = useState(loadStep)
+  const [lens, setLens] = useState<Lens>(loadLens)
+  const [step, setStep] = useState(() => loadStep(STEP_KEY, STEPS.length))
+  const [voiceStep, setVoiceStep] = useState(() => loadStep(VOICE_STEP_KEY, VOICE_STEPS.length))
 
   useEffect(() => {
-    tourApi.get().then(setTour, (e) => setError(errorText(e)))
-  }, [])
+    setError(null)
+    if (lens === 'makers' && !tour) tourApi.get().then(setTour, (e) => setError(errorText(e)))
+    if (lens === 'voices' && !voices) tourApi.voices().then(setVoices, (e) => setError(errorText(e)))
+  }, [lens, tour, voices])
 
+  const steps = lens === 'makers' ? STEPS : VOICE_STEPS
+  const current = lens === 'makers' ? step : voiceStep
+  const ready = lens === 'makers' ? tour : voices
   const go = (n: number) => {
-    setStep(n)
-    try {
-      localStorage.setItem(STEP_KEY, String(n))
-    } catch {
-      /* storage blocked: the tour starts at the beginning next time */
-    }
+    if (lens === 'makers') setStep(n)
+    else setVoiceStep(n)
+    save(lens === 'makers' ? STEP_KEY : VOICE_STEP_KEY, String(n))
     document.querySelector('.doc-page')?.scrollTo({ top: 0 })
+  }
+  const pick = (l: Lens) => {
+    setLens(l)
+    save(LENS_KEY, l)
   }
 
   return (
@@ -68,33 +104,58 @@ export function TourPage() {
       </header>
       <div className="kmk-page tour">
         <h1>Graph tour</h1>
-        {tour && (
+        <div className="segmented tour-lens" role="group" aria-label="What links your anime">
+          <button className={lens === 'makers' ? 'on' : ''} onClick={() => pick('makers')}>
+            Makers
+          </button>
+          <button className={lens === 'voices' ? 'on' : ''} onClick={() => pick('voices')}>
+            Voices
+          </button>
+        </div>
+        {lens === 'makers' && tour && (
           <p className="muted">
             Your list is a graph. Your {tour.anime} anime are linked to the {tour.makers} people and studios who made them, whenever someone directed, wrote, scored, designed or animated a show. This tour asks questions about your taste that a list can't answer but the shape of that graph can.
           </p>
         )}
+        {lens === 'voices' && voices && (
+          <p className="muted">
+            This version of your graph links {voices.voiced} of your {voices.anime} anime only through the {voices.voices} Japanese voice actors of their main characters. Leading voice actors work on many shows a year, so this graph has no clusters worth showing, and it's no guide to what to watch next. It answers a different set of questions.
+          </p>
+        )}
         <div className="row tour-steps" role="group" aria-label="Tour step">
-          {STEPS.map(([short], i) => (
-            <button key={short} className={`chip ${step === i ? 'on' : 'off'}`} onClick={() => go(i)}>
+          {steps.map(([short], i) => (
+            <button key={short} className={`chip ${current === i ? 'on' : 'off'}`} onClick={() => go(i)}>
               {i + 1}. {short}
             </button>
           ))}
         </div>
         {error && <p className="error">{error}</p>}
-        {!tour && !error && <p className="muted">Working out your graph…</p>}
-        {tour && step === 0 && <Clusters tour={tour} />}
-        {tour && step === 1 && <Bridges tour={tour} />}
-        {tour && step === 2 && <Cuts tour={tour} />}
-        {tour && step === 3 && <Twins tour={tour} />}
-        {tour && step === 4 && <Recs tour={tour} />}
-        {tour && step === 5 && <Teams tour={tour} />}
-        {tour && step === 6 && <Distance tour={tour} />}
-        {tour && (
+        {!ready && !error && <p className="muted">Working out your graph…</p>}
+        {lens === 'makers' && tour && (
+          <>
+            {step === 0 && <Clusters tour={tour} />}
+            {step === 1 && <Bridges tour={tour} />}
+            {step === 2 && <Cuts tour={tour} />}
+            {step === 3 && <Twins tour={tour} />}
+            {step === 4 && <Recs tour={tour} />}
+            {step === 5 && <Teams tour={tour} />}
+            {step === 6 && <Distance distance={tour.distance} anime={tour.anime} query={tour.queries.islands} show={(i) => tourApi.distance(i)} />}
+          </>
+        )}
+        {lens === 'voices' && voices && (
+          <>
+            {voiceStep === 0 && <VoiceBridges voices={voices} />}
+            {voiceStep === 1 && <VoiceTwins voices={voices} />}
+            {voiceStep === 2 && <Duos voices={voices} />}
+            {voiceStep === 3 && <Distance voices distance={voices.distance} anime={voices.anime} query={voices.queries.islands} show={(i) => tourApi.voice('distance', i)} />}
+          </>
+        )}
+        {ready && (
           <div className="kmk-actions tour-nav">
-            {step > 0 && <button onClick={() => go(step - 1)}>Back</button>}
-            {step < STEPS.length - 1 ? (
-              <button className="primary" onClick={() => go(step + 1)}>
-                Next: {STEPS[step + 1][1].toLowerCase()}
+            {current > 0 && <button onClick={() => go(current - 1)}>Back</button>}
+            {current < steps.length - 1 ? (
+              <button className="primary" onClick={() => go(current + 1)}>
+                Next: {steps[current + 1][1].toLowerCase()}
               </button>
             ) : (
               <button className="primary" onClick={() => navigate('')}>
@@ -108,7 +169,6 @@ export function TourPage() {
   )
 }
 
-/** What the step teaches, and the query behind it. */
 function Lesson({ title, query, note, more, children }: { title: string; query: string; note?: string; more?: { label: string; query: string }; children: ReactNode }) {
   return (
     <aside className="tour-lesson">
@@ -529,25 +589,29 @@ function TeamCard({ index, team }: { index: number; team: TourTeam }) {
   )
 }
 
-function Distance({ tour }: { tour: Tour }) {
-  const d = tour.distance
+function Distance({ distance: d, anime, query, show, voices = false }: { distance: TourDistance; anime: number; query: string; show: (index: number) => Promise<GraphPayload>; voices?: boolean }) {
   if (!d.main.series) return <p className="muted">Your list is too small to measure yet. Sync more of it and come back.</p>
   return (
     <>
       <h2>How far apart are your anime?</h2>
-      <p>Two anime are one step apart when the same director, writer, composer, character designer, original creator or studio worked on both. Most of your list connects this way, and the rest sits on islands of its own.</p>
-      <Lesson title="The graph idea: shortest paths, the diameter and the centre" query={tour.queries.islands} note="This is the query that found the islands. $user is your MyAnimeList name. The distances were measured on the same graph with a breadth-first search from each of your series.">
+      <p>
+        {voices
+          ? 'Two anime are one step apart when the same voice actor plays a main character in both.'
+          : 'Two anime are one step apart when the same director, writer, composer, character designer, original creator or studio worked on both.'}{' '}
+        Most of your list connects this way, and the rest sits on islands of its own.
+      </p>
+      <Lesson title="The graph idea: shortest paths, the diameter and the centre" query={query} note="This is the query that found the islands. $user is your MyAnimeList name. The distances were measured on the same graph with a breadth-first search from each of your series.">
         <p>The distance between two anime is the fewest steps it takes to get from one to the other. A breadth-first search finds it by visiting everything one step away, then everything two steps away, and so on until it runs out.</p>
         <p>The longest of these shortest distances is the graph's diameter, and the two anime at its ends are the furthest apart in your list. Each anime also has its own longest distance to anything else, called its eccentricity. The anime where it is smallest make up the centre of the graph.</p>
         <p>When a graph falls into pieces that no path joins, the pieces are called connected components. Each series counts as one point here, so sequels don't add steps.</p>
       </Lesson>
-      {d.far && <FarEnds far={d.far} />}
+      {d.far && <FarEnds far={d.far} show={() => show(0)} />}
       <Centre distance={d} />
       <h3>Islands</h3>
       {d.islands.length ? (
         <p>
-          {d.main.anime} of your {tour.anime} anime connect into one graph. {d.islands.length === 1 ? 'This island shares' : `These ${d.islands.length} islands share`} nobody with it.
-          {d.unlinked > 0 && ` ${d.unlinked} more ${d.unlinked === 1 ? 'has' : 'have'} none of the credits the tour counts yet.`}
+          {d.main.anime} of your {anime} anime connect into one graph. {d.islands.length === 1 ? 'This island shares' : `These ${d.islands.length} islands share`} nobody with it.
+          {d.unlinked > 0 && ` ${d.unlinked} more ${d.unlinked === 1 ? 'has' : 'have'} ${voices ? 'no main character with a Japanese voice actor in the graph' : 'none of the credits the tour counts'} yet.`}
         </p>
       ) : (
         <p>All of your anime connect into one graph, so there are no islands.</p>
@@ -556,17 +620,17 @@ function Distance({ tour }: { tour: Tour }) {
         <section key={island.shows[0]?.mal_id ?? i} className="tour-card">
           <Covers items={island.shows} />
           <p className="small-text">
-            {island.shows.length === 1 ? 'Made by ' : 'Linked by '}
+            {island.shows.length === 1 ? (voices ? 'Led by ' : 'Made by ') : 'Linked by '}
             {and([...island.makers.slice(0, 4).map((m) => m.name), ...(island.makers.length > 4 ? [`${island.makers.length - 4} more`] : [])])}.
           </p>
-          <ShowButton load={() => tourApi.distance(i + 1)} />
+          <ShowButton load={() => show(i + 1)} />
         </section>
       ))}
     </>
   )
 }
 
-function FarEnds({ far }: { far: NonNullable<TourDistance['far']> }) {
+function FarEnds({ far, show }: { far: NonNullable<TourDistance['far']>; show: () => Promise<GraphPayload> }) {
   const ends = far.chain.filter((c): c is { anime: { mal_id: number; title: string; image_url: string | null } } => 'anime' in c)
   return (
     <section className="tour-card">
@@ -588,7 +652,7 @@ function FarEnds({ far }: { far: NonNullable<TourDistance['far']> }) {
           ),
         )}
       </ol>
-      <ShowButton load={() => tourApi.distance(0)} />
+      <ShowButton load={show} />
     </section>
   )
 }
@@ -613,5 +677,84 @@ function Centre({ distance: d }: { distance: TourDistance }) {
         ))}
       </div>
     </section>
+  )
+}
+
+function VoiceBridges({ voices }: { voices: VoiceTour }) {
+  if (!voices.bridges.length) return <p className="muted">None of your voice actors lead in more than one series yet. Sync more of your list and come back.</p>
+  return (
+    <>
+      <h2>Which voice actors connect your list?</h2>
+      <p>These voice actors sit on the most shortest paths between your series. Take one away and many of your shows end up further apart.</p>
+      <Lesson title="The graph idea: betweenness centrality" query={voices.queries.bridges} note="This is the query that ran on your graph. $user is your MyAnimeList name.">
+        <p>Betweenness counts how many of the shortest walks between your anime pass through someone. Leading in many shows helps, but it matters more that those shows have little else in common. Each card shows where the voice actor would rank if you only counted their lead roles.</p>
+      </Lesson>
+      {voices.bridges.map((b, i) => {
+        const gap = b.count_rank - (i + 1)
+        return (
+          <section key={b.id} className="tour-card">
+            <h3>
+              {i + 1}. {b.name}
+            </h3>
+            <p className="small-text">
+              Leads in {b.series} of your series, which would make them number {b.count_rank} by count
+              {gap >= 5 ? ', so where those shows sit matters more than how many there are.' : '.'}
+            </p>
+            <Covers items={b.shows} />
+            <ShowButton load={() => tourApi.voice('bridges', i)} />
+          </section>
+        )
+      })}
+    </>
+  )
+}
+
+function VoiceTwins({ voices }: { voices: VoiceTour }) {
+  if (!voices.twins.length) return <p className="muted">None of your anime from different series share two main voice actors yet. Sync more of your list and come back.</p>
+  return (
+    <>
+      <h2>Which of your shows share a main cast?</h2>
+      <p>These anime come from different series but share the voices of their main characters. Sequels and crossovers are left out, since they share their cast on purpose.</p>
+      <Lesson title="The graph idea: Jaccard similarity" query={voices.queries.twins} note="This is the query that ran on your graph. $user is your MyAnimeList name, and $min_shared is 2, since a main cast is small.">
+        <p>This is the measure from the makers' twins, used on main casts. Jaccard similarity divides the voice actors two anime share by all the voice actors either of them has, so two shows with exactly the same leads score 1.</p>
+      </Lesson>
+      {voices.twins.map((t, i) => (
+        <section key={i} className="tour-card">
+          <Covers items={t.shows} />
+          <p className="small-text">
+            They share {t.shared.length} of the {t.either} main voice actors behind either of them, a similarity of {t.jaccard.toFixed(2)}.
+          </p>
+          <ul className="tour-paths">
+            {t.shared.map((v) => (
+              <li key={v.id} className="small-text">
+                <strong>{v.name}</strong> plays {v.roles[0]} and {v.roles[1]}.
+              </li>
+            ))}
+          </ul>
+          <ShowButton load={() => tourApi.voice('twins', i)} />
+        </section>
+      ))}
+    </>
+  )
+}
+
+function Duos({ voices }: { voices: VoiceTour }) {
+  if (!voices.duos.length) return <p className="muted">No two voice actors lead together in more than one of your series yet. Sync more of your list and come back.</p>
+  return (
+    <>
+      <h2>Which voice actors keep leading together?</h2>
+      <p>Each of these pairs voiced main characters side by side in more than one of your series.</p>
+      <Lesson title="The graph idea: projection" query={voices.queries.duos} note="This is the query that ran on your graph. $user is your MyAnimeList name.">
+        <p>Projecting the graph onto voice actors links two of them whenever they lead the same anime. The anime drop out and leave a network of co-stars. Crossovers and spin-offs count as one series, so a pair has to meet in two separate shows.</p>
+      </Lesson>
+      {voices.duos.map((d, i) => (
+        <section key={d.people.map((p) => p.id).join()} className="tour-card">
+          <h3>{and(d.people.map((p) => p.name))}</h3>
+          <p className="small-text">Lead together in {d.series} of your series.</p>
+          <Covers items={d.shows} />
+          <ShowButton load={() => tourApi.voice('duos', i)} />
+        </section>
+      ))}
+    </>
   )
 }
