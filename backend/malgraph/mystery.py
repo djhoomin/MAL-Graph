@@ -4,6 +4,10 @@ The character is one of the POOL most favourited main characters. Clues go from 
 come from the graph: their best-known anime's year, genres, studio and source, a famous role of their voice actor,
 the creator, the voice actor's name and finally the anime's title. A wrong guess reveals the next clue, and a wrong
 guess with every clue showing ends the game. The score is how many clues were showing when the player got it.
+
+Once a wrong guess comes from the answer's anime or its franchise, clues about the anime stop helping, so the rest come
+from a second track that tells the character apart from that anime's cast: their voice actors, how favourited they are
+among the cast, and their name's first letter and initials.
 """
 from __future__ import annotations
 
@@ -35,6 +39,15 @@ def _count(n: int) -> str:
     return f"{words[n] if n < len(words) else n} anime"
 
 
+def _ordinal(n: int) -> str:
+    return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def _letters(word: str) -> str:
+    n = sum(ch.isalpha() for ch in word)  # "Jin-woo" has six
+    return "one letter" if n == 1 else f"{n} letters"
+
+
 def _voice(gender: str | None) -> dict[str, str]:
     if gender == "Female":
         return {"subj": "She", "poss": "Her", "is": "is", "s": "s"}
@@ -43,8 +56,13 @@ def _voice(gender: str | None) -> dict[str, str]:
     return {"subj": "They", "poss": "Their", "is": "are", "s": ""}
 
 
-def clues_for(cid: int, franchise: dict[int, int]) -> list[str]:
-    """Clues for one character, vaguest first. Clues the graph has no data for are left out."""
+def tracks(cid: int, franchise: dict[int, int]) -> tuple[list[str], list[str]]:
+    """The two clue tracks for a character, vaguest first. Clues the graph has no data for are left out.
+
+    The first narrows down the anime. The second takes over once a wrong guess comes from the right anime, and tells
+    the character apart from the rest of that anime's cast. The voice actor clues are in both, with the same text, so a
+    clue the player has already seen isn't shown twice.
+    """
     rows = db.run(
         "MATCH (a:Anime)-[h:HAS_CHARACTER]->(c:Character {mal_id: $id}) "
         "RETURN c.gender AS gender, h.role = 'Main' AS main, a.mal_id AS id, a.title AS title, a.type AS type, a.year AS year, "
@@ -52,7 +70,7 @@ def clues_for(cid: int, franchise: dict[int, int]) -> list[str]:
         id=cid,
     )
     if not rows:
-        return []
+        return [], []
     v = _voice(rows[0]["gender"])
     best = rows[0]  # their best-known anime, in any role
     mains = sum(1 for r in rows if r["main"])
@@ -81,10 +99,11 @@ def clues_for(cid: int, franchise: dict[int, int]) -> list[str]:
 
     own = {franchise.get(r["id"], r["id"]) for r in rows}
     va = db.run(
-        "MATCH (p:Person)-[:VOICES {language: 'Japanese'}]->(:Character {mal_id: $id}) "
-        "RETURN p.mal_id AS id, p.name AS name ORDER BY coalesce(p.favorites, 0) DESC LIMIT 1",
+        "MATCH (p:Person)-[v:VOICES {language: 'Japanese'}]->(:Character {mal_id: $id}) "
+        "RETURN p.mal_id AS id, p.name AS name ORDER BY coalesce(v.rank, 999), coalesce(p.favorites, 0) DESC LIMIT 1",
         id=cid,
     )
+    other_role = english = None
     if va:
         others = db.run(
             "MATCH (:Person {mal_id: $p})-[:VOICES {language: 'Japanese'}]->(o:Character)<-[:HAS_CHARACTER {role: 'Main'}]-(a:Anime) "
@@ -94,7 +113,8 @@ def clues_for(cid: int, franchise: dict[int, int]) -> list[str]:
         )
         other = next((o for o in others if franchise.get(o["anime"], o["anime"]) not in own), None)
         if other:
-            clues.append(f"{v['poss']} Japanese voice actor also voices {games.natural(other['name'])} in {other['title']}.")
+            other_role = f"{v['poss']} Japanese voice actor also voices {games.natural(other['name'])} in {other['title']}."
+            clues.append(other_role)
 
     staff = db.run(
         "MATCH (p:Person)-[w:WORKED_ON]->(:Anime {mal_id: $a}) WHERE 'Original Creator' IN w.positions OR 'Director' IN w.positions "
@@ -104,10 +124,40 @@ def clues_for(cid: int, franchise: dict[int, int]) -> list[str]:
     if staff:
         role = "created by" if staff[0]["creator"] else "directed by"
         clues.append(f"{v['poss']} story was {role} {games.natural(staff[0]['name'])}.")
-    if va:
-        clues.append(f"{v['subj']} {v['is']} voiced by {games.natural(va[0]['name'])} in Japanese.")
+    japanese = f"{v['subj']} {v['is']} voiced by {games.natural(va[0]['name'])} in Japanese." if va else None
+    if japanese:
+        clues.append(japanese)
     clues.append(f"{v['subj']} appear{v['s']} in {best['title']}.")
-    return clues
+
+    # The character track, for a player who already has the anime.
+    dub = db.run(
+        "MATCH (p:Person)-[v:VOICES {language: 'English'}]->(:Character {mal_id: $id}) "
+        "RETURN p.name AS name ORDER BY coalesce(v.rank, 999), coalesce(p.favorites, 0) DESC LIMIT 1",
+        id=cid,
+    )
+    if dub:
+        english = f"{v['poss']} English voice actor is {games.natural(dub[0]['name'])}."
+    cast = db.run(
+        "MATCH (:Anime {mal_id: $a})-[:HAS_CHARACTER]->(c:Character) WHERE c.favorites IS NOT NULL "
+        "RETURN c.mal_id AS id ORDER BY c.favorites DESC, c.mal_id",
+        a=best["id"],
+    )
+    rank = next((i + 1 for i, c in enumerate(cast) if c["id"] == cid), None)
+    popular = None
+    if rank and len(cast) > 1:
+        place = "the most favourited" if rank == 1 else f"the {_ordinal(rank)} most favourited"
+        popular = f"{v['subj']} {v['is']} {place} of the {len(cast)} characters in {best['title']} on MyAnimeList."
+    name = games.natural(db.run("MATCH (c:Character {mal_id: $id}) RETURN c.name AS name", id=cid)[0]["name"])
+    parts = [p for p in name.replace(".", " ").split() if p[:1].isalpha()]
+    starts = ends = None
+    if parts:
+        starts = f"{v['poss']} name starts with {parts[0][0].upper()}."
+        if len(parts) > 1:
+            ends = f"{v['poss']} initials are {' '.join(p[0].upper() + '.' for p in parts)}, and {v['poss'].lower()} first name has {_letters(parts[0])}."
+        else:
+            ends = f"{v['poss']} name has {_letters(parts[0])}."
+    inside = [c for c in (other_role, english, popular, japanese, starts, ends) if c]
+    return clues, inside
 
 
 def make(rng: random.Random) -> dict[str, Any]:
@@ -115,15 +165,15 @@ def make(rng: random.Random) -> dict[str, Any]:
     if not pool:
         raise ValueError("the graph has no popular characters yet")
     franchise = games.franchises()
-    best: tuple[int, list[str]] | None = None
+    best: tuple[int, list[str], list[str]] | None = None
     for cid in rng.sample(pool, min(30, len(pool))):
-        clues = clues_for(cid, franchise)
+        clues, inside = tracks(cid, franchise)
         if len(clues) >= MIN_CLUES:
-            return {"answer": cid, "clues": clues}
+            return {"answer": cid, "clues": clues, "inside": inside}
         if best is None or len(clues) > len(best[1]):
-            best = (cid, clues)
+            best = (cid, clues, inside)
     assert best
-    return {"answer": best[0], "clues": best[1]}
+    return {"answer": best[0], "clues": best[1], "inside": best[2]}
 
 
 def daily(day: str | None = None) -> dict[str, Any]:
@@ -139,9 +189,29 @@ def state(username: str) -> tuple[dict[str, Any], dict[str, Any]]:
     return puzzle, games.my_play("mystery", puzzle["date"], username) or _new_play()
 
 
-def apply(puzzle: dict[str, Any], play: dict[str, Any], action: str, guess: int | None = None) -> bool | None:
-    """Apply "clue", "guess" or "give_up" to a play in place. Returns whether a guess was right."""
-    total = len(puzzle["clues"])
+def _inside(puzzle: dict[str, Any]) -> list[str]:
+    """The character track. Puzzles made before it existed get it from the graph."""
+    if "inside" not in puzzle:
+        puzzle["inside"] = tracks(puzzle["answer"], games.recent_franchises())[1]
+    return puzzle["inside"]
+
+
+def sequence(puzzle: dict[str, Any], play: dict[str, Any]) -> list[str]:
+    """The clues in the order this player gets them. After a guess from the right anime ("branch" is how many anime
+    clues were showing then), the character track follows, minus any clue already shown."""
+    branch = play.get("branch")
+    if branch is None:
+        return puzzle["clues"]
+    seen = puzzle["clues"][:branch]
+    return seen + [c for c in _inside(puzzle) if c not in seen]
+
+
+def apply(puzzle: dict[str, Any], play: dict[str, Any], action: str, guess: int | None = None, close: bool = False) -> bool | None:
+    """Apply "clue", "guess" or "give_up" to a play in place. Returns whether a guess was right.
+
+    `close` says a wrong guess comes from the answer's anime, which switches the play to the character track once.
+    """
+    total = len(sequence(puzzle, play))
     if play["done"]:
         return None
     if action == "clue":
@@ -155,6 +225,11 @@ def apply(puzzle: dict[str, Any], play: dict[str, Any], action: str, guess: int 
         if guess == puzzle["answer"]:
             play["solved"] = play["done"] = True
             return True
+        if close and play.get("branch") is None:
+            seen = puzzle["clues"][: play["clues"]]
+            if any(c not in seen for c in _inside(puzzle)):
+                play["branch"] = play["clues"]
+                total = len(sequence(puzzle, play))
         if play["clues"] >= total:
             play["done"] = True
         else:
@@ -167,14 +242,22 @@ def act(username: str, action: str, guess: int | None = None) -> tuple[dict[str,
     """Apply a move to the player's daily game. Returns the puzzle, the play and whether a guess was right."""
     puzzle = daily()
     correct: list[bool | None] = [None]
+    close = _close(puzzle, action, guess)
 
     def change(play: dict[str, Any] | None) -> dict[str, Any]:
         play = play or _new_play()
-        correct[0] = apply(puzzle, play, action, guess)
+        correct[0] = apply(puzzle, play, action, guess, close)
         return play
 
     play = games.update_play("mystery", puzzle["date"], username, change)
     return puzzle, play, correct[0]
+
+
+def _close(puzzle: dict[str, Any], action: str, guess: int | None) -> bool:
+    if action != "guess" or guess is None or guess == puzzle["answer"]:
+        return False
+    _inside(puzzle)  # build the character track outside any lock, for puzzles made before it existed
+    return bool(right_anime(puzzle["answer"], [guess]))
 
 
 def right_anime(answer: int, guesses: list[int]) -> list[int]:
@@ -231,16 +314,16 @@ def new_mine(username: str) -> tuple[str, dict[str, Any], dict[str, Any]]:
     fresh = [c for c in pool if c not in recent] or pool
     rng = random.Random()
     franchise = games.recent_franchises()
-    best: tuple[int, list[str]] | None = None
+    best: tuple[int, list[str], list[str]] | None = None
     for cid in rng.sample(fresh, min(15, len(fresh))):
-        clues = clues_for(cid, franchise)
+        clues, inside = tracks(cid, franchise)
         if len(clues) >= MIN_CLUES:
-            best = (cid, clues)
+            best = (cid, clues, inside)
             break
         if best is None or len(clues) > len(best[1]):
-            best = (cid, clues)
+            best = (cid, clues, inside)
     assert best
-    puzzle = {"date": "mine", "answer": best[0], "clues": best[1]}
+    puzzle = {"date": "mine", "answer": best[0], "clues": best[1], "inside": best[2]}
     play = _new_play()
     token = secrets.token_urlsafe(12)
     now = time.time()
@@ -258,8 +341,14 @@ def act_mine(username: str, token: str, action: str, guess: int | None = None) -
         entry = _mine.get(token)
         if not entry or entry[1] != username or entry[0] < time.time():
             return None
+        puzzle = entry[2]
+    close = _close(puzzle, action, guess)
+    with _lock:
+        entry = _mine.get(token)
+        if not entry:
+            return None
         _, _, puzzle, play = entry
-        correct = apply(puzzle, play, action, guess)
+        correct = apply(puzzle, play, action, guess, close)
         if play["done"]:
             del _mine[token]
     return puzzle, play, correct

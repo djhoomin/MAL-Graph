@@ -40,6 +40,7 @@ export function MysteryPage() {
         <HowTo id="mystery">
           <p>Today's character is the same for everyone. You start with one clue, and the clues get more specific as they go, from how many anime the character is in down to the anime's title.</p>
           <p>To guess, type a character's name and pick them from the list. If you know the anime but not the name, type the anime's title instead and pick it, and you can choose from its characters, main characters first.</p>
+          <p>Once you guess someone from the right anime, the clues switch from the anime to the character, to tell them apart from the rest of the cast.</p>
           <p>A wrong guess shows the next clue. You can also ask for the next clue without guessing, but your score is the number of clues you saw, so guessing early costs nothing. A wrong guess on the last clue ends the game, and so does giving up.</p>
           <p>A new character comes at midnight UTC. Once you're done, you can see how many clues everyone else needed.</p>
           <p>From your list picks a main character from anime you've watched, so you're more likely to know them. You can play as many of those as you like, and they don't count towards today's scores.</p>
@@ -99,7 +100,8 @@ function Game({ mine = false }: { mine?: boolean }) {
         <>
           <ol className="mystery-clues">
             {game.clues.map((c, i) => (
-              <li key={i} className={`${i === game.clues.length - 1 && !game.done ? 'new' : ''} ${game.done && i >= game.used ? 'unseen' : ''}`}>
+              <li key={i} className={`${i === game.clues.length - 1 && !game.done ? 'new' : ''} ${game.done && i >= game.used ? 'unseen' : ''} ${i === game.branch ? 'branch-start' : ''}`}>
+                {i === game.branch && <div className="mystery-branch">You have the anime. Now find the character.</div>}
                 {c}
               </li>
             ))}

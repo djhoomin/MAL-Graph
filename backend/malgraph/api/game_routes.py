@@ -87,10 +87,12 @@ def odd_practice_answer(body: PracticePick) -> dict[str, Any]:
 # --------------------------------------------------------------------------- Mystery character
 
 def _mystery_view(puzzle: dict[str, Any], play: dict[str, Any], correct: bool | None = None) -> dict[str, Any]:
+    clues = mystery.sequence(puzzle, play)
     out: dict[str, Any] = {
         "date": puzzle["date"],
-        "total": len(puzzle["clues"]),
-        "clues": puzzle["clues"][: play["clues"]],
+        "total": len(clues),
+        "clues": clues[: play["clues"]],
+        "branch": play.get("branch"),  # how many anime clues came before the character clues, once they took over
         "used": play["clues"],  # clues shown when the game ended, for the score
         "guesses": [c["character"] for c in games.character_cards(play["guesses"])],
         "right_anime": mystery.right_anime(puzzle["answer"], play["guesses"]),  # wrong guesses from the answer's anime
@@ -100,7 +102,7 @@ def _mystery_view(puzzle: dict[str, Any], play: dict[str, Any], correct: bool | 
     if correct is not None:
         out["correct"] = correct
     if play["done"]:
-        out["clues"] = puzzle["clues"]
+        out["clues"] = clues
         out["answer"] = games.character_cards([puzzle["answer"]])[0]
         if puzzle["date"] != "mine":  # games from your own list have no one to compare with
             out["summary"] = mystery.summary(puzzle)

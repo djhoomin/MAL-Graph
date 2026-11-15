@@ -390,6 +390,7 @@ export interface Mystery {
   used: number // clues the player has seen, which is the score once solved
   guesses: GNode[]
   right_anime: number[] // mal_ids of wrong guesses from the answer's anime or its franchise
+  branch: number | null // how many anime clues came before the character clues took over, once a guess got the anime
   solved: boolean
   done: boolean
   correct?: boolean // after a guess
