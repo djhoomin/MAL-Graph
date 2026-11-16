@@ -164,8 +164,8 @@ export function Timeline({ anime, granularity, thread, onPick, picked }: Props) 
               let y = PLOT_H + 4
               const segments = thread
                 ? [
-                    { color: DIM, n: b.anime.filter((a) => !thread.ids.has(a.mal_id)).length },
-                    { color: ACCENT, n: b.anime.filter((a) => thread.ids.has(a.mal_id)).length },
+                    { color: DIM, n: b.anime.filter((a) => !thread.ids.has(a.id)).length },
+                    { color: ACCENT, n: b.anime.filter((a) => thread.ids.has(a.id)).length },
                   ]
                 : ORDER.map((s) => ({ color: STATUS_COLORS[s], n: b.byStatus[s].length }))
               return (
@@ -204,7 +204,7 @@ export function Timeline({ anime, granularity, thread, onPick, picked }: Props) 
               </div>
               <ul>
                 {hover.b.anime.slice(0, 6).map((a) => (
-                  <li key={a.mal_id} style={{ color: thread && !thread.ids.has(a.mal_id) ? 'var(--muted)' : undefined }}>
+                  <li key={a.id} style={{ color: thread && !thread.ids.has(a.id) ? 'var(--muted)' : undefined }}>
                     {a.title}
                   </li>
                 ))}

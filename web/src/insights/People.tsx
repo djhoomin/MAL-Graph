@@ -55,7 +55,7 @@ export function People({ anime, statuses, lang, thread, onThread }: Props) {
 
   const rows = useMemo<Row[]>(() => {
     const scored = (ids: number[]) => {
-      const s = anime.filter((a) => ids.includes(a.mal_id) && a.my_score > 0).map((a) => a.my_score)
+      const s = anime.filter((a) => ids.includes(a.id) && a.my_score > 0).map((a) => a.my_score)
       return s.length ? s.reduce((x, y) => x + y, 0) / s.length : null
     }
     let out: Row[]
@@ -63,9 +63,9 @@ export function People({ anime, statuses, lang, thread, onThread }: Props) {
       const map = new Map<number, Row>()
       for (const a of anime) {
         for (const e of tab === 'studio' ? a.studios : a.genres.filter((g) => g.kind !== 'explicit')) {
-          const r = map.get(e.mal_id) ?? { id: `${tab === 'studio' ? 'Studio' : 'Genre'}:${e.mal_id}`, name: e.name, image_url: null, anime_ids: [], avg: null }
-          r.anime_ids.push(a.mal_id)
-          map.set(e.mal_id, r)
+          const r = map.get(e.id) ?? { id: `${tab === 'studio' ? 'Studio' : 'Genre'}:${e.id}`, name: e.name, image_url: null, anime_ids: [], avg: null }
+          r.anime_ids.push(a.id)
+          map.set(e.id, r)
         }
       }
       out = [...map.values()].filter((r) => r.anime_ids.length >= 2).map((r) => ({ ...r, avg: scored(r.anime_ids) }))
@@ -133,7 +133,7 @@ export function People({ anime, statuses, lang, thread, onThread }: Props) {
                 </div>
               </div>
               <div className="ranked-actions">
-                {tab === 'va' && r.node && <a href={`#/roster/${r.node.mal_id}`}>roster</a>}
+                {tab === 'va' && r.node && <a href={`#/roster/${r.node.key}`}>roster</a>}
                 {r.node && (
                   <button className="link" onClick={() => openInGraph(r)}>
                     graph

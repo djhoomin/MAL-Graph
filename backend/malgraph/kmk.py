@@ -43,8 +43,8 @@ def _staff(position: str, title: str, name: str, top: int = 30) -> Kind:
     return Kind(
         name,
         f"{SEEN} MATCH (p:Person)-[w:WORKED_ON]->(a) WHERE '{position}' IN w.positions {MAIN} "
-        "WITH p, count(DISTINCT c) AS n WHERE n >= $min RETURN p.mal_id AS key, p.name AS label, n",
-        f"{SEEN} MATCH (p:Person {{mal_id: $key}})-[w:WORKED_ON]->(a) WHERE '{position}' IN w.positions {MAIN} "
+        "WITH p, count(DISTINCT c) AS n WHERE n >= $min RETURN p.id AS key, p.name AS label, n",
+        f"{SEEN} MATCH (p:Person {{id: $key}})-[w:WORKED_ON]->(a) WHERE '{position}' IN w.positions {MAIN} "
         "RETURN c, collect(DISTINCT a.title) AS anime, true AS main",
         title,
         top,
@@ -55,8 +55,8 @@ KINDS = [
     Kind(
         "va",
         f"{SEEN} MATCH (a)-[:HAS_CHARACTER]->(c:Character)<-[:VOICES {{language: 'Japanese'}}]-(p:Person) WHERE {GENDER} "
-        "WITH p, count(DISTINCT c) AS n WHERE n >= $min RETURN p.mal_id AS key, p.name AS label, n",
-        f"{SEEN} MATCH (a)-[h:HAS_CHARACTER]->(c:Character)<-[:VOICES {{language: 'Japanese'}}]-(p:Person {{mal_id: $key}}) WHERE {GENDER} "
+        "WITH p, count(DISTINCT c) AS n WHERE n >= $min RETURN p.id AS key, p.name AS label, n",
+        f"{SEEN} MATCH (a)-[h:HAS_CHARACTER]->(c:Character)<-[:VOICES {{language: 'Japanese'}}]-(p:Person {{id: $key}}) WHERE {GENDER} "
         "RETURN c, collect(DISTINCT a.title) AS anime, 'Main' IN collect(h.role) AS main",
         "Voiced by {label}",
         60,
@@ -64,8 +64,8 @@ KINDS = [
     Kind(
         "studio",
         f"{SEEN} MATCH (a)-[:PRODUCED_BY]->(s:Studio) {MAIN} "
-        "WITH s, count(DISTINCT c) AS n WHERE n >= $min RETURN s.mal_id AS key, s.name AS label, n",
-        f"{SEEN} MATCH (a)-[:PRODUCED_BY]->(s:Studio {{mal_id: $key}}) {MAIN} "
+        "WITH s, count(DISTINCT c) AS n WHERE n >= $min RETURN s.id AS key, s.name AS label, n",
+        f"{SEEN} MATCH (a)-[:PRODUCED_BY]->(s:Studio {{id: $key}}) {MAIN} "
         "RETURN c, collect(DISTINCT a.title) AS anime, true AS main",
         "Main characters from {label} anime",
         25,
@@ -86,8 +86,8 @@ KINDS = [
     Kind(
         "genre",
         f"{SEEN} MATCH (a)-[:HAS_GENRE]->(g:Genre) WHERE g.kind IN ['genre', 'theme'] AND NOT g.name IN ['Hentai', 'Erotica', 'Ecchi'] {MAIN} "
-        "WITH g, count(DISTINCT c) AS n WHERE n >= $min RETURN g.mal_id AS key, g.name AS label, n",
-        f"{SEEN} MATCH (a)-[:HAS_GENRE]->(g:Genre {{mal_id: $key}}) {MAIN} "
+        "WITH g, count(DISTINCT c) AS n WHERE n >= $min RETURN g.id AS key, g.name AS label, n",
+        f"{SEEN} MATCH (a)-[:HAS_GENRE]->(g:Genre {{id: $key}}) {MAIN} "
         "RETURN c, collect(DISTINCT a.title) AS anime, true AS main",
         "Main characters from {label} anime",
     ),
@@ -154,16 +154,16 @@ _ROLES = (
 DAILY_KINDS = {
     "va": (
         f"{_ROLES} MATCH (p:Person)-[:VOICES {{language: 'Japanese'}}]->(c) WITH p, count(DISTINCT c) AS n WHERE n >= 4 "
-        "RETURN p.mal_id AS key, p.name AS label ORDER BY coalesce(p.favorites, 0) DESC LIMIT 40",
-        f"{_ROLES} MATCH (p:Person {{mal_id: $key}})-[:VOICES {{language: 'Japanese'}}]->(c) "
-        "WITH c, collect(a.mal_id) AS anime ORDER BY c.favorites DESC LIMIT 12 RETURN c.mal_id AS id, anime",
+        "RETURN p.id AS key, p.name AS label ORDER BY coalesce(p.favorites, 0) DESC LIMIT 40",
+        f"{_ROLES} MATCH (p:Person {{id: $key}})-[:VOICES {{language: 'Japanese'}}]->(c) "
+        "WITH c, collect(a.id) AS anime ORDER BY c.favorites DESC LIMIT 12 RETURN c.id AS id, anime",
         "Voiced by {label}",
     ),
     "studio": (
         f"{_ROLES} MATCH (a)-[:PRODUCED_BY]->(s:Studio) WITH s, count(DISTINCT c) AS n WHERE n >= 6 "
-        "RETURN s.mal_id AS key, s.name AS label ORDER BY n DESC LIMIT 25",
-        f"{_ROLES} MATCH (a)-[:PRODUCED_BY]->(s:Studio {{mal_id: $key}}) "
-        "WITH c, collect(a.mal_id) AS anime ORDER BY c.favorites DESC LIMIT 15 RETURN c.mal_id AS id, anime",
+        "RETURN s.id AS key, s.name AS label ORDER BY n DESC LIMIT 25",
+        f"{_ROLES} MATCH (a)-[:PRODUCED_BY]->(s:Studio {{id: $key}}) "
+        "WITH c, collect(a.id) AS anime ORDER BY c.favorites DESC LIMIT 15 RETURN c.id AS id, anime",
         "Main characters from {label} anime",
     ),
 }
@@ -262,7 +262,7 @@ def check_choices(choices: dict[str, str]) -> None:
 def record_round(username: str, title: str, source: str, choices: dict[str, str]) -> str:
     """Add a finished round to the player's history. Returns its id, for a rescue."""
     check_choices(choices)
-    found = db.run("MATCH (c:Character) WHERE c.mal_id IN $ids RETURN count(c) AS n", ids=[int(k) for k in choices])
+    found = db.run("MATCH (c:Character) WHERE c.id IN $ids RETURN count(c) AS n", ids=[int(k) for k in choices])
     if not found or found[0]["n"] != 3:
         raise ValueError("those aren't three known characters")
     rid = secrets.token_hex(6)
@@ -299,7 +299,7 @@ def history(username: str) -> dict[str, Any]:
             entry["count"] += 1
             entry["last"] = max(entry["last"], r["at"])
     ids = sorted({cid for s in shelves.values() for cid in s})
-    cards = {c["character"]["mal_id"]: c for c in games.character_cards(ids)}
+    cards = {c["character"]["key"]: c for c in games.character_cards(ids)}
     out: dict[str, Any] = {"rounds": len(rounds)}
     for name, entries in shelves.items():
         ordered = sorted(entries.items(), key=lambda kv: (-kv[1]["count"], -kv[1]["last"]))

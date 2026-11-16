@@ -32,16 +32,16 @@ class GenderFix(BaseModel):
     gender: str | None  # one of genders.GENDERS, or null for unknown
 
 
-@router.post("/character/{mal_id}/gender")
-async def fix_gender(mal_id: int, body: GenderFix) -> dict[str, Any]:
+@router.post("/character/{character_id}/gender")
+async def fix_gender(character_id: int, body: GenderFix) -> dict[str, Any]:
     """Correct a character's gender. The fix is shared, and AniList updates never overwrite it."""
     if not users.current_username():
         raise HTTPException(401, "Sign in with MyAnimeList to make corrections")
     if body.gender is not None and body.gender not in genders.GENDERS:
         raise HTTPException(400, "unknown gender")
-    if not await run_in_threadpool(genders.correct, mal_id, body.gender):
+    if not await run_in_threadpool(genders.correct, character_id, body.gender):
         raise HTTPException(404, "character not found")
-    return {"mal_id": mal_id, "gender": body.gender}
+    return {"id": character_id, "gender": body.gender}
 
 
 def _daily_view(username: str) -> dict[str, Any]:

@@ -51,7 +51,7 @@ def shortest_path(a: str, b: str, max_hops: int = MAX_HOPS + 2) -> Any | None:
     (la, ia), (lb, ib) = parse(a), parse(b)
     with db.get_driver().session() as session:
         rec = session.run(
-            f"MATCH (a:{la} {{mal_id: $a}}), (b:{lb} {{mal_id: $b}}) MATCH p = (a)-[*BFS ..{max_hops} {STEP}]-(b) RETURN p",
+            f"MATCH (a:{la} {{id: $a}}), (b:{lb} {{id: $b}}) MATCH p = (a)-[*BFS ..{max_hops} {STEP}]-(b) RETURN p",
             a=ia, b=ib, rels=RELS, lang=LANG,
         ).single()
         return rec["p"] if rec else None
@@ -60,7 +60,7 @@ def shortest_path(a: str, b: str, max_hops: int = MAX_HOPS + 2) -> Any | None:
 def hops(a: str, b: str, max_hops: int = MAX_HOPS + 2) -> int | None:
     (la, ia), (lb, ib) = parse(a), parse(b)
     rows = db.run(
-        f"MATCH (a:{la} {{mal_id: $a}}), (b:{lb} {{mal_id: $b}}) MATCH p = (a)-[*BFS ..{max_hops} {STEP}]-(b) RETURN size(relationships(p)) AS n",
+        f"MATCH (a:{la} {{id: $a}}), (b:{lb} {{id: $b}}) MATCH p = (a)-[*BFS ..{max_hops} {STEP}]-(b) RETURN size(relationships(p)) AS n",
         a=ia, b=ib, rels=RELS, lang=LANG,
     )
     return rows[0]["n"] if rows else None
@@ -70,14 +70,14 @@ def par_for(a: str, b: str, best: int, rng: random.Random) -> tuple[int, list[in
     """Average route length over a sample of opening moves, each finished by the shortest way to the hole."""
     (la, ia), (lb, ib) = parse(a), parse(b)
     opens = db.run(
-        f"MATCH (a:{la} {{mal_id: $a}})-[r]-(n) WHERE type(r) IN $rels AND (type(r) <> 'VOICES' OR r.language = $lang) "
+        f"MATCH (a:{la} {{id: $a}})-[r]-(n) WHERE type(r) IN $rels AND (type(r) <> 'VOICES' OR r.language = $lang) "
         "RETURN DISTINCT id(n) AS id",
         a=ia, rels=RELS, lang=LANG,
     )
     ids = [o["id"] for o in opens]
     sample = rng.sample(ids, min(OPENINGS, len(ids)))
     rows = db.run(
-        f"MATCH (a:{la} {{mal_id: $a}}), (b:{lb} {{mal_id: $b}}) "
+        f"MATCH (a:{la} {{id: $a}}), (b:{lb} {{id: $b}}) "
         "UNWIND $ids AS nid MATCH (n) WHERE id(n) = nid "
         f"OPTIONAL MATCH p = (n)-[*BFS ..{best + 3} (r, x | x <> a AND type(r) IN $rels AND (type(r) <> 'VOICES' OR r.language = $lang))]-(b) "
         "RETURN nid, n = b AS at_hole, CASE WHEN p IS NULL THEN null ELSE size(relationships(p)) END AS d",
@@ -101,11 +101,11 @@ def easy_moves(here: str, hole: str) -> tuple[list[str], int | None]:
     closer = None
     if path is not None and len(path.nodes) > 1:
         n = path.nodes[1]
-        closer = f"{next(iter(n.labels & LABELS))}:{n['mal_id']}"
+        closer = f"{next(iter(n.labels & LABELS))}:{n['id']}"
     la, ia = parse(here)
     rows = db.run(
-        f"MATCH (a:{la} {{mal_id: $a}})-[r]-(n) WHERE type(r) IN $rels AND (type(r) <> 'VOICES' OR r.language = $lang) "
-        "RETURN DISTINCT labels(n)[0] AS label, n.mal_id AS id",
+        f"MATCH (a:{la} {{id: $a}})-[r]-(n) WHERE type(r) IN $rels AND (type(r) <> 'VOICES' OR r.language = $lang) "
+        "RETURN DISTINCT labels(n)[0] AS label, n.id AS id",
         a=ia, rels=RELS, lang=LANG,
     )
     refs = sorted({f"{r['label']}:{r['id']}" for r in rows if r["label"] in LABELS} - {here, closer or ""})
@@ -119,7 +119,7 @@ def easy_moves(here: str, hole: str) -> tuple[list[str], int | None]:
 def adjacent(a: str, b: str) -> bool:
     (la, ia), (lb, ib) = parse(a), parse(b)
     rows = db.run(
-        f"MATCH (x:{la} {{mal_id: $a}})-[r]-(y:{lb} {{mal_id: $b}}) "
+        f"MATCH (x:{la} {{id: $a}})-[r]-(y:{lb} {{id: $b}}) "
         "WHERE type(r) IN $rels AND (type(r) <> 'VOICES' OR r.language = $lang) RETURN count(r) AS n",
         a=ia, b=ib, rels=RELS, lang=LANG,
     )
@@ -130,15 +130,15 @@ def adjacent(a: str, b: str) -> bool:
 
 def _pools() -> list[list[str]]:
     """Well-known, fully fetched tees and holes: popular anime, favourite main characters, busy voice actors."""
-    anime = db.run("MATCH (a:Anime) WHERE a.fetched_at IS NOT NULL AND a.members IS NOT NULL RETURN a.mal_id AS id ORDER BY a.members DESC LIMIT 300")
+    anime = db.run("MATCH (a:Anime) WHERE a.fetched_at IS NOT NULL AND a.members IS NOT NULL RETURN a.id AS id ORDER BY a.members DESC LIMIT 300")
     chars = db.run(
         # Cypher sorts missing values first when descending, so leave out characters without a count.
         "MATCH (a:Anime)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character) WHERE a.fetched_at IS NOT NULL AND c.favorites IS NOT NULL "
-        "RETURN DISTINCT c.mal_id AS id, c.favorites AS f ORDER BY f DESC LIMIT 300"
+        "RETURN DISTINCT c.id AS id, c.favorites AS f ORDER BY f DESC LIMIT 300"
     )
     people = db.run(
         "MATCH (p:Person)-[:VOICES {language: 'Japanese'}]->(c:Character) WITH p, count(c) AS n WHERE n >= 5 "
-        "RETURN p.mal_id AS id ORDER BY coalesce(p.favorites, 0) DESC, n DESC LIMIT 200"
+        "RETURN p.id AS id ORDER BY coalesce(p.favorites, 0) DESC, n DESC LIMIT 200"
     )
     pools = [[f"Anime:{r['id']}" for r in anime], [f"Character:{r['id']}" for r in chars], [f"Person:{r['id']}" for r in people]]
     return [p for p in pools if p]

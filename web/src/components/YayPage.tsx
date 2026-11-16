@@ -16,7 +16,7 @@ function loadMode(): Mode {
   }
 }
 
-const idOf = (card: KmkCard) => card.character.mal_id ?? 0
+const idOf = (card: KmkCard) => card.character.key ?? 0
 
 /** Yay or Nay: swipe right or left on characters. Today's stack is the same for everyone, and From your list is
  *  endless. Your votes from both build up a picture of what you say yay to. */

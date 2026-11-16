@@ -79,7 +79,7 @@ class AniList:
 
 def enrich_anime(client: AniList, mal_id: int) -> tuple[int, int]:
     """Set genders for one anime's characters. Returns (characters, with a gender)."""
-    chars = db.run("MATCH (:Anime {mal_id: $id})-[:HAS_CHARACTER]->(c:Character) RETURN c.mal_id AS id, c.name AS name, c.gender_source AS src", id=mal_id)
+    chars = db.run("MATCH (:Anime {id: $id})-[:HAS_CHARACTER]->(c:Character) RETURN c.id AS id, c.name AS name, c.gender_source AS src", id=mal_id)
     cast = client.cast(mal_id) if chars else None
     updates = []
     for c in chars:
@@ -89,9 +89,9 @@ def enrich_anime(client: AniList, mal_id: int) -> tuple[int, int]:
         if gender:
             updates.append({"id": c["id"], "g": gender})
     if updates:
-        db.run("UNWIND $rows AS r MATCH (c:Character {mal_id: r.id}) WHERE coalesce(c.gender_source, '') <> 'user' "
+        db.run("UNWIND $rows AS r MATCH (c:Character {id: r.id}) WHERE coalesce(c.gender_source, '') <> 'user' "
                "SET c.gender = r.g, c.gender_source = 'anilist'", rows=updates)
-    db.run("MATCH (a:Anime {mal_id: $id}) SET a.genders_at = timestamp()", id=mal_id)
+    db.run("MATCH (a:Anime {id: $id}) SET a.genders_at = timestamp()", id=mal_id)
     return len(chars), len(updates)
 
 
@@ -100,7 +100,7 @@ def enrich_anime(client: AniList, mal_id: int) -> tuple[int, int]:
 NEXT = """
     MATCH (:User)-[l:LISTED]->(a:Anime) WHERE a.genders_at IS NULL AND (a)-[:HAS_CHARACTER]->()
     WITH a, sum(CASE WHEN l.status <> 'plan_to_watch' THEN 1 ELSE 0 END) AS seen
-    RETURN a.mal_id AS id ORDER BY seen DESC, coalesce(a.members, 0) DESC LIMIT 50
+    RETURN a.id AS id ORDER BY seen DESC, coalesce(a.members, 0) DESC LIMIT 50
 """
 
 
@@ -133,11 +133,11 @@ def start() -> None:
         threading.Thread(target=_run, name="genders", daemon=True).start()
 
 
-def correct(mal_id: int, gender: str | None) -> bool:
+def correct(character_id: int, gender: str | None) -> bool:
     """A player's correction, shared by everyone. None means unknown. Returns False if there is no such character."""
     rows = db.run(
-        "MATCH (c:Character {mal_id: $id}) SET c.gender = $g, c.gender_source = 'user', c.gender_fixed_at = timestamp() RETURN c.mal_id AS id",
-        id=mal_id, g=gender,
+        "MATCH (c:Character {id: $id}) SET c.gender = $g, c.gender_source = 'user', c.gender_fixed_at = timestamp() RETURN c.id AS id",
+        id=character_id, g=gender,
     )
     return bool(rows)
 

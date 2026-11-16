@@ -9,10 +9,10 @@ export function AnimeCard({ a, dim = false, note }: { a: ListAnime; dim?: boolea
   const select = useStore((s) => s.select)
   const open = () => {
     mergePayload({
-      nodes: [{ id: `Anime:${a.mal_id}`, label: 'Anime', mal_id: a.mal_id, name: a.title, image_url: a.image_url, watched: a.status !== 'plan_to_watch', list_status: a.status, fetched: true, props: {} }],
+      nodes: [{ id: `Anime:${a.id}`, label: 'Anime', key: a.id, name: a.title, image_url: a.image_url, watched: a.status !== 'plan_to_watch', list_status: a.status, fetched: true, props: {} }],
       edges: [],
     })
-    select(`Anime:${a.mal_id}`)
+    select(`Anime:${a.id}`)
     navigate('/')
   }
   return (

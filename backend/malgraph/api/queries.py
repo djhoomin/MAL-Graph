@@ -7,7 +7,7 @@ SEARCH = {
     "Anime": """
         MATCH (n:Anime)
         WHERE toLower(n.title) CONTAINS $q OR toLower(coalesce(n.title_english, '')) CONTAINS $q
-        RETURN n ORDER BY n.mal_id IN $watched DESC, coalesce(n.members, 0) DESC LIMIT $limit
+        RETURN n ORDER BY n.id IN $watched DESC, coalesce(n.members, 0) DESC LIMIT $limit
     """,
     "Character": """
         MATCH (n:Character) WHERE toLower(n.name) CONTAINS $q
@@ -21,21 +21,21 @@ SEARCH = {
     "Genre": "MATCH (n:Genre) WHERE toLower(n.name) CONTAINS $q RETURN n LIMIT $limit",
 }
 
-NODE = "MATCH (n:%s {mal_id: $id}) RETURN n"
+NODE = "MATCH (n:%s {id: $id}) RETURN n"
 NODE_USER = "MATCH (n:User {username: $id}) RETURN n"
 
 DEGREES = """
-    MATCH (n:%s {mal_id: $id})-[r]-(m)
+    MATCH (n:%s {id: $id})-[r]-(m)
     WHERE type(r) <> 'LISTED' OR m.username = $user
     RETURN type(r) AS type, labels(m)[0] AS label, count(*) AS n
 """
 
 # Neighbours; `rels` = allowed relationship types, `only_watched` drops non-watched Anime.
 NEIGHBORS = """
-    MATCH (n:%s {mal_id: $id})-[r]-(m)
+    MATCH (n:%s {id: $id})-[r]-(m)
     WHERE type(r) IN $rels
       AND (type(r) <> 'LISTED' OR m.username = $user)
-      AND (NOT $only_watched OR NOT m:Anime OR m.mal_id IN $watched)
+      AND (NOT $only_watched OR NOT m:Anime OR m.id IN $watched)
       AND ($lang IS NULL OR type(r) <> 'VOICES' OR r.language = $lang)
     RETURN n, r, m LIMIT $limit
 """
@@ -47,21 +47,21 @@ NEIGHBORS_USER = """
 
 # Memgraph BFS shortest path. Filter lambda excludes labels and, optionally, non-watched anime.
 SHORTEST_PATH = """
-    MATCH (a:%s {mal_id: $from_id}), (b:%s {mal_id: $to_id})
+    MATCH (a:%s {id: $from_id}), (b:%s {id: $to_id})
     MATCH p = (a)-[*BFS ..%d (r, n |
         NOT labels(n)[0] IN $exclude
         AND type(r) IN $rels
-        AND (NOT $only_watched OR NOT n:Anime OR n.mal_id IN $watched)
+        AND (NOT $only_watched OR NOT n:Anime OR n.id IN $watched)
         AND ($lang IS NULL OR type(r) <> 'VOICES' OR r.language = $lang)
     )]-(b)
     RETURN p
 """
 ALL_SHORTEST_PATHS = """
-    MATCH (a:%s {mal_id: $from_id}), (b:%s {mal_id: $to_id})
+    MATCH (a:%s {id: $from_id}), (b:%s {id: $to_id})
     MATCH p = (a)-[*ALLSHORTEST ..%d (r, n | 1) w (r, n |
         NOT labels(n)[0] IN $exclude
         AND type(r) IN $rels
-        AND (NOT $only_watched OR NOT n:Anime OR n.mal_id IN $watched)
+        AND (NOT $only_watched OR NOT n:Anime OR n.id IN $watched)
         AND ($lang IS NULL OR type(r) <> 'VOICES' OR r.language = $lang)
     )]-(b)
     RETURN p LIMIT $limit
@@ -69,11 +69,11 @@ ALL_SHORTEST_PATHS = """
 
 # Voice actor → characters → anime they appear in.
 VA_ROLES = """
-    MATCH (p:Person {mal_id: $id})-[v:VOICES]->(c:Character)<-[h:HAS_CHARACTER]-(a:Anime)
-    WHERE (NOT $only_watched OR a.mal_id IN $watched)
+    MATCH (p:Person {id: $id})-[v:VOICES]->(c:Character)<-[h:HAS_CHARACTER]-(a:Anime)
+    WHERE (NOT $only_watched OR a.id IN $watched)
       AND ($lang IS NULL OR v.language = $lang)
     RETURN p, v, c, h, a
-    ORDER BY a.mal_id IN $watched DESC, coalesce(a.members, 0) DESC
+    ORDER BY a.id IN $watched DESC, coalesce(a.members, 0) DESC
 """
 
 USER_SUMMARY = """
@@ -86,7 +86,7 @@ USER_SUMMARY = """
 # Voice actors ranked by distinct characters in anime the user has watched (for the roster view).
 ROSTER = """
     MATCH (p:Person)-[v:VOICES]->(c:Character)<-[h:HAS_CHARACTER]-(a:Anime)
-    WHERE (NOT $only_watched OR a.mal_id IN $watched)
+    WHERE (NOT $only_watched OR a.id IN $watched)
       AND (NOT $main_only OR h.role = 'Main')
       AND ($lang IS NULL OR v.language = $lang)
       AND ($q IS NULL OR toLower(p.name) CONTAINS $q)
@@ -101,23 +101,23 @@ ROSTER = """
 INSIGHTS_LIST = """
     MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)
     OPTIONAL MATCH (a)-[:PRODUCED_BY]->(s:Studio)
-    WITH a, l, collect(DISTINCT {mal_id: s.mal_id, name: s.name}) AS studios
+    WITH a, l, collect(DISTINCT {id: s.id, name: s.name}) AS studios
     OPTIONAL MATCH (a)-[pr:RELATED_TO]->(:Anime) WHERE pr.relation IN ['Prequel', 'Parent Story']
     WITH a, l, studios, count(pr) > 0 AS follow_up
     OPTIONAL MATCH (a)-[:HAS_GENRE]->(g:Genre)
-    RETURN a.mal_id AS mal_id, a.title AS title, a.title_english AS title_english, a.image_url AS image_url,
+    RETURN a.id AS id, a.title AS title, a.title_english AS title_english, a.image_url AS image_url,
            a.type AS type, a.year AS year, a.season AS season, a.aired_from AS aired_from,
            a.episodes AS episodes, a.score AS score, a.members AS members,
            l.status AS status, l.score AS my_score, l.episodes_watched AS episodes_watched, l.updated_at AS updated_at,
-           [s IN studios WHERE s.mal_id IS NOT NULL] AS studios, follow_up,
-           collect(DISTINCT {mal_id: g.mal_id, name: g.name, kind: g.kind}) AS genres
+           [s IN studios WHERE s.id IS NOT NULL] AS studios, follow_up,
+           collect(DISTINCT {id: g.id, name: g.name, kind: g.kind}) AS genres
 """
 
 # People ranked by how many listed anime they touch. kind = 'va' (VOICES via characters) or a staff position.
 INSIGHTS_VA = """
     MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)-[:HAS_CHARACTER]->(c:Character)<-[v:VOICES]-(p:Person)
     WHERE l.status IN $statuses AND ($lang IS NULL OR v.language = $lang)
-    WITH p, collect(DISTINCT a.mal_id) AS anime_ids, count(DISTINCT c) AS characters,
+    WITH p, collect(DISTINCT a.id) AS anime_ids, count(DISTINCT c) AS characters,
          avg(CASE WHEN l.score > 0 THEN toFloat(l.score) END) AS avg_my_score
     WHERE size(anime_ids) >= $min
     RETURN p, anime_ids, characters, avg_my_score
@@ -126,7 +126,7 @@ INSIGHTS_VA = """
 INSIGHTS_STAFF = """
     MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)<-[w:WORKED_ON]-(p:Person)
     WHERE l.status IN $statuses AND $position IN w.positions
-    WITH p, collect(DISTINCT a.mal_id) AS anime_ids, 0 AS characters,
+    WITH p, collect(DISTINCT a.id) AS anime_ids, 0 AS characters,
          avg(CASE WHEN l.score > 0 THEN toFloat(l.score) END) AS avg_my_score
     WHERE size(anime_ids) >= $min
     RETURN p, anime_ids, characters, avg_my_score
@@ -137,15 +137,15 @@ INSIGHTS_STAFF = """
 INSIGHTS_GAPS = """
     MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)-[r:RELATED_TO]->(b:Anime)
     WHERE l.status IN $statuses AND r.relation IN $relations AND NOT (u)-[:LISTED]->(b)
-    RETURN b.mal_id AS mal_id, b.title AS title, b.image_url AS image_url, b.score AS score, b.type AS type,
+    RETURN b.id AS id, b.title AS title, b.url AS url, b.image_url AS image_url, b.score AS score, b.type AS type,
            b.year AS year, b.season AS season, b.aired_from AS aired_from, b.status AS airing, b.fetched_at IS NOT NULL AS fetched,
-           collect({relation: r.relation, mal_id: a.mal_id, title: a.title, my_score: l.score, status: l.status}) AS via
-    ORDER BY size(via) DESC, mal_id
+           collect({relation: r.relation, id: a.id, title: a.title, my_score: l.score, status: l.status}) AS via
+    ORDER BY size(via) DESC, id
 """
 
 # ---- recommendations ------------------------------------------------------
 # All user-specific state comes in as parameters for the current user (see users.py): $user is the username,
-# $watched the mal_ids on their list with a status other than plan_to_watch, $franchise every anime in the
+# $watched the ids on their list with a status other than plan_to_watch, $franchise every anime in the
 # same franchise as anything on their list.
 
 # Unseen, fetched anime scored by the user's people. A person's weight = number of watched anime in which they
@@ -162,7 +162,7 @@ RECS_VA = """
     WITH u, p, n * coalesce(avg_score, 7.0) / 10.0 AS w ORDER BY w DESC LIMIT 150
     MATCH (p)-[v2:VOICES]->(c:Character)<-[h:HAS_CHARACTER {role: 'Main'}]-(b:Anime)
     WHERE v2.language = $lang AND b.fetched_at IS NOT NULL AND NOT (u)-[:LISTED]->(b)
-      AND NOT b.mal_id IN $franchise
+      AND NOT b.id IN $franchise
       AND coalesce(b.members, 0) >= 5000
       AND NOT (b)-[:RELATED_TO {relation: 'Prequel'}]->(:Anime)
       AND ($min_score IS NULL OR b.score >= $min_score) AND b.type IN $types
@@ -179,7 +179,7 @@ RECS_STAFF = """
     MATCH (p)-[w2:WORKED_ON]->(b:Anime)
     WHERE any(pos IN w2.positions WHERE pos IN $positions)
       AND b.fetched_at IS NOT NULL AND NOT (u)-[:LISTED]->(b)
-      AND NOT b.mal_id IN $franchise
+      AND NOT b.id IN $franchise
       AND coalesce(b.members, 0) >= 5000
       AND NOT (b)-[:RELATED_TO {relation: 'Prequel'}]->(:Anime)
       AND ($min_score IS NULL OR b.score >= $min_score) AND b.type IN $types
@@ -195,7 +195,7 @@ RECS_STUDIO = """
     WITH u, s, n * coalesce(avg_score, 7.0) / 10.0 AS w
     MATCH (s)<-[:PRODUCED_BY]-(b:Anime)
     WHERE b.fetched_at IS NOT NULL AND NOT (u)-[:LISTED]->(b)
-      AND NOT b.mal_id IN $franchise
+      AND NOT b.id IN $franchise
       AND coalesce(b.members, 0) >= 5000
       AND NOT (b)-[:RELATED_TO {relation: 'Prequel'}]->(:Anime)
       AND ($min_score IS NULL OR b.score >= $min_score) AND b.type IN $types

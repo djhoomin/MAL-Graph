@@ -74,7 +74,7 @@ function Game({ mine = false }: { mine?: boolean }) {
   }, [mine])
   useEffect(load, [load])
 
-  const close = (g: GNode) => g.mal_id != null && !!game?.right_anime?.includes(g.mal_id)
+  const close = (g: GNode) => g.key != null && !!game?.right_anime?.includes(g.key)
 
   const move = async (action: 'clue' | 'guess' | 'give_up', guess?: GNode) => {
     if (!game) return
@@ -82,7 +82,7 @@ function Game({ mine = false }: { mine?: boolean }) {
     setError(null)
     setMiss(null)
     try {
-      const g = guess?.mal_id ?? undefined
+      const g = guess?.key ?? undefined
       const next = game.token ? await mysteryApi.moveMine(game.token, action, g) : await mysteryApi.move(action, g)
       setGame(next)
       if (action === 'guess' && next.correct === false && guess) setMiss(guess)

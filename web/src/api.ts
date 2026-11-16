@@ -19,7 +19,7 @@ export const REL_TYPES: RelType[] = ['LISTED', 'HAS_CHARACTER', 'VOICES', 'WORKE
 export interface GNode {
   id: string
   label: Label
-  mal_id: number | null
+  key: number | null // the node's id in the data source, since id is the graph's "Label:key"
   name: string
   image_url: string | null
   watched: boolean | null
@@ -62,7 +62,7 @@ export interface NodeDetail {
   degrees: { type: RelType; label: Label; n: number }[]
 }
 export interface ListAnime {
-  mal_id: number
+  id: number
   title: string
   title_english: string | null
   image_url: string | null
@@ -77,8 +77,8 @@ export interface ListAnime {
   my_score: number
   episodes_watched: number
   updated_at: string | null
-  studios: { mal_id: number; name: string }[]
-  genres: { mal_id: number; name: string; kind: string }[]
+  studios: { id: number; name: string }[]
+  genres: { id: number; name: string; kind: string }[]
   follow_up?: boolean // a sequel or side story, which always has fewer members than what it follows
 }
 export interface RankedPerson {
@@ -88,8 +88,9 @@ export interface RankedPerson {
   avg_my_score: number | null
 }
 export interface Gap {
-  mal_id: number
+  id: number
   title: string
+  url: string | null
   image_url: string | null
   score: number | null
   type: string | null
@@ -99,7 +100,7 @@ export interface Gap {
   /** MyAnimeList's airing status, such as "Not yet aired". Null until the anime is fetched. */
   airing: string | null
   fetched: boolean
-  via: { relation: string; mal_id: number; title: string; my_score: number; status: ListStatus }[]
+  via: { relation: string; id: number; title: string; my_score: number; status: ListStatus }[]
 }
 export interface Recommendation {
   anime: GNode
@@ -111,7 +112,7 @@ export interface SyncStatus {
   running: boolean
   total: number
   done: number
-  failed: { mal_id: number; error: string }[]
+  failed: { id: number; error: string }[]
   current: number | null
   others_in_queue: number
 }
@@ -253,8 +254,8 @@ export const api = {
     ),
   path: (from: string, to: string, o: { max_hops?: number; only_watched?: boolean; exclude?: string; rels?: string; lang?: string | null; all_paths?: boolean; limit?: number }) =>
     req<PathResult>(`/api/path${qs({ from, to, ...o })}`),
-  vaRoles: (malId: number, only_watched: boolean, lang: string | null) =>
-    req<VaResult>(`/api/person/${malId}/characters${qs({ only_watched, lang })}`),
+  vaRoles: (personId: number, only_watched: boolean, lang: string | null) =>
+    req<VaResult>(`/api/person/${personId}/characters${qs({ only_watched, lang })}`),
   roster: (o: { only_watched?: boolean; main_only?: boolean; lang?: string | null; min_characters?: number; q?: string; limit?: number }) =>
     req<{ people: RosterEntry[] }>(`/api/roster${qs(o)}`),
   user: () => req<UserSummary>('/api/user'),
@@ -333,8 +334,8 @@ export interface KmkTheme {
 }
 export const kmkApi = {
   theme: (o: { avoid?: string; kind?: string; key?: string | number; gender?: string | null } = {}) => req<KmkTheme>(`/api/kmk/theme${qs(o)}`),
-  fixGender: (malId: number, gender: string | null) =>
-    req<{ mal_id: number; gender: string | null }>(`/api/kmk/character/${malId}/gender`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gender }) }),
+  fixGender: (characterId: number, gender: string | null) =>
+    req<{ id: number; gender: string | null }>(`/api/kmk/character/${characterId}/gender`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gender }) }),
 }
 
 // --------------------------------------------------------------------------- Daily games
@@ -351,7 +352,7 @@ export interface KmkDaily {
   date: string
   title: string
   cards: KmkCard[]
-  choices?: Record<string, KmkChoice> // by character mal_id, once played
+  choices?: Record<string, KmkChoice> // by character id, once played
   round_id?: string // this play in your history, for a rescue
   rescued?: boolean // its killed character went to the terrarium
   tally?: { players: number; counts: Record<string, Record<KmkChoice, number>> }
@@ -366,7 +367,7 @@ export interface OddLink {
 export interface OddResult {
   pick: number
   correct: boolean
-  answer: number // mal_id of the odd one
+  answer: number // id of the odd one
   links: OddLink[] // what the other three share, main link first
   players?: number // daily only: how many answered this round
   right?: number
@@ -389,7 +390,7 @@ export interface Mystery {
   clues: string[] // shown so far (all of them once done)
   used: number // clues the player has seen, which is the score once solved
   guesses: GNode[]
-  right_anime: number[] // mal_ids of wrong guesses from the answer's anime or its franchise
+  right_anime: number[] // ids of wrong guesses from the answer's anime or its franchise
   branch: number | null // how many anime clues came before the character clues took over, once a guess got the anime
   solved: boolean
   done: boolean
@@ -402,23 +403,23 @@ export interface Mystery {
 export interface TourMaker {
   id: string
   label: 'Person' | 'Studio'
-  mal_id: number
+  key: number
   name: string
   series: number
 }
 export interface TourCluster {
   anime: number
-  series: { mal_id: number; title: string; image_url: string | null; my_score: number }[]
+  series: { id: number; title: string; image_url: string | null; my_score: number }[]
   makers: TourMaker[]
   genres: string[]
   timeline: {
-    items: { mal_id: number; title: string; image_url: string | null; year: number; season: number; makers: string[] }[] // season 0 is winter
+    items: { id: number; title: string; image_url: string | null; year: number; season: number; makers: string[] }[] // season 0 is winter
     makers: { id: string; name: string; anime: number }[] // the people and studios behind two or more of the cluster's anime
   }
 }
 /** Anime from different series that share most of their makers. */
 export interface TourTwins {
-  shows: { mal_id: number; title: string; image_url: string | null }[]
+  shows: { id: number; title: string; image_url: string | null }[]
   shared: { id: string; label: 'Person' | 'Studio'; name: string }[]
   either: number // people and studios behind either of the first pair
   jaccard: number
@@ -426,55 +427,55 @@ export interface TourTwins {
 export interface TourBridge extends TourMaker {
   rank: number
   count_rank: number // their place when ranked by how many of your series they're behind
-  clusters: { cluster: number; mal_id: number; title: string; image_url: string | null }[]
+  clusters: { cluster: number; id: number; title: string; image_url: string | null }[]
 }
 /** A cut point: the person, studio or anime a cluster falls apart without, and the pieces it holds together. */
 export interface TourCut {
   id: string
   label: 'Person' | 'Studio' | 'Anime'
-  mal_id: number
+  key: number
   name: string
   image_url: string | null
   cluster: number
-  sides: { series: number; anime: number; items: { mal_id: number; title: string; image_url: string | null }[] }[]
+  sides: { series: number; anime: number; items: { id: number; title: string; image_url: string | null }[] }[]
 }
 /** A single series that only connects to its cluster through one person, studio or anime. */
 export interface TourThread {
   cluster: number
-  show: { mal_id: number; title: string; image_url: string | null }
+  show: { id: number; title: string; image_url: string | null }
   via: { id: string; label: 'Person' | 'Studio' | 'Anime'; name: string }
-  also: { mal_id: number; title: string; image_url: string | null }[] // what the person or studio made in the rest of the cluster
+  also: { id: number; title: string; image_url: string | null }[] // what the person or studio made in the rest of the cluster
 }
 /** An anime you haven't listed, reached in two steps from anime you scored highly. */
 export interface TourRec {
-  anime: { mal_id: number; title: string; image_url: string | null; mal_score: number | null; members: number | null; type: string | null; year: number | null }
+  anime: { id: number; title: string; image_url: string | null; mal_score: number | null; members: number | null; type: string | null; year: number | null }
   score: number
   paths: {
     maker: { id: string; label: 'Person' | 'Studio'; name: string }
     made: number // anime this person or studio is credited on in the whole graph
-    because: { mal_id: number; title: string; image_url: string | null; my_score: number }[]
+    because: { id: number; title: string; image_url: string | null; my_score: number }[]
   }[]
 }
 /** People who keep working together across your series. */
 export interface TourTeam {
   people: { id: string; name: string }[]
   series: number
-  shows: { mal_id: number; title: string; image_url: string | null }[]
+  shows: { id: number; title: string; image_url: string | null }[]
   /** What they made together that you haven't seen, with the members of a bigger team who didn't work on it. */
-  more: { mal_id: number; title: string; image_url: string | null; mal_score: number | null; type: string | null; year: number | null; without: string[] }[]
+  more: { id: number; title: string; image_url: string | null; mal_score: number | null; type: string | null; year: number | null; without: string[] }[]
 }
 /** How far apart your anime are: the islands, the two series furthest apart and the series at the centre. */
 export interface TourDistance {
-  islands: { shows: { mal_id: number; title: string; image_url: string | null }[]; makers: { id: string; label: string; name: string }[] }[]
+  islands: { shows: { id: number; title: string; image_url: string | null }[]; makers: { id: string; label: string; name: string }[] }[]
   main: { anime: number; series: number }
   unlinked: number
   /** The chain between the far ends, alternating anime and the people or studios that link them. */
-  far: { steps: number; chain: ({ anime: { mal_id: number; title: string; image_url: string | null } } | { maker: { id: string; label: string; name: string } })[] } | null
+  far: { steps: number; chain: ({ anime: { id: number; title: string; image_url: string | null } } | { maker: { id: string; label: string; name: string } })[] } | null
   radius: number
-  center: { mal_id: number; title: string; image_url: string | null }[]
+  center: { id: number; title: string; image_url: string | null }[]
   spread: { steps: number; series: number }[]
 }
-type TourCover = { mal_id: number; title: string; image_url: string | null; note?: string }
+type TourCover = { id: number; title: string; image_url: string | null; note?: string }
 /** The voice tour: the graph joined only by the Japanese voice actors of main characters. Notes are character names. */
 export interface VoiceTour {
   anime: number
@@ -532,7 +533,7 @@ export interface YayPatterns {
 export interface YayDaily {
   date: string
   cards: KmkCard[]
-  votes: Record<string, number> // character mal_id -> 1 for yay, 0 for nay
+  votes: Record<string, number> // character id -> 1 for yay, 0 for nay
   done: boolean
   results?: Record<string, { players: number; yay: number }> // once done
   patterns?: YayPatterns // once done
@@ -575,6 +576,7 @@ export const kmkHistoryApi = {
 export interface MatchAnime {
   id: number
   title: string
+  url: string | null
   image: string | null
   members: number | null
   you: number | null
@@ -591,6 +593,7 @@ export interface MatchMaker {
 export interface MatchPick {
   id: number
   title: string
+  url: string | null
   image: string | null
   members: number | null
   score?: number // what the person recommending it gave it

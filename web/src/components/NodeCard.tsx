@@ -93,7 +93,7 @@ function NodeSummary() {
         {moreOpen && (
           <div className="menu-list card-more">
             {node.label === 'Person' && menuItem('Voice roles', () => setView('va'))}
-            {node.label === 'Person' && menuItem('Roster', () => navigate(`/roster/${node.mal_id}`))}
+            {node.label === 'Person' && menuItem('Roster', () => navigate(`/roster/${node.key}`))}
             {expandable && node.fetched && menuItem('Refetch from MAL', () => void fetchFromMal(node.id))}
             {menuItem('Collapse neighbours', () => collapseNode(node.id))}
             {typeof props.url === 'string' && menuItem('Open on MAL', () => window.open(props.url as string, '_blank', 'noreferrer'))}

@@ -111,7 +111,7 @@ def _check_top_rated(answer: str, user: str, steps: list[dict[str, Any]]) -> tup
 
 def _check_sequels(answer: str, user: str, steps: list[dict[str, Any]]) -> tuple[float, str]:
     gaps = R.insights_gaps(statuses="completed,watching", relations="Sequel")["gaps"]
-    real = {g["mal_id"] for g in gaps}
+    real = {g["id"] for g in gaps}
     shown = _shown(steps, "Anime")
     if shown:
         good = [a for a in shown if a in real]
@@ -124,8 +124,8 @@ def _check_sequels(answer: str, user: str, steps: list[dict[str, Any]]) -> tuple
 def _check_hanazawa_roles(answer: str, user: str, steps: list[dict[str, Any]]) -> tuple[float, str]:
     rows = db.run(
         "MATCH (p:Person)-[v:VOICES {language: 'Japanese'}]->(c:Character)<-[:HAS_CHARACTER]-(a:Anime)<-[l:LISTED]-(:User {username: $u}) "
-        "WHERE p.name IN ['Hanazawa, Kana', 'Kana Hanazawa'] AND l.status <> 'plan_to_watch' AND a.mal_id IN v.anime_ids "
-        "RETURN DISTINCT c.mal_id AS id, c.name AS name", u=user)
+        "WHERE p.name IN ['Hanazawa, Kana', 'Kana Hanazawa'] AND l.status <> 'plan_to_watch' AND a.id IN v.anime_ids "
+        "RETURN DISTINCT c.id AS id, c.name AS name", u=user)
     # A role counts when the answer names it or the agent showed it on a card or the canvas.
     shown = set(_shown(steps, "Character"))
     hit = sum(1 for r in rows if r["id"] in shown or _mentions(answer, _names(r["name"])))
@@ -141,7 +141,7 @@ def _check_chainsaw_jjk(answer: str, user: str, steps: list[dict[str, Any]]) -> 
 def _check_recommend(answer: str, user: str, steps: list[dict[str, Any]]) -> tuple[float, str]:
     # The picks are the anime it showed. They must be new to the user, so nothing they've watched (Plan to Watch is fine).
     picks = _shown(steps, "Anime")
-    seen = {r["id"] for r in db.run("MATCH (:User {username: $u})-[l:LISTED]->(a:Anime) WHERE l.status <> 'plan_to_watch' RETURN a.mal_id AS id", u=user)}
+    seen = {r["id"] for r in db.run("MATCH (:User {username: $u})-[l:LISTED]->(a:Anime) WHERE l.status <> 'plan_to_watch' RETURN a.id AS id", u=user)}
     repeats = [a for a in picks if a in seen]
     return float(len(picks) >= 3 and not repeats), f"{len(picks)} anime shown, {len(repeats)} already watched"
 

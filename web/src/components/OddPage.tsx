@@ -49,11 +49,11 @@ function Daily({ onPractice }: { onPractice: () => void }) {
   const index = viewing ?? next
   const score = daily.rounds.filter((r) => r.result?.correct).length
 
-  const pick = async (i: number, malId: number) => {
+  const pick = async (i: number, characterId: number) => {
     setBusy(true)
     setError(null)
     try {
-      const { result, summary } = await oddApi.answer(i, malId)
+      const { result, summary } = await oddApi.answer(i, characterId)
       setDaily((d) => d && { ...d, rounds: d.rounds.map((r, j) => (j === i ? { ...r, result } : r)), ...(summary ? { summary } : {}) })
       setViewing(i)
     } catch (e) {
@@ -201,11 +201,11 @@ function LinkText({ link }: { link: OddLink }) {
 }
 
 /** Four cards to pick from. Once answered, the odd one is marked, your wrong pick too, and the link is told. */
-function OddRound({ cards, result, busy, onPick, children }: { cards: KmkCard[]; result?: OddResult; busy: boolean; onPick: (malId: number) => void; children?: ReactNode }) {
+function OddRound({ cards, result, busy, onPick, children }: { cards: KmkCard[]; result?: OddResult; busy: boolean; onPick: (characterId: number) => void; children?: ReactNode }) {
   const mark = (c: KmkCard) => {
     if (!result) return ''
-    if (c.character.mal_id === result.answer) return 'odd-answer'
-    if (c.character.mal_id === result.pick) return 'odd-wrong'
+    if (c.character.key === result.answer) return 'odd-answer'
+    if (c.character.key === result.pick) return 'odd-wrong'
     return 'odd-rest'
   }
   const reveal = useRef<HTMLDivElement>(null)
@@ -217,8 +217,8 @@ function OddRound({ cards, result, busy, onPick, children }: { cards: KmkCard[];
     <>
       <div className="odd-cards">
         {cards.map((c) => (
-          <GameCard key={c.character.id} card={c} className={mark(c)} disabled={busy || !!result} onClick={result ? undefined : () => onPick(c.character.mal_id!)}>
-            {result && c.character.mal_id === result.answer && <span className="odd-tag">Odd one out</span>}
+          <GameCard key={c.character.id} card={c} className={mark(c)} disabled={busy || !!result} onClick={result ? undefined : () => onPick(c.character.key!)}>
+            {result && c.character.key === result.answer && <span className="odd-tag">Odd one out</span>}
           </GameCard>
         ))}
       </div>

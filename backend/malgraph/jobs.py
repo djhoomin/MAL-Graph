@@ -101,8 +101,8 @@ class FetchQueue:
                         self._thread = None
                         return
                 self._current = item
-            username, mal_id = item
-            error = self._fetch(mal_id)
+            username, anime_id = item
+            error = self._fetch(anime_id)
             with self._cv:
                 self._current = None
                 p = self._progress.get(username)
@@ -110,7 +110,7 @@ class FetchQueue:
                     continue
                 p["done"] += 1
                 if error:
-                    p["failed"].append({"mal_id": mal_id, "error": error})
+                    p["failed"].append({"id": anime_id, "error": error})
                 if not self._pending.get(username):
                     self._pending.pop(username, None)
                     if username in self._order:
@@ -118,20 +118,20 @@ class FetchQueue:
                     p["finished_at"] = time.time()
                     users.invalidate(username)  # newly fetched relations can widen the franchise set
 
-    def _fetch(self, mal_id: int | str) -> str | None:
+    def _fetch(self, anime_id: int | str) -> str | None:
         """Fetch one anime unless another user's job got there first. Returns an error message or None."""
         try:
-            if isinstance(mal_id, str):
-                ingest.check_person(jikan.shared(), int(mal_id.split(":", 1)[1]))
+            if isinstance(anime_id, str):
+                ingest.check_person(jikan.shared(), int(anime_id.split(":", 1)[1]))
                 return None
-            if db.run("MATCH (a:Anime {mal_id: $id}) WHERE a.fetched_at IS NOT NULL RETURN 1 AS x", id=mal_id):
+            if db.run("MATCH (a:Anime {id: $id}) WHERE a.fetched_at IS NOT NULL RETURN 1 AS x", id=anime_id):
                 return None
-            ingest.expand_anime(jikan.shared(), mal_id)
+            ingest.expand_anime(jikan.shared(), anime_id)
             return None
         except JikanError as e:
             return str(e)
         except Exception as e:  # keep the worker alive for everyone else
-            log.exception("fetching anime %s failed", mal_id)
+            log.exception("fetching anime %s failed", anime_id)
             return f"{type(e).__name__}: {e}"
 
 

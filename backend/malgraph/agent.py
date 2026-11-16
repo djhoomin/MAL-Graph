@@ -31,12 +31,12 @@ The user is {username}. Answer their questions by exploring the graph with the t
 
 Graph model (all ids are MAL ids; node refs look like "Anime:5114", "Character:12", "Person:8", "Studio:4", "Genre:1"):
   (:User {{username}})-[:LISTED {{status, score, episodes_watched}}]->(:Anime)
-  (:Anime {{mal_id, title, title_english, type, episodes, year, season, score, members, fetched_at}})
-  (:Anime)-[:HAS_CHARACTER {{role: 'Main'|'Supporting'}}]->(:Character {{mal_id, name, image_url, favorites, gender}})
-  (:Person {{mal_id, name, image_url}})-[:VOICES {{language, anime_ids}}]->(:Character)
+  (:Anime {{id, title, title_english, type, episodes, year, season, score, members, fetched_at}})
+  (:Anime)-[:HAS_CHARACTER {{role: 'Main'|'Supporting'}}]->(:Character {{id, name, image_url, favorites, gender}})
+  (:Person {{id, name, image_url}})-[:VOICES {{language, anime_ids}}]->(:Character)
   (:Person)-[:WORKED_ON {{positions: [..]}}]->(:Anime)      e.g. positions contain 'Director', 'Music', 'Character Design'
   (:Anime)-[:RELATED_TO {{relation: 'Sequel'|'Prequel'|'Side Story'|...}}]->(:Anime)
-  (:Anime)-[:PRODUCED_BY]->(:Studio {{mal_id, name}})      (:Anime)-[:HAS_GENRE]->(:Genre {{mal_id, name, kind}})
+  (:Anime)-[:PRODUCED_BY]->(:Studio {{id, name}})      (:Anime)-[:HAS_GENRE]->(:Genre {{id, name, kind}})
 List statuses: completed, watching, on_hold, dropped, plan_to_watch. "watched"/"seen" means LISTED.status <> 'plan_to_watch'.
 The graph is shared by several users, so the user's list exists only as their LISTED edges. Other users' lists are private.
 cypher_read enforces three rules: reach the list only as (u:User {{username: $user}})-[l:LISTED]->(a:Anime) (the $user
@@ -191,7 +191,7 @@ _MUST_REFUSE = [
     "MATCH (n) WHERE n.status IS NOT NULL RETURN n LIMIT 1",
     "MATCH (a:Anime)-[r]-(x) RETURN properties(r) LIMIT 1",
     "MATCH (a:Anime)-[*1..2]-(f) RETURN f LIMIT 1",
-    "MATCH p=(a:Anime {mal_id: 1})-[*BFS ..3]-(b:Anime {mal_id: 2}) RETURN p",
+    "MATCH p=(a:Anime {id: 1})-[*BFS ..3]-(b:Anime {id: 2}) RETURN p",
     "MATCH (n) WHERE id(n) = 0 RETURN n",
     "CALL pagerank.get() YIELD node RETURN node LIMIT 1",
     "MATCH (a:Anime) RETURN [(a)-[r]-(x) | properties(r)] AS xs LIMIT 1",
@@ -203,7 +203,7 @@ _MUST_REFUSE = [
 _MUST_ACCEPT = [
     "MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) RETURN a.title LIMIT 1",
     "MATCH (a:Anime)-[:HAS_CHARACTER]->(c)<-[v:VOICES]-(p:Person) RETURN p.name LIMIT 1",
-    "MATCH (a:Anime {mal_id: 1})-[:RELATED_TO *BFS 0..6]-(f:Anime) RETURN f.title LIMIT 1",
+    "MATCH (a:Anime {id: 1})-[:RELATED_TO *BFS 0..6]-(f:Anime) RETURN f.title LIMIT 1",
     "MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)-[:RELATED_TO]->(b:Anime) "
     "WHERE NOT (u)-[:LISTED]->(b) RETURN b.title LIMIT 1",
 ]
@@ -265,7 +265,7 @@ def _subgraph(refs: list[str]) -> dict[str, Any]:
         ids = [k for label, k in parsed if label != "User"]
         wanted = set(builder.nodes)
         # Return the endpoint nodes too: relationship-only results carry unlabelled node stubs.
-        for rec in session.run("MATCH (a)-[r]->(b) WHERE a.mal_id IN $ids AND b.mal_id IN $ids RETURN a, r, b", ids=ids):
+        for rec in session.run("MATCH (a)-[r]->(b) WHERE a.id IN $ids AND b.id IN $ids RETURN a, r, b", ids=ids):
             if R.node_id_of(rec["a"]) in wanted and R.node_id_of(rec["b"]) in wanted:
                 builder.add(rec["r"])
     return builder.build()
@@ -274,7 +274,7 @@ def _subgraph(refs: list[str]) -> dict[str, Any]:
 def _annotate_on_list(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ul = users.user_list()
     for i in items:
-        status, score = ul.personal(i["mal_id"])
+        status, score = ul.personal(i["id"])
         i["on_list"] = status
         if score:
             i["my_score"] = score
@@ -283,7 +283,7 @@ def _annotate_on_list(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _compact_mal_anime(a: dict[str, Any]) -> dict[str, Any]:
     return {
-        "ref": f"Anime:{a['id']}", "mal_id": a["id"], "title": a.get("title"), "type": a.get("media_type"),
+        "ref": f"Anime:{a['id']}", "id": a["id"], "title": a.get("title"), "type": a.get("media_type"),
         "year": (a.get("start_season") or {}).get("year"), "episodes": a.get("num_episodes") or None,
         "score": a.get("mean"), "members": a.get("num_list_users"), "status": a.get("status"),
         "genres": [g["name"] for g in a.get("genres") or []][:6],
@@ -296,7 +296,7 @@ def _mal_tool(name: str, args: dict[str, Any]) -> Any:
         return _annotate_on_list([_compact_mal_anime(a) for a in mal.search_anime(args["q"], int(args.get("limit") or 15))])
     if name == "mal_recommendations":
         d = mal.anime_details(int(args["anime_id"]), fields="id,title,recommendations")
-        items = [{"ref": f"Anime:{r['node']['id']}", "mal_id": r["node"]["id"], "title": r["node"].get("title"), "votes": r.get("num_recommendations")} for r in d.get("recommendations") or []]
+        items = [{"ref": f"Anime:{r['node']['id']}", "id": r["node"]["id"], "title": r["node"].get("title"), "votes": r.get("num_recommendations")} for r in d.get("recommendations") or []]
         return _annotate_on_list(items[:20])
     if name == "mal_season":
         items = [_compact_mal_anime(a) for a in mal.season(int(args["year"]), args["season"], int(args.get("limit") or 30))]
@@ -333,7 +333,7 @@ def taste_profile() -> dict[str, Any]:
         RETURN g.name AS name, n AS anime, round(avg * 10) / 10 AS avg_my_score ORDER BY n DESC LIMIT 12""")
     out["top_rated"] = users.run("""
         MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) WHERE l.score >= 9
-        RETURN 'Anime:' + toString(a.mal_id) AS ref, a.title AS title, l.score AS my_score, a.year AS year ORDER BY l.score DESC, a.members DESC LIMIT 20""")
+        RETURN 'Anime:' + toString(a.id) AS ref, a.title AS title, l.score AS my_score, a.year AS year ORDER BY l.score DESC, a.members DESC LIMIT 20""")
     out["counts"] = users.run("MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) RETURN l.status AS status, count(*) AS n ORDER BY n DESC")
     return out
 
@@ -376,7 +376,7 @@ def execute_tool(name: str, args: dict[str, Any], ctx: ToolContext) -> Any:
         return [{"person": _compact_node(x["person"]), "anime_count": len(x["anime_ids"]), "anime_ids": x["anime_ids"][:20], "characters": x["characters"], "avg_my_score": x["avg_my_score"]} for x in r["people"]]
     if name == "gaps":
         r = R.insights_gaps(statuses=args.get("statuses") or "completed,watching", relations=args.get("relations") or "Sequel,Prequel")
-        return [{"ref": f"Anime:{g['mal_id']}", "title": g["title"], "score": g["score"], "year": g["year"], "via": g["via"][:3]} for g in r["gaps"][:60]]
+        return [{"ref": f"Anime:{g['id']}", "title": g["title"], "score": g["score"], "year": g["year"], "via": g["via"][:3]} for g in r["gaps"][:60]]
     if name == "cypher_read":
         return cypher_read(args["query"], args.get("params"))
     if name == "taste_profile":
@@ -397,7 +397,7 @@ def execute_tool(name: str, args: dict[str, Any], ctx: ToolContext) -> Any:
     if name == "show_on_canvas":
         p = _subgraph(args["refs"][:150])
         if not p["nodes"]:
-            raise ValueError("no refs resolved; use refs like Anime:<mal_id> / Person:<mal_id> from tool results")
+            raise ValueError("no refs resolved; use refs like Anime:<id> / Person:<id> from tool results")
         if args.get("select"):
             p["select"] = args["select"]
         ctx.canvas.append(p)
@@ -408,7 +408,7 @@ def execute_tool(name: str, args: dict[str, Any], ctx: ToolContext) -> Any:
         cards = [{"node": by_id[c["ref"]], "caption": c.get("caption", "")} for c in args["cards"] if c["ref"] in by_id]
         missing = [c["ref"] for c in args["cards"] if c["ref"] not in by_id]
         if not cards:
-            raise ValueError(f"no cards resolved; refs must be like Character:<mal_id> taken from tool results (got {missing[:5]})")
+            raise ValueError(f"no cards resolved; refs must be like Character:<id> taken from tool results (got {missing[:5]})")
         ctx.cards.append({"title": args.get("title", ""), "cards": cards})
         return {"presented": len(cards), **({"unresolved": missing} if missing else {})}
     raise ValueError(f"unknown tool {name}")

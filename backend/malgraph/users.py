@@ -63,15 +63,15 @@ class UserList:
                 self._franchise = [] if not self.username else [r["id"] for r in db.run(FRANCHISE, user=self.username)]
             return self._franchise
 
-    def personal(self, mal_id: int | None) -> tuple[str | None, int | None]:
-        return self.entries.get(mal_id, (None, None)) if mal_id is not None else (None, None)
+    def personal(self, anime_id: int | None) -> tuple[str | None, int | None]:
+        return self.entries.get(anime_id, (None, None)) if anime_id is not None else (None, None)
 
 
-LIST = "MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) RETURN a.mal_id AS id, l.status AS status, l.score AS score"
+LIST = "MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) RETURN a.id AS id, l.status AS status, l.score AS score"
 FRANCHISE = """
     MATCH (u:User {username: $user})-[:LISTED]->(x:Anime)
     MATCH (x)-[:RELATED_TO *BFS 0..6 (r, n | r.relation <> 'Character')]-(f:Anime)
-    RETURN DISTINCT f.mal_id AS id
+    RETURN DISTINCT f.id AS id
 """
 
 _TTL = 300  # seconds; a sync invalidates immediately, the TTL only guards against other writers

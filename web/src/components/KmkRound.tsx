@@ -141,7 +141,7 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: g
     const key = cards.map((c) => `${c.character.id}=${choices[c.character.id]}`).join(',')
     if (recordedFor.current === key) return
     recordedFor.current = key
-    const byMal = Object.fromEntries(cards.map((c) => [String(c.character.mal_id), choices[c.character.id]]))
+    const byMal = Object.fromEntries(cards.map((c) => [String(c.character.key), choices[c.character.id]]))
     kmkHistoryApi.record(title, byMal).then(
       (r) => setRecordedId(r.round_id),
       () => {}, // not signed in, or offline: the round just isn't kept

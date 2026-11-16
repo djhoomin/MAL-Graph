@@ -312,7 +312,7 @@ function AnimeList({ title, note, rows, them }: { title: string; note: string; r
         {rows.map((a) => (
           <li key={a.id}>
             {a.image ? <img src={a.image} alt="" /> : <span className="noimg" />}
-            <a href={`https://myanimelist.net/anime/${a.id}`} target="_blank" rel="noreferrer">
+            <a href={a.url ?? undefined} target="_blank" rel="noreferrer">
               {a.title}
             </a>
             <span className="match-scores">
@@ -369,7 +369,7 @@ function PickList({ title, note, rows, who, planned }: { title: string; note: st
           <li key={a.id}>
             {a.image ? <img src={a.image} alt="" /> : <span className="noimg" />}
             <span className="match-pick">
-              <a href={`https://myanimelist.net/anime/${a.id}`} target="_blank" rel="noreferrer">
+              <a href={a.url ?? undefined} target="_blank" rel="noreferrer">
                 {a.title}
               </a>
               {a.because && (

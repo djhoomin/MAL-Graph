@@ -23,9 +23,11 @@ roles, studios, related anime, genres and genders. Its terms allow non-commercia
 collection", so the app must fetch on demand for what users have rather than crawl. AniList characters and staff only
 have AniList ids, so an AniList graph needs its own database rather than sharing the MyAnimeList one.
 
-- [ ] **Step 1: make ids source-neutral.** Rename `mal_id` to `id` across the backend, queries, agent prompt and
-      frontend (about 250 places), with a one-off migration for the existing graph. Take "Open on MAL" links from
-      each node's `url`. No change for users.
+- [x] **Step 1: make ids source-neutral.** Nodes keep their source id as `id`, and `db.migrate_ids` moved the old
+      `mal_id` property at startup (it also migrates an old backup after a restore). API payloads use `id`, except graph
+      nodes, where `id` is already the "Label:key" ref, so the source id is `key`. Links to MyAnimeList come from each
+      node's `url`. Jikan's own `mal_id` fields, the Jikan and MyAnimeList clients and the AniList gender lookup by
+      MyAnimeList id keep the name, since those really are MyAnimeList ids. UI copy still says MAL.
 - [ ] **Step 2: AniList data adapter.** Build the same graph shape from AniList, on demand: the user's list anime
       plus whatever they expand. Reuse the rate-limited client in `backend/malgraph/genders.py`.
 - [ ] **Step 3: lists without the MyAnimeList API.** Sign in with AniList (OAuth), and accept an upload of the list

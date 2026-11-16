@@ -221,9 +221,9 @@ def _mean_sd(series: dict[int, dict[str, Any]]) -> tuple[float, float]:
 
 def _anime(ids: set[int]) -> dict[int, dict[str, Any]]:
     rows = db.run(
-        "MATCH (a:Anime) WHERE a.mal_id IN $ids "
+        "MATCH (a:Anime) WHERE a.id IN $ids "
         "OPTIONAL MATCH (a)-[:HAS_GENRE]->(g:Genre) WHERE g.name IN $hidden "
-        "RETURN a.mal_id AS id, a.title AS title, a.image_url AS image, a.members AS members, count(g) > 0 AS hidden",
+        "RETURN a.id AS id, a.title AS title, a.url AS url, a.image_url AS image, a.members AS members, count(g) > 0 AS hidden",
         ids=list(ids), hidden=HIDDEN_GENRES,
     )
     return {r["id"]: r for r in rows}
@@ -237,25 +237,25 @@ def _makers(ids: set[int]) -> dict[int, set[Maker]]:
     characters, and its genres and themes."""
     out: dict[int, set[Maker]] = {i: set() for i in ids}
     ids_ = list(ids)
-    for r in db.run("MATCH (a:Anime)-[:PRODUCED_BY]->(s:Studio) WHERE a.mal_id IN $ids RETURN a.mal_id AS a, s.mal_id AS k, s.name AS n", ids=ids_):
+    for r in db.run("MATCH (a:Anime)-[:PRODUCED_BY]->(s:Studio) WHERE a.id IN $ids RETURN a.id AS a, s.id AS k, s.name AS n", ids=ids_):
         out[r["a"]].add(("studio", str(r["k"]), r["n"]))
     for r in db.run(
-        "MATCH (p:Person)-[w:WORKED_ON]->(a:Anime) WHERE a.mal_id IN $ids AND coalesce(p.birthday, '9999') >= '1900' "
-        "AND any(j IN w.positions WHERE j IN $jobs) RETURN a.mal_id AS a, p.mal_id AS k, p.name AS n, w.positions AS jobs",
+        "MATCH (p:Person)-[w:WORKED_ON]->(a:Anime) WHERE a.id IN $ids AND coalesce(p.birthday, '9999') >= '1900' "
+        "AND any(j IN w.positions WHERE j IN $jobs) RETURN a.id AS a, p.id AS k, p.name AS n, w.positions AS jobs",
         ids=ids_, jobs=list(JOBS),
     ):
         for job in set(r["jobs"]) & set(JOBS):
             out[r["a"]].add((JOBS[job], str(r["k"]), games.natural(r["n"])))
     for r in db.run(
         "MATCH (a:Anime)-[:HAS_CHARACTER {role: 'Main'}]->(:Character)<-[v:VOICES]-(p:Person) "
-        "WHERE a.mal_id IN $ids AND v.language = 'Japanese' AND a.mal_id IN v.anime_ids "
-        "RETURN DISTINCT a.mal_id AS a, p.mal_id AS k, p.name AS n",
+        "WHERE a.id IN $ids AND v.language = 'Japanese' AND a.id IN v.anime_ids "
+        "RETURN DISTINCT a.id AS a, p.id AS k, p.name AS n",
         ids=ids_,
     ):
         out[r["a"]].add(("voice", str(r["k"]), games.natural(r["n"])))
     for r in db.run(
-        "MATCH (a:Anime)-[:HAS_GENRE]->(g:Genre) WHERE a.mal_id IN $ids AND g.kind IN ['genre', 'theme'] AND NOT g.name IN $hidden "
-        "RETURN a.mal_id AS a, g.name AS n",
+        "MATCH (a:Anime)-[:HAS_GENRE]->(g:Genre) WHERE a.id IN $ids AND g.kind IN ['genre', 'theme'] AND NOT g.name IN $hidden "
+        "RETURN a.id AS a, g.name AS n",
         ids=ids_, hidden=HIDDEN_FROM_TASTE,
     ):
         out[r["a"]].add(("genre", r["n"], r["n"]))
@@ -325,7 +325,7 @@ def _compare(me: str, them: str) -> dict[str, Any]:
 
     def card(pick: int) -> dict[str, Any]:
         a = anime.get(pick, {})
-        return {"id": pick, "title": a.get("title") or f"Anime {pick}", "image": a.get("image"), "members": a.get("members")}
+        return {"id": pick, "title": a.get("title") or f"Anime {pick}", "url": a.get("url"), "image": a.get("image"), "members": a.get("members")}
 
     def best(f: int) -> dict[str, Any]:
         """The series' best-known anime, preferring one both have watched."""

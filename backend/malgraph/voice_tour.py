@@ -23,57 +23,57 @@ COVERS = 6  # lead roles shown for each bridge
 VOICE = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)
 WHERE l.status <> 'plan_to_watch'
 MATCH path = (a)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character)<-[v:VOICES]-(p:Person)
-WHERE v.language = 'Japanese' AND a.mal_id IN v.anime_ids"""
+WHERE v.language = 'Japanese' AND a.id IN v.anime_ids"""
 
 ROLES = VOICE + """
-RETURN p.mal_id AS person, p.name AS name, a.mal_id AS anime, c.name AS character"""
+RETURN p.id AS person, p.name AS name, a.id AS anime, c.name AS character"""
 
 BRIDGES = VOICE + """
 WITH project(path) AS graph
 CALL betweenness_centrality.get(graph, False, True) YIELD node, betweenness_centrality
 WHERE node:Person
-RETURN node.mal_id AS id, betweenness_centrality
+RETURN node.id AS id, betweenness_centrality
 ORDER BY betweenness_centrality DESC LIMIT 30"""
 
 TWINS = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)
 WHERE l.status <> 'plan_to_watch'
 MATCH (a)-[:HAS_CHARACTER {role: 'Main'}]->(:Character)<-[v:VOICES]-(p:Person)
-WHERE v.language = 'Japanese' AND a.mal_id IN v.anime_ids
+WHERE v.language = 'Japanese' AND a.id IN v.anime_ids
 WITH a, collect(DISTINCT p) AS cast
 WITH collect({anime: a, cast: cast}) AS shows
 UNWIND shows AS x
 UNWIND shows AS y
-WITH x, y WHERE x.anime.mal_id < y.anime.mal_id
+WITH x, y WHERE x.anime.id < y.anime.id
 WITH x, y, [p IN x.cast WHERE p IN y.cast] AS shared
 WHERE size(shared) >= $min_shared
-RETURN x.anime.mal_id AS a, y.anime.mal_id AS b, [p IN shared | p.mal_id] AS shared,
+RETURN x.anime.id AS a, y.anime.id AS b, [p IN shared | p.id] AS shared,
        size(x.cast) + size(y.cast) - size(shared) AS either,
        toFloat(size(shared)) / (size(x.cast) + size(y.cast) - size(shared)) AS jaccard
 ORDER BY jaccard DESC"""
 
 # Anime on the list that MyAnimeList relates in any way, such as a crossover, which shares its cast for that reason.
 RELATED = """MATCH (:User {username: $user})-[:LISTED]->(a:Anime)-[:RELATED_TO]-(b:Anime)<-[:LISTED]-(:User {username: $user})
-RETURN DISTINCT a.mal_id AS a, b.mal_id AS b"""
+RETURN DISTINCT a.id AS a, b.id AS b"""
 
 DUOS = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)
 WHERE l.status <> 'plan_to_watch'
 MATCH (p:Person)-[v1:VOICES]->(:Character)<-[:HAS_CHARACTER {role: 'Main'}]-(a)
       -[:HAS_CHARACTER {role: 'Main'}]->(:Character)<-[v2:VOICES]-(q:Person)
-WHERE p.mal_id < q.mal_id AND v1.language = 'Japanese' AND v2.language = 'Japanese'
-  AND a.mal_id IN v1.anime_ids AND a.mal_id IN v2.anime_ids
-WITH p, q, collect(DISTINCT a.mal_id) AS together
+WHERE p.id < q.id AND v1.language = 'Japanese' AND v2.language = 'Japanese'
+  AND a.id IN v1.anime_ids AND a.id IN v2.anime_ids
+WITH p, q, collect(DISTINCT a.id) AS together
 WHERE size(together) >= 2
-RETURN p.mal_id AS p, q.mal_id AS q, together"""
+RETURN p.id AS p, q.id AS q, together"""
 
 ISLANDS = VOICE + """
 WITH project(path) AS graph
 CALL weakly_connected_components.get(graph) YIELD node, component_id
 WHERE node:Anime
-RETURN node.mal_id AS id, component_id"""
+RETURN node.id AS id, component_id"""
 
 # What "Show on the graph" draws: the anime, the voice actors and the main characters between them.
 SHOW = """MATCH (a:Anime)-[h:HAS_CHARACTER {role: 'Main'}]->(c:Character)<-[v:VOICES]-(p:Person)
-WHERE a.mal_id IN $anime AND p.mal_id IN $people AND v.language = 'Japanese' AND a.mal_id IN v.anime_ids
+WHERE a.id IN $anime AND p.id IN $people AND v.language = 'Japanese' AND a.id IN v.anime_ids
 RETURN a, h, c, v, p"""
 
 _lock = threading.Lock()
@@ -113,7 +113,7 @@ def _build(username: str) -> dict[str, Any]:
         if r["anime"] not in anime:
             continue
         ref = f"Person:{r['person']}"
-        makers.setdefault(ref, {"id": ref, "label": "Person", "mal_id": r["person"], "name": games.natural(r["name"])})
+        makers.setdefault(ref, {"id": ref, "label": "Person", "key": r["person"], "name": games.natural(r["name"])})
         made[ref].add(r["anime"])
         name = games.natural(r["character"])
         if name not in roles[(ref, r["anime"])]:

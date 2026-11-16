@@ -32,7 +32,7 @@ export function Gaps({ statuses }: { statuses: ListStatus[] }) {
   }, [gaps, rels])
 
   const fetchOne = async (g: Gap) => {
-    await run(`Fetching ${g.title}…`, () => api.expand(`Anime:${g.mal_id}`))
+    await run(`Fetching ${g.title}…`, () => api.expand(`Anime:${g.id}`))
     await load()
   }
   // Sequentially fetch every unfetched gap in the current view (the API rate-limits Jikan calls).
@@ -41,7 +41,7 @@ export function Gaps({ statuses }: { statuses: ListStatus[] }) {
     setProgress({ done: 0, total: todo.length })
     for (const [i, g] of todo.entries()) {
       try {
-        await api.expand(`Anime:${g.mal_id}`)
+        await api.expand(`Anime:${g.id}`)
       } catch {
         /* keep going; the item stays a stub */
       }
@@ -114,10 +114,10 @@ function GapGrid({ rows, fetchOne }: { rows: Gap[]; fetchOne: (g: Gap) => Promis
   return (
     <div className="gap-grid">
       {rows.map((g) => (
-        <div key={g.mal_id} className="gap">
+        <div key={g.id} className="gap">
           {g.image_url ? <img src={g.image_url} alt="" /> : <span className="noimg" />}
           <div className="gap-body">
-            <a href={`https://myanimelist.net/anime/${g.mal_id}`} target="_blank" rel="noreferrer" className="gap-title">
+            <a href={g.url ?? undefined} target="_blank" rel="noreferrer" className="gap-title">
               {g.title}
             </a>
             <div className="muted">
@@ -131,7 +131,7 @@ function GapGrid({ rows, fetchOne }: { rows: Gap[]; fetchOne: (g: Gap) => Promis
               )}
             </div>
             {g.via.slice(0, 2).map((v) => (
-              <div key={v.mal_id + v.relation} className="via">
+              <div key={v.id + v.relation} className="via">
                 {v.relation.toLowerCase()} of <em>{v.title}</em>
                 {v.my_score > 0 && <span className="muted"> · you gave it {v.my_score}</span>}
               </div>

@@ -181,11 +181,11 @@ def builder_node_id(n: Any) -> str:
 node_id_of = builder_node_id
 
 
-@router.get("/person/{mal_id}/characters")
-def person_characters(mal_id: int, only_watched: bool = True, lang: str | None = "Japanese") -> dict[str, Any]:
-    recs = _records(Q.VA_ROLES, id=mal_id, only_watched=only_watched, lang=lang or None)
+@router.get("/person/{person_id}/characters")
+def person_characters(person_id: int, only_watched: bool = True, lang: str | None = "Japanese") -> dict[str, Any]:
+    recs = _records(Q.VA_ROLES, id=person_id, only_watched=only_watched, lang=lang or None)
     if not recs:
-        _node("Person", mal_id)
+        _node("Person", person_id)
     builder = PayloadBuilder().add_records(recs)
     roles = [
         {

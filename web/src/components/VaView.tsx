@@ -14,12 +14,12 @@ export function VaView() {
   useEffect(() => {
     setData(null)
     setErr(null)
-    if (!node || node.label !== 'Person' || node.mal_id == null) return
+    if (!node || node.label !== 'Person' || node.key == null) return
     api
-      .vaRoles(node.mal_id, onlyWatched, filters.lang)
+      .vaRoles(node.key, onlyWatched, filters.lang)
       .then(setData)
       .catch((e) => setErr((e as Error).message))
-  }, [selected, node?.mal_id, node?.label, node?.fetched, onlyWatched, filters.lang])
+  }, [selected, node?.key, node?.label, node?.fetched, onlyWatched, filters.lang])
 
   if (!node || node.label !== 'Person') return <div className="panel muted">Select a person to list their voice roles.</div>
 
@@ -53,7 +53,7 @@ export function VaView() {
               {data.roles.length} roles in {byAnime.size} anime{filters.lang ? ` (${filters.lang})` : ''}
             </span>
             <button onClick={() => mergePayload(data)}>Add all to canvas</button>
-            <a href={`#/roster/${node.mal_id}`}>roster view ↗</a>
+            <a href={`#/roster/${node.key}`}>roster view ↗</a>
           </div>
           {[...byAnime.entries()].map(([animeId, roles]) => (
             <div key={animeId} className="va-anime">

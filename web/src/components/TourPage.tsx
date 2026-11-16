@@ -212,11 +212,11 @@ function ShowButton({ load, select }: { load: () => Promise<GraphPayload>; selec
   )
 }
 
-function Covers({ items }: { items: { mal_id: number; title: string; image_url: string | null; note?: string }[] }) {
+function Covers({ items }: { items: { id: number; title: string; image_url: string | null; note?: string }[] }) {
   return (
     <div className="tour-covers">
       {items.map((s) => (
-        <figure key={s.mal_id} title={s.title}>
+        <figure key={s.id} title={s.title}>
           {s.image_url ? <img src={s.image_url} alt="" loading="lazy" /> : <div className="noimg" />}
           <figcaption>{s.title}</figcaption>
           {s.note && <figcaption className="muted">{s.note}</figcaption>}
@@ -295,7 +295,7 @@ function Timeline({ timeline }: { timeline: TourCluster['timeline'] }) {
   const [maker, setMaker] = useState<string | null>(null)
   const [picked, setPicked] = useState<number | null>(null)
   const years = [...new Set(timeline.items.map((a) => a.year))].sort((x, y) => x - y)
-  const pick = picked != null ? timeline.items.find((a) => a.mal_id === picked) : null
+  const pick = picked != null ? timeline.items.find((a) => a.id === picked) : null
   return (
     <div className="tour-timeline">
       {timeline.makers.length > 0 && (
@@ -336,11 +336,11 @@ function TimelineYear({ year, gap, items, maker, picked, onPick }: { year: numbe
             .filter((a) => a.season === season)
             .map((a) => (
               <button
-                key={a.mal_id}
-                className={`tour-timeline-cover${maker && !a.makers.includes(maker) ? ' dim' : ''}${picked === a.mal_id ? ' picked' : ''}`}
+                key={a.id}
+                className={`tour-timeline-cover${maker && !a.makers.includes(maker) ? ' dim' : ''}${picked === a.id ? ' picked' : ''}`}
                 title={a.title}
                 aria-label={a.title}
-                onClick={() => onPick(a.mal_id)}
+                onClick={() => onPick(a.id)}
               >
                 {a.image_url ? <img src={a.image_url} alt="" loading="lazy" /> : <span className="noimg" />}
               </button>
@@ -443,7 +443,7 @@ function Threads({ threads }: { threads: TourThread[] }) {
       <p className="small-text">These shows belong to a cluster but connect to the rest of it through only one person, studio or anime.</p>
       <div className="tour-threads">
         {shown.map((t) => (
-          <div key={`${t.cluster}-${t.show.mal_id}-${t.via.id}`} className="tour-thread">
+          <div key={`${t.cluster}-${t.show.id}-${t.via.id}`} className="tour-thread">
             {t.show.image_url ? <img src={t.show.image_url} alt="" loading="lazy" /> : <div className="noimg" />}
             <p className="small-text">
               <strong>{t.show.title}</strong> connects to cluster {t.cluster + 1} only through <strong>{t.via.name}</strong>
@@ -509,7 +509,7 @@ function Recs({ tour }: { tour: Tour }) {
         <p>Not every path counts the same. A path from a show you scored 10 counts for more than one from a show you scored 8. A path through a director with ten shows counts for more than one through a studio with a hundred, because the director says more about your taste. This weighting is called Adamic-Adar, after the two researchers who used it to predict friendships.</p>
       </Lesson>
       {tour.recs.map((r, i) => (
-        <RecCard key={r.anime.mal_id} index={i} rec={r} />
+        <RecCard key={r.anime.id} index={i} rec={r} />
       ))}
     </>
   )
@@ -617,7 +617,7 @@ function Distance({ distance: d, anime, query, show, voices = false }: { distanc
         <p>All of your anime connect into one graph, so there are no islands.</p>
       )}
       {d.islands.map((island, i) => (
-        <section key={island.shows[0]?.mal_id ?? i} className="tour-card">
+        <section key={island.shows[0]?.id ?? i} className="tour-card">
           <Covers items={island.shows} />
           <p className="small-text">
             {island.shows.length === 1 ? (voices ? 'Led by ' : 'Made by ') : 'Linked by '}
@@ -631,7 +631,7 @@ function Distance({ distance: d, anime, query, show, voices = false }: { distanc
 }
 
 function FarEnds({ far, show }: { far: NonNullable<TourDistance['far']>; show: () => Promise<GraphPayload> }) {
-  const ends = far.chain.filter((c): c is { anime: { mal_id: number; title: string; image_url: string | null } } => 'anime' in c)
+  const ends = far.chain.filter((c): c is { anime: { id: number; title: string; image_url: string | null } } => 'anime' in c)
   return (
     <section className="tour-card">
       <h3>The far ends</h3>

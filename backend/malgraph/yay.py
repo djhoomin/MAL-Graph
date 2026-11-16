@@ -55,9 +55,9 @@ def _series_of(ids: list[int]) -> dict[int, int]:
     """Character -> the franchise of their best-known anime."""
     franchise = games.recent_franchises()
     rows = db.run(
-        "MATCH (a:Anime)-[:HAS_CHARACTER]->(c:Character) WHERE c.mal_id IN $ids "
-        "WITH c, a ORDER BY coalesce(a.members, 0) DESC WITH c, head(collect(a.mal_id)) AS a "
-        "RETURN c.mal_id AS c, a",
+        "MATCH (a:Anime)-[:HAS_CHARACTER]->(c:Character) WHERE c.id IN $ids "
+        "WITH c, a ORDER BY coalesce(a.members, 0) DESC WITH c, head(collect(a.id)) AS a "
+        "RETURN c.id AS c, a",
         ids=ids,
     )
     return {r["c"]: franchise.get(r["a"], r["a"]) for r in rows}
@@ -110,7 +110,7 @@ def mine_cards(username: str, n: int = BATCH) -> list[int]:
         "MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)-[h:HAS_CHARACTER]->(c:Character) "
         "WHERE l.status <> 'plan_to_watch' AND c.favorites IS NOT NULL "
         "WITH c, max(CASE WHEN h.role = 'Main' THEN 1 ELSE 0 END) AS main "
-        "RETURN c.mal_id AS id ORDER BY main DESC, c.favorites DESC LIMIT $n",
+        "RETURN c.id AS id ORDER BY main DESC, c.favorites DESC LIMIT $n",
         user=username, n=MINE_POOL + len(voted),
     )
     fresh = [r["id"] for r in rows if r["id"] not in voted]
@@ -129,18 +129,18 @@ def _features(ids: list[int]) -> dict[int, list[tuple[str, str, str]]]:
     series, studios and genres of their best-known anime."""
     out: dict[int, list[tuple[str, str, str]]] = defaultdict(list)
     for r in db.run(
-        "MATCH (p:Person)-[v:VOICES {language: 'Japanese'}]->(c:Character) WHERE c.mal_id IN $ids "
+        "MATCH (p:Person)-[v:VOICES {language: 'Japanese'}]->(c:Character) WHERE c.id IN $ids "
         "WITH c, p ORDER BY coalesce(v.rank, 999), coalesce(p.favorites, 0) DESC "
-        "WITH c, head(collect(p)) AS p RETURN c.mal_id AS c, p.mal_id AS id, p.name AS name",
+        "WITH c, head(collect(p)) AS p RETURN c.id AS c, p.id AS id, p.name AS name",
         ids=ids,
     ):
         out[r["c"]].append(("voice", str(r["id"]), games.natural(r["name"])))
     best = db.run(
-        "MATCH (a:Anime)-[:HAS_CHARACTER]->(c:Character) WHERE c.mal_id IN $ids "
+        "MATCH (a:Anime)-[:HAS_CHARACTER]->(c:Character) WHERE c.id IN $ids "
         "WITH c, a ORDER BY coalesce(a.members, 0) DESC WITH c, head(collect(a)) AS a "
         "OPTIONAL MATCH (a)-[:PRODUCED_BY]->(s:Studio) "
         "OPTIONAL MATCH (a)-[:HAS_GENRE]->(g:Genre) WHERE g.kind IN ['genre', 'theme'] AND NOT g.name IN $hidden "
-        "RETURN c.mal_id AS c, a.mal_id AS anime, a.title AS title, collect(DISTINCT s.name) AS studios, collect(DISTINCT g.name) AS genres",
+        "RETURN c.id AS c, a.id AS anime, a.title AS title, collect(DISTINCT s.name) AS studios, collect(DISTINCT g.name) AS genres",
         ids=ids, hidden=HIDDEN_GENRES,
     )
     franchise = games.recent_franchises()

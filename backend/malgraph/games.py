@@ -110,13 +110,13 @@ def character_cards(ids: list[int], shown: dict[str, str] | None = None) -> list
 
     with db.get_driver().session() as session:
         rows = list(session.run(
-            "MATCH (c:Character) WHERE c.mal_id IN $ids "
+            "MATCH (c:Character) WHERE c.id IN $ids "
             "OPTIONAL MATCH (a:Anime)-[h:HAS_CHARACTER]->(c) "
             "WITH c, a ORDER BY CASE WHEN a IS NULL THEN 0 ELSE coalesce(a.members, 0) END DESC "
             "RETURN c, collect(a.title) AS anime",
             ids=ids,
         ))
-    by_id = {r["c"]["mal_id"]: r for r in rows}
+    by_id = {r["c"]["id"]: r for r in rows}
     shown = shown or {}
     return [
         {"character": node_payload(by_id[i]["c"]), "anime": [shown[str(i)]] if str(i) in shown else by_id[i]["anime"][:1], "main": True}
@@ -131,7 +131,7 @@ def popular_characters(limit: int) -> list[int]:
     rows = db.run(
         # Cypher sorts missing values first when descending, so leave out characters without a count.
         "MATCH (a:Anime)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character) WHERE a.fetched_at IS NOT NULL AND c.favorites IS NOT NULL "
-        "WITH DISTINCT c ORDER BY c.favorites DESC LIMIT $n RETURN c.mal_id AS id",
+        "WITH DISTINCT c ORDER BY c.favorites DESC LIMIT $n RETURN c.id AS id",
         n=limit,
     )
     return [r["id"] for r in rows]
@@ -151,7 +151,7 @@ def franchises() -> dict[int, int]:
             x = parent[x]
         return x
 
-    rows = db.run("MATCH (a:Anime)-[r:RELATED_TO]->(b:Anime) WHERE NOT r.relation IN ['Other', 'Character'] RETURN a.mal_id AS a, b.mal_id AS b")
+    rows = db.run("MATCH (a:Anime)-[r:RELATED_TO]->(b:Anime) WHERE NOT r.relation IN ['Other', 'Character'] RETURN a.id AS a, b.id AS b")
     for r in rows:
         parent[root(r["a"])] = root(r["b"])
     return {x: root(x) for x in parent}

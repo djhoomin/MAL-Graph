@@ -134,7 +134,7 @@ export function InsightsPage() {
                     .slice()
                     .sort((a, b) => b.my_score - a.my_score)
                     .map((a) => (
-                      <AnimeCard key={a.mal_id} a={a} dim={!!thread && !thread.ids.has(a.mal_id)} />
+                      <AnimeCard key={a.id} a={a} dim={!!thread && !thread.ids.has(a.id)} />
                     ))}
                 </div>
               </div>

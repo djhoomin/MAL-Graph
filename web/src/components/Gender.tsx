@@ -47,13 +47,13 @@ export function GenderFix({ node, onFixed }: { node: GNode; onFixed: (gender: st
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const current = genderOf(node)
-  if (node.label !== 'Character' || node.mal_id == null) return null
+  if (node.label !== 'Character' || node.key == null) return null
 
   const pick = async (g: string | null) => {
     setBusy(true)
     setError(null)
     try {
-      await kmkApi.fixGender(node.mal_id!, g)
+      await kmkApi.fixGender(node.key!, g)
       onFixed(g)
       setOpen(false)
     } catch (e) {

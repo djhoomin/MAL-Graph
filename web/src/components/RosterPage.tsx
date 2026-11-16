@@ -74,7 +74,7 @@ function RosterList({ onlyWatched, mainOnly, lang }: Opts) {
       {err && <div className="error">{err}</div>}
       <div className="roster-grid people">
         {people?.map(({ person, characters, anime }) => (
-          <button key={person.id} className="card" onClick={() => navigate(`/roster/${person.mal_id}`)}>
+          <button key={person.id} className="card" onClick={() => navigate(`/roster/${person.key}`)}>
             {person.image_url ? <img src={person.image_url} alt="" /> : <div className="noimg" />}
             <div className="card-body">
               <strong>{person.name}</strong>

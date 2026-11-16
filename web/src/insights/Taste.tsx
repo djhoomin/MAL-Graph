@@ -40,7 +40,7 @@ export function HotTakes({ anime }: { anime: ListAnime[] }) {
       {shown.length ? (
         <div className="roster-grid people">
           {shown.map(({ a, d }) => (
-            <AnimeCard key={a.mal_id} a={a} note={`MAL ${a.score!.toFixed(2)} · ${signed(d)}`} />
+            <AnimeCard key={a.id} a={a} note={`MAL ${a.score!.toFixed(2)} · ${signed(d)}`} />
           ))}
         </div>
       ) : (
@@ -146,7 +146,7 @@ export function Gems({ anime }: { anime: ListAnime[] }) {
       </div>
       <div className="roster-grid people">
         {gems.map((a) => (
-          <AnimeCard key={a.mal_id} a={a} note={`${members(a.members!)} members`} />
+          <AnimeCard key={a.id} a={a} note={`${members(a.members!)} members`} />
         ))}
       </div>
     </section>
@@ -174,7 +174,7 @@ export function AlmostDone({ anime }: { anime: ListAnime[] }) {
       </div>
       <div className="roster-grid people">
         {close.map(({ a, left }) => (
-          <AnimeCard key={a.mal_id} a={a} note={`${left} of ${a.episodes} ${a.episodes === 1 ? 'episode' : 'episodes'} left`} />
+          <AnimeCard key={a.id} a={a} note={`${left} of ${a.episodes} ${a.episodes === 1 ? 'episode' : 'episodes'} left`} />
         ))}
       </div>
     </section>

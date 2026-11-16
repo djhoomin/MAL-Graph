@@ -66,27 +66,27 @@ WHERE (type(r) = 'PRODUCED_BY'
 CLUSTERS = GRAPH + """
 WITH project(path) AS graph
 CALL community_detection.get(graph) YIELD node, community_id
-RETURN labels(node)[0] AS kind, node.mal_id AS id, community_id"""
+RETURN labels(node)[0] AS kind, node.id AS id, community_id"""
 
 BRIDGES = GRAPH + """
 WITH project(path) AS graph
 CALL betweenness_centrality.get(graph, False, True) YIELD node, betweenness_centrality
 WHERE NOT node:Anime
-RETURN labels(node)[0] AS kind, node.mal_id AS id, betweenness_centrality
+RETURN labels(node)[0] AS kind, node.id AS id, betweenness_centrality
 ORDER BY betweenness_centrality DESC LIMIT 20"""
 
 ISLANDS = GRAPH + """
 WITH project(path) AS graph
 CALL weakly_connected_components.get(graph) YIELD node, component_id
 WHERE node:Anime
-RETURN node.mal_id AS id, component_id"""
+RETURN node.id AS id, component_id"""
 
 LINKS = GRAPH + """
-RETURN a.mal_id AS anime, labels(maker)[0] AS label, maker.mal_id AS id, maker.name AS name"""
+RETURN a.id AS anime, labels(maker)[0] AS label, maker.id AS id, maker.name AS name"""
 
 ANIME = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime) WHERE l.status <> 'plan_to_watch'
 OPTIONAL MATCH (a)-[:HAS_GENRE]->(g:Genre) WHERE g.kind IN ['genre', 'theme'] AND NOT g.name IN ['Hentai', 'Erotica', 'Ecchi']
-RETURN a.mal_id AS id, a.title AS title, a.image_url AS image_url, coalesce(a.members, 0) AS members,
+RETURN a.id AS id, a.title AS title, a.image_url AS image_url, coalesce(a.members, 0) AS members,
        coalesce(l.score, 0) AS score, collect(g.name) AS genres, a.year AS year, a.season AS season, a.aired_from AS aired_from"""
 
 TWINS = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)
@@ -100,11 +100,11 @@ WITH a, collect(DISTINCT maker) AS makers
 WITH collect({anime: a, makers: makers}) AS shows
 UNWIND shows AS x
 UNWIND shows AS y
-WITH x, y WHERE x.anime.mal_id < y.anime.mal_id
+WITH x, y WHERE x.anime.id < y.anime.id
 WITH x, y, [m IN x.makers WHERE m IN y.makers] AS shared
 WHERE size(shared) >= $min_shared
-RETURN x.anime.mal_id AS a, y.anime.mal_id AS b,
-       [m IN shared | labels(m)[0] + ':' + toString(m.mal_id)] AS shared,
+RETURN x.anime.id AS a, y.anime.id AS b,
+       [m IN shared | labels(m)[0] + ':' + toString(m.id)] AS shared,
        size(x.makers) + size(y.makers) - size(shared) AS either,
        toFloat(size(shared)) / (size(x.makers) + size(y.makers) - size(shared)) AS jaccard
 ORDER BY jaccard DESC"""
@@ -123,35 +123,35 @@ WHERE (type(r1) = 'PRODUCED_BY' OR (type(r1) = 'WORKED_ON' AND any(job IN r1.pos
   AND coalesce(maker.birthday, '9999') >= '1900' AND NOT (u)-[:LISTED]->(rec)
   AND rec.type IN ['TV', 'Movie', 'ONA'] AND rec.score >= 7 AND rec.members >= $min_members
   AND NOT (rec)-[:RELATED_TO {relation: 'Prequel'}]->() AND NOT (rec)-[:RELATED_TO {relation: 'Parent Story'}]->()
-WITH rec, maker, max(l.score) AS best, collect(DISTINCT a.mal_id) AS because
+WITH rec, maker, max(l.score) AS best, collect(DISTINCT a.id) AS because
 MATCH (maker)-[r3]-(made:Anime)
 WHERE type(r3) = 'PRODUCED_BY' OR (type(r3) = 'WORKED_ON' AND any(job IN r3.positions WHERE job IN $jobs))
 WITH rec, maker, best, because, count(DISTINCT made) AS made
 WITH rec, sum((best - 7) / log(made + 1)) AS score,
-     collect({maker: labels(maker)[0] + ':' + toString(maker.mal_id), made: made, best: best, because: because}) AS paths
-RETURN rec.mal_id AS id, rec.title AS title, rec.image_url AS image_url, rec.score AS mal_score,
+     collect({maker: labels(maker)[0] + ':' + toString(maker.id), made: made, best: best, because: because}) AS paths
+RETURN rec.id AS id, rec.title AS title, rec.image_url AS image_url, rec.score AS mal_score,
        rec.members AS members, rec.type AS type, rec.year AS year, score, paths
 ORDER BY score DESC LIMIT 200"""
 
 TEAMS = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)
 WHERE l.status <> 'plan_to_watch'
 MATCH (p:Person)-[w1:WORKED_ON]->(a)<-[w2:WORKED_ON]-(q:Person)
-WHERE p.mal_id < q.mal_id
+WHERE p.id < q.id
   AND any(job IN w1.positions WHERE job IN $jobs) AND any(job IN w2.positions WHERE job IN $jobs)
-WITH p, q, collect(DISTINCT a.mal_id) AS together
+WITH p, q, collect(DISTINCT a.id) AS together
 WHERE size(together) >= 2
-RETURN 'Person:' + toString(p.mal_id) AS p, 'Person:' + toString(q.mal_id) AS q, together"""
+RETURN 'Person:' + toString(p.id) AS p, 'Person:' + toString(q.id) AS q, together"""
 
 
 # What a team made together that you haven't listed. Anime only known by title (stubs) are fetched in the background
 # and show up on a later visit, once their type, score and members are known.
 TEAM_MORE = """MATCH (p:Person)-[w:WORKED_ON]->(rec:Anime)
-WHERE p.mal_id IN $people AND any(job IN w.positions WHERE job IN $jobs)
+WHERE p.id IN $people AND any(job IN w.positions WHERE job IN $jobs)
   AND NOT (:User {username: $user})-[:LISTED]->(rec)
   AND NOT (rec)-[:RELATED_TO {relation: 'Prequel'}]->() AND NOT (rec)-[:RELATED_TO {relation: 'Parent Story'}]->()
   AND (rec.fetched_at IS NULL OR (rec.type IN ['TV', 'Movie', 'ONA'] AND rec.members >= $min_members))
-RETURN rec.mal_id AS id, rec.title AS title, rec.image_url AS image_url, rec.score AS mal_score,
-       rec.type AS type, rec.year AS year, rec.fetched_at IS NOT NULL AS fetched, collect(DISTINCT p.mal_id) AS people"""
+RETURN rec.id AS id, rec.title AS title, rec.image_url AS image_url, rec.score AS mal_score,
+       rec.type AS type, rec.year AS year, rec.fetched_at IS NOT NULL AS fetched, collect(DISTINCT p.id) AS people"""
 
 
 # People behind two or more of your anime whose birthday hasn't been looked up. Their profiles are fetched in the
@@ -159,11 +159,11 @@ RETURN rec.mal_id AS id, rec.title AS title, rec.image_url AS image_url, rec.sco
 UNCHECKED = GRAPH + """
 WITH maker, count(DISTINCT a) AS n
 WHERE maker:Person AND n >= 2 AND maker.fetched_at IS NULL AND maker.checked_at IS NULL
-RETURN maker.mal_id AS id ORDER BY n DESC"""
+RETURN maker.id AS id ORDER BY n DESC"""
 
 
-def _ref(label: str, mal_id: Any) -> str:
-    return f"{label}:{mal_id}"
+def _ref(label: str, key: Any) -> str:
+    return f"{label}:{key}"
 
 
 def _name(label: str, name: str | None) -> str:
@@ -205,7 +205,7 @@ def _build(username: str) -> dict[str, Any]:
     made: dict[str, set[int]] = defaultdict(set)  # maker -> anime on the list
     for r in links:
         ref = _ref(r["label"], r["id"])
-        makers.setdefault(ref, {"id": ref, "label": r["label"], "mal_id": r["id"], "name": _name(r["label"], r["name"])})
+        makers.setdefault(ref, {"id": ref, "label": r["label"], "key": r["id"], "name": _name(r["label"], r["name"])})
         made[ref].add(r["anime"])
 
     community: dict[int, int] = {}
@@ -244,7 +244,7 @@ def _build(username: str) -> dict[str, Any]:
             # For drawing: every anime in the cluster and everyone linking two or more of them, which keeps it in one piece.
             "_show": _ids(members, [makers[ref] for ref, did in made.items() if len(did & inside) >= 2]),
             "anime": len(members),
-            "series": [{"mal_id": s["id"], "title": s["title"], "image_url": s["image_url"], "my_score": s["score"]} for s in series.values()],
+            "series": [{"id": s["id"], "title": s["title"], "image_url": s["image_url"], "my_score": s["score"]} for s in series.values()],
             "makers": [{**makers[ref], "series": n} for n, ref in counts[:5]],
             "genres": [g for _, g in reversed(lift[-3:])],
             "timeline": _timeline(members, anime, made, makers, inside),
@@ -275,7 +275,7 @@ def _build(username: str) -> dict[str, Any]:
             "rank": len(bridges) + 1,
             "series": len({series_of[a] for a in made[ref]}),
             "count_rank": count_rank[ref],
-            "clusters": [{"cluster": c, "mal_id": a, "title": anime[a]["title"], "image_url": anime[a]["image_url"]} for c, a in sorted(reach.items())],
+            "clusters": [{"cluster": c, "id": a, "title": anime[a]["title"], "image_url": anime[a]["image_url"]} for c, a in sorted(reach.items())],
         })
         if len(bridges) >= MAX_BRIDGES:
             break
@@ -365,7 +365,7 @@ def _cuts(show: list[dict[str, list[int]]], anime: dict[int, Any], series_of: di
                 continue
             if kind == "Anime":
                 a = anime[int(cut.split(":", 1)[1])]
-                who = {"id": cut, "label": "Anime", "mal_id": a["id"], "name": a["title"], "image_url": a["image_url"]}
+                who = {"id": cut, "label": "Anime", "key": a["id"], "name": a["title"], "image_url": a["image_url"]}
             else:
                 who = {**makers[cut], "image_url": None}
             if sides[1]["series"] >= MIN_SIDE:
@@ -456,7 +456,7 @@ def _recs(username: str, anime: dict[int, Any], series_of: dict[int, int], maker
 
     Anything from a series you've already seen any of is left out, so these are new series."""
     franchise = games.recent_franchises()
-    listed = {r["id"] for r in db.run("MATCH (:User {username: $user})-[:LISTED]->(a:Anime) RETURN a.mal_id AS id", user=username)}
+    listed = {r["id"] for r in db.run("MATCH (:User {username: $user})-[:LISTED]->(a:Anime) RETURN a.id AS id", user=username)}
     seen_series = {franchise.get(a, a) for a in listed}
     recs, show, taken = [], [], set()
     for r in db.run(RECS, user=username, jobs=JOBS, min_members=REC_MIN_MEMBERS):
@@ -477,7 +477,7 @@ def _recs(username: str, anime: dict[int, Any], series_of: dict[int, int], maker
 
         because = list(dict.fromkeys(a for p in paths for a in starts(p)))
         recs.append({
-            "anime": {"mal_id": r["id"], "title": r["title"], "image_url": r["image_url"], "mal_score": r["mal_score"], "members": r["members"], "type": r["type"], "year": r["year"]},
+            "anime": {"id": r["id"], "title": r["title"], "image_url": r["image_url"], "mal_score": r["mal_score"], "members": r["members"], "type": r["type"], "year": r["year"]},
             "score": round(r["score"], 2),
             "paths": [{
                 "maker": {k: makers[p["maker"]][k] for k in ("id", "label", "name")},
@@ -549,7 +549,7 @@ def _teams(username: str, anime: dict[int, Any], series_of: dict[int, int], make
             "shows": [_card(anime[a]) for a in one.values()],
             "more": more,
         })
-        show.append(_ids(sorted(shared) + [m["mal_id"] for m in more], members))
+        show.append(_ids(sorted(shared) + [m["id"] for m in more], members))
     return out, show
 
 
@@ -561,7 +561,7 @@ def _team_more(username: str, members: list[dict[str, Any]], series_of: dict[int
 
     franchise = games.recent_franchises()
     seen = set(series_of.values())
-    ids = [m["mal_id"] for m in members]
+    ids = [m["key"] for m in members]
     need = min(len(ids), 2)
     rows = [r for r in db.run(TEAM_MORE, people=ids, jobs=JOBS, user=username, min_members=REC_MIN_MEMBERS)
             if len(r["people"]) >= need and franchise.get(r["id"], r["id"]) not in seen]
@@ -574,8 +574,8 @@ def _team_more(username: str, members: list[dict[str, Any]], series_of: dict[int
         if series in taken:
             continue
         taken.add(series)
-        without = [m["name"] for m in members if m["mal_id"] not in r["people"]]
-        picked.append({k: r[k] for k in ("title", "image_url", "mal_score", "type", "year")} | {"mal_id": r["id"], "without": without})
+        without = [m["name"] for m in members if m["key"] not in r["people"]]
+        picked.append({k: r[k] for k in ("title", "image_url", "mal_score", "type", "year")} | {"id": r["id"], "without": without})
         if len(picked) >= TEAM_RECS:
             break
     return picked
@@ -665,7 +665,7 @@ def _distance(component: dict[int, int], anime: dict[int, Any], series_of: dict[
             else:
                 chain.append({"maker": {k: makers[n][k] for k in ("id", "label", "name")}})
         far = {"steps": far_pair[0], "chain": chain}
-        show.append(_ids([c["anime"]["mal_id"] for c in chain if "anime" in c], [makers[n] for n in nodes if not n.startswith("S:")]))
+        show.append(_ids([c["anime"]["id"] for c in chain if "anime" in c], [makers[n] for n in nodes if not n.startswith("S:")]))
     else:
         show.append(_ids([], []))
     for members in ordered[1:]:
@@ -693,24 +693,24 @@ def _island_makers(members: list[int], made: dict[str, set[int]], makers: dict[s
 
 
 def _card(a: dict[str, Any]) -> dict[str, Any]:
-    return {"mal_id": a["id"], "title": a["title"], "image_url": a["image_url"]}
+    return {"id": a["id"], "title": a["title"], "image_url": a["image_url"]}
 
 
 SHOW = """MATCH (a:Anime)-[r]-(maker)
-WHERE a.mal_id IN $anime AND ((maker:Person AND maker.mal_id IN $people) OR (maker:Studio AND maker.mal_id IN $studios))
+WHERE a.id IN $anime AND ((maker:Person AND maker.id IN $people) OR (maker:Studio AND maker.id IN $studios))
   AND (type(r) = 'PRODUCED_BY' OR (type(r) = 'WORKED_ON' AND any(job IN r.positions WHERE job IN
        ['Director', 'Series Composition', 'Music', 'Character Design', 'Original Creator'])))
 RETURN a, r, maker"""
 
 # Biconnected components of one cluster as drawn on the graph. Shown in the app with the cluster's ids as parameters.
 CUTS = """MATCH path = (a:Anime)-[r]-(maker)
-WHERE a.mal_id IN $anime AND ((maker:Person AND maker.mal_id IN $people) OR (maker:Studio AND maker.mal_id IN $studios))
+WHERE a.id IN $anime AND ((maker:Person AND maker.id IN $people) OR (maker:Studio AND maker.id IN $studios))
   AND (type(r) = 'PRODUCED_BY' OR (type(r) = 'WORKED_ON' AND any(job IN r.positions WHERE job IN
        ['Director', 'Series Composition', 'Music', 'Character Design', 'Original Creator'])))
 WITH project(path) AS graph
 CALL biconnected_components.get(graph) YIELD bcc_id, node_from, node_to
-RETURN bcc_id, labels(node_from)[0] AS from_kind, node_from.mal_id AS from_id,
-       labels(node_to)[0] AS to_kind, node_to.mal_id AS to_id"""
+RETURN bcc_id, labels(node_from)[0] AS from_kind, node_from.id AS from_id,
+       labels(node_to)[0] AS to_kind, node_to.id AS to_id"""
 
 
 def show_cluster(username: str, index: int) -> dict[str, list[int]] | None:
@@ -732,15 +732,15 @@ def show_bridge(username: str, ref: str) -> dict[str, list[int]] | None:
     b = next((b for b in t["bridges"] if b["id"] == ref), None)
     if not b:
         return None
-    anime = [x["mal_id"] for x in b["clusters"]]
+    anime = [x["id"] for x in b["clusters"]]
     return _ids(anime, [b])
 
 
 def _ids(anime: list[int], makers: list[dict[str, Any]]) -> dict[str, list[int]]:
     return {
         "anime": anime,
-        "people": [m["mal_id"] for m in makers if m["label"] == "Person"],
-        "studios": [m["mal_id"] for m in makers if m["label"] == "Studio"],
+        "people": [m["key"] for m in makers if m["label"] == "Person"],
+        "studios": [m["key"] for m in makers if m["label"] == "Studio"],
     }
 
 

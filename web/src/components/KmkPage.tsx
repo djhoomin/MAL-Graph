@@ -77,13 +77,13 @@ function DailyKmk() {
   if (!daily) return <p className="muted">Loading today's three…</p>
 
   // The server keys choices by MyAnimeList id, the round by node id.
-  const byNode = (ids: Record<string, Choice>) => Object.fromEntries(daily.cards.map((c) => [c.character.id, ids[String(c.character.mal_id)]]))
+  const byNode = (ids: Record<string, Choice>) => Object.fromEntries(daily.cards.map((c) => [c.character.id, ids[String(c.character.key)]]))
   const locked = daily.choices ? byNode(daily.choices) : undefined
   const tally: Record<string, Tally> | undefined = daily.tally
-    ? Object.fromEntries(daily.cards.map((c) => [c.character.id, daily.tally!.counts[String(c.character.mal_id)]]))
+    ? Object.fromEntries(daily.cards.map((c) => [c.character.id, daily.tally!.counts[String(c.character.key)]]))
     : undefined
   const lockIn = async (choices: Record<string, Choice>) => {
-    const ids = Object.fromEntries(daily.cards.map((c) => [String(c.character.mal_id), choices[c.character.id]]))
+    const ids = Object.fromEntries(daily.cards.map((c) => [String(c.character.key), choices[c.character.id]]))
     setDaily(await kmkDailyApi.play(ids))
   }
 

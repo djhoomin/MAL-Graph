@@ -58,8 +58,8 @@ def facts() -> Facts:
     for c in f.ids:
         f.feats[c] = set()
     rows = db.run(
-        "MATCH (a:Anime)-[h:HAS_CHARACTER]->(c:Character) WHERE c.mal_id IN $ids "
-        "RETURN c.mal_id AS c, a.mal_id AS a, h.role = 'Main' AS main, a.season AS season, a.year AS year, "
+        "MATCH (a:Anime)-[h:HAS_CHARACTER]->(c:Character) WHERE c.id IN $ids "
+        "RETURN c.id AS c, a.id AS a, h.role = 'Main' AS main, a.season AS season, a.year AS year, "
         "a.title AS title, coalesce(a.members, 0) AS members",
         ids=f.ids,
     )
@@ -68,13 +68,13 @@ def facts() -> Facts:
         if r["main"] and r["season"] in SEASONS and r["year"]:
             f.add(r["c"], f"season:{r['year']}-{r['season']}", f"{SEASONS[r['season']]} {r['year']}", r["title"], r["members"])
     for kind, query in [
-        ("va", "MATCH (p:Person)-[:VOICES {language: 'Japanese'}]->(c:Character) WHERE c.mal_id IN $ids "
-               "RETURN c.mal_id AS c, p.mal_id AS k, p.name AS label"),
-        ("studio", "MATCH (s:Studio)<-[:PRODUCED_BY]-(a:Anime)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character) WHERE c.mal_id IN $ids "
-                   "RETURN c.mal_id AS c, s.mal_id AS k, s.name AS label, a.title AS title, coalesce(a.members, 0) AS members"),
+        ("va", "MATCH (p:Person)-[:VOICES {language: 'Japanese'}]->(c:Character) WHERE c.id IN $ids "
+               "RETURN c.id AS c, p.id AS k, p.name AS label"),
+        ("studio", "MATCH (s:Studio)<-[:PRODUCED_BY]-(a:Anime)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character) WHERE c.id IN $ids "
+                   "RETURN c.id AS c, s.id AS k, s.name AS label, a.title AS title, coalesce(a.members, 0) AS members"),
         ("creator", "MATCH (p:Person)-[w:WORKED_ON]->(a:Anime)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character) "
-                    "WHERE c.mal_id IN $ids AND 'Original Creator' IN w.positions "
-                    "RETURN c.mal_id AS c, p.mal_id AS k, p.name AS label, a.title AS title, coalesce(a.members, 0) AS members"),
+                    "WHERE c.id IN $ids AND 'Original Creator' IN w.positions "
+                    "RETURN c.id AS c, p.id AS k, p.name AS label, a.title AS title, coalesce(a.members, 0) AS members"),
     ]:
         for r in db.run(query, ids=f.ids):
             f.add(r["c"], f"{kind}:{r['k']}", r["label"], r.get("title"), r.get("members") or 0)

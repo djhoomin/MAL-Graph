@@ -64,8 +64,8 @@ def tracks(cid: int, franchise: dict[int, int]) -> tuple[list[str], list[str]]:
     clue the player has already seen isn't shown twice.
     """
     rows = db.run(
-        "MATCH (a:Anime)-[h:HAS_CHARACTER]->(c:Character {mal_id: $id}) "
-        "RETURN c.gender AS gender, h.role = 'Main' AS main, a.mal_id AS id, a.title AS title, a.type AS type, a.year AS year, "
+        "MATCH (a:Anime)-[h:HAS_CHARACTER]->(c:Character {id: $id}) "
+        "RETURN c.gender AS gender, h.role = 'Main' AS main, a.id AS id, a.title AS title, a.type AS type, a.year AS year, "
         "a.season AS season, a.aired_from AS aired, a.source AS source, coalesce(a.members, 0) AS members ORDER BY members DESC",
         id=cid,
     )
@@ -85,13 +85,13 @@ def tracks(cid: int, franchise: dict[int, int]) -> tuple[list[str], list[str]]:
         clues.append(f"{v['poss']} best-known anime is {'an' if kind[0] in 'AEIOU' else 'a'} {kind} from {when}.")
 
     genres = db.run(
-        "MATCH (:Anime {mal_id: $a})-[:HAS_GENRE]->(g:Genre) WHERE g.kind IN ['genre', 'theme'] "
+        "MATCH (:Anime {id: $a})-[:HAS_GENRE]->(g:Genre) WHERE g.kind IN ['genre', 'theme'] "
         "AND NOT g.name IN ['Hentai', 'Erotica', 'Ecchi'] RETURN g.name AS name ORDER BY g.kind, g.name LIMIT 3",
         a=best["id"],
     )
     if genres:
         clues.append(f"That anime is listed under {_list([g['name'] for g in genres])}.")
-    studios = db.run("MATCH (:Anime {mal_id: $a})-[:PRODUCED_BY]->(s:Studio) RETURN s.name AS name", a=best["id"])
+    studios = db.run("MATCH (:Anime {id: $a})-[:PRODUCED_BY]->(s:Studio) RETURN s.name AS name", a=best["id"])
     if studios:
         source = SOURCES.get(best["source"] or "")
         based = f" It is based on {source}." if source else ""
@@ -99,16 +99,16 @@ def tracks(cid: int, franchise: dict[int, int]) -> tuple[list[str], list[str]]:
 
     own = {franchise.get(r["id"], r["id"]) for r in rows}
     va = db.run(
-        "MATCH (p:Person)-[v:VOICES {language: 'Japanese'}]->(:Character {mal_id: $id}) "
-        "RETURN p.mal_id AS id, p.name AS name ORDER BY coalesce(v.rank, 999), coalesce(p.favorites, 0) DESC LIMIT 1",
+        "MATCH (p:Person)-[v:VOICES {language: 'Japanese'}]->(:Character {id: $id}) "
+        "RETURN p.id AS id, p.name AS name ORDER BY coalesce(v.rank, 999), coalesce(p.favorites, 0) DESC LIMIT 1",
         id=cid,
     )
     other_role = english = None
     if va:
         others = db.run(
-            "MATCH (:Person {mal_id: $p})-[:VOICES {language: 'Japanese'}]->(o:Character)<-[:HAS_CHARACTER {role: 'Main'}]-(a:Anime) "
-            "WHERE o.mal_id <> $id AND o.favorites IS NOT NULL "
-            "RETURN o.name AS name, a.mal_id AS anime, a.title AS title ORDER BY o.favorites DESC, coalesce(a.members, 0) DESC LIMIT 20",
+            "MATCH (:Person {id: $p})-[:VOICES {language: 'Japanese'}]->(o:Character)<-[:HAS_CHARACTER {role: 'Main'}]-(a:Anime) "
+            "WHERE o.id <> $id AND o.favorites IS NOT NULL "
+            "RETURN o.name AS name, a.id AS anime, a.title AS title ORDER BY o.favorites DESC, coalesce(a.members, 0) DESC LIMIT 20",
             p=va[0]["id"], id=cid,
         )
         other = next((o for o in others if franchise.get(o["anime"], o["anime"]) not in own), None)
@@ -117,7 +117,7 @@ def tracks(cid: int, franchise: dict[int, int]) -> tuple[list[str], list[str]]:
             clues.append(other_role)
 
     staff = db.run(
-        "MATCH (p:Person)-[w:WORKED_ON]->(:Anime {mal_id: $a}) WHERE 'Original Creator' IN w.positions OR 'Director' IN w.positions "
+        "MATCH (p:Person)-[w:WORKED_ON]->(:Anime {id: $a}) WHERE 'Original Creator' IN w.positions OR 'Director' IN w.positions "
         "RETURN p.name AS name, 'Original Creator' IN w.positions AS creator ORDER BY creator DESC LIMIT 1",
         a=best["id"],
     )
@@ -131,15 +131,15 @@ def tracks(cid: int, franchise: dict[int, int]) -> tuple[list[str], list[str]]:
 
     # The character track, for a player who already has the anime.
     dub = db.run(
-        "MATCH (p:Person)-[v:VOICES {language: 'English'}]->(:Character {mal_id: $id}) "
+        "MATCH (p:Person)-[v:VOICES {language: 'English'}]->(:Character {id: $id}) "
         "RETURN p.name AS name ORDER BY coalesce(v.rank, 999), coalesce(p.favorites, 0) DESC LIMIT 1",
         id=cid,
     )
     if dub:
         english = f"{v['poss']} English voice actor is {games.natural(dub[0]['name'])}."
     cast = db.run(
-        "MATCH (:Anime {mal_id: $a})-[:HAS_CHARACTER]->(c:Character) WHERE c.favorites IS NOT NULL "
-        "RETURN c.mal_id AS id ORDER BY c.favorites DESC, c.mal_id",
+        "MATCH (:Anime {id: $a})-[:HAS_CHARACTER]->(c:Character) WHERE c.favorites IS NOT NULL "
+        "RETURN c.id AS id ORDER BY c.favorites DESC, c.id",
         a=best["id"],
     )
     rank = next((i + 1 for i, c in enumerate(cast) if c["id"] == cid), None)
@@ -147,7 +147,7 @@ def tracks(cid: int, franchise: dict[int, int]) -> tuple[list[str], list[str]]:
     if rank and len(cast) > 1:
         place = "the most favourited" if rank == 1 else f"the {_ordinal(rank)} most favourited"
         popular = f"{v['subj']} {v['is']} {place} of the {len(cast)} characters in {best['title']} on MyAnimeList."
-    name = games.natural(db.run("MATCH (c:Character {mal_id: $id}) RETURN c.name AS name", id=cid)[0]["name"])
+    name = games.natural(db.run("MATCH (c:Character {id: $id}) RETURN c.name AS name", id=cid)[0]["name"])
     parts = [p for p in name.replace(".", " ").split() if p[:1].isalpha()]
     starts = ends = None
     if parts:
@@ -267,7 +267,7 @@ def right_anime(answer: int, guesses: list[int]) -> list[int]:
         return []
     franchise = games.recent_franchises()
     rows = db.run(
-        "MATCH (a:Anime)-[:HAS_CHARACTER]->(c:Character) WHERE c.mal_id IN $ids RETURN c.mal_id AS c, a.mal_id AS a",
+        "MATCH (a:Anime)-[:HAS_CHARACTER]->(c:Character) WHERE c.id IN $ids RETURN c.id AS c, a.id AS a",
         ids=[answer, *wrong],
     )
     shows: dict[int, set[int]] = {}
@@ -298,7 +298,7 @@ def _my_characters(username: str) -> list[int]:
     rows = db.run(
         "MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character) "
         "WHERE l.status <> 'plan_to_watch' AND c.favorites IS NOT NULL "
-        "WITH DISTINCT c ORDER BY c.favorites DESC LIMIT $n RETURN c.mal_id AS id",
+        "WITH DISTINCT c ORDER BY c.favorites DESC LIMIT $n RETURN c.id AS id",
         user=username, n=MINE_POOL,
     )
     return [r["id"] for r in rows]

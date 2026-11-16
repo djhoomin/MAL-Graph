@@ -16,7 +16,7 @@ LEGACY_USER_PROPS = {"watched", "list_status", "my_score", "seen_franchise"}
 def node_id(n: Node) -> str:
     labels = [l for l in LABEL_ORDER if l in n.labels] or list(n.labels)
     label = labels[0]
-    key = n.get("username") if label == "User" else n.get("mal_id")
+    key = n.get("username") if label == "User" else n.get("id")
     return f"{label}:{key}"
 
 
@@ -26,7 +26,7 @@ def node_payload(n: Node, *, full: bool = False) -> dict[str, Any]:
     status = score = None
     if label == "Anime":
         # Personal state comes from the current user's list, never from the shared node.
-        status, score = user_list().personal(n.get("mal_id"))
+        status, score = user_list().personal(n.get("id"))
         if status:
             props["list_status"] = status
             if score:
@@ -34,7 +34,7 @@ def node_payload(n: Node, *, full: bool = False) -> dict[str, Any]:
     return {
         "id": node_id(n),
         "label": label,
-        "mal_id": n.get("mal_id"),
+        "key": n.get("id"),  # the node's id in the data source, since "id" is the graph's "Label:key"
         "name": n.get("title") or n.get("name") or n.get("username"),
         "image_url": n.get("image_url"),
         "watched": bool(status and status != "plan_to_watch") if label == "Anime" else None,
