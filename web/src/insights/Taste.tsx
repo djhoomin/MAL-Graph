@@ -2,17 +2,19 @@ import { useMemo, useState } from 'react'
 import type { ListAnime } from '../api'
 import { fmt } from './data'
 import { AnimeCard } from './AnimeCard'
+import { useSource } from '../store'
 
 const SHOW = 8
 const GEM_SCORE = 8 // your score for a hidden gem, at least
-const GEM_MEMBERS = 100_000 // MyAnimeList members for a hidden gem, at most
+const GEM_MEMBERS = 100_000 // members (people with it on their list) for a hidden gem, at most
 const MIN_GENRE = 3 // scored anime a genre needs before its average means anything
 
 const members = (n: number) => (n >= 1000 ? `${fmt(Math.round(n / 1000))}k` : fmt(n))
 const signed = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(1)}`
 
-/** The anime where your score is furthest from MyAnimeList's average, both ways. */
+/** The anime where your score is furthest from the site's average, both ways. */
 export function HotTakes({ anime }: { anime: ListAnime[] }) {
+  const src = useSource()
   const [side, setSide] = useState<'above' | 'below'>('above')
   const takes = useMemo(() => {
     const scored = anime.filter((a) => a.my_score > 0 && a.score != null).map((a) => ({ a, d: a.my_score - a.score! }))
@@ -27,7 +29,7 @@ export function HotTakes({ anime }: { anime: ListAnime[] }) {
     <section>
       <div className="section-head">
         <h2>Hot takes</h2>
-        <span className="muted">where your score is furthest from MyAnimeList's average</span>
+        <span className="muted">where your score is furthest from {src.name}'s average</span>
         <div className="row">
           <button className={`chip ${side === 'above' ? 'on' : 'off'}`} onClick={() => setSide('above')}>
             you rate higher
@@ -40,7 +42,7 @@ export function HotTakes({ anime }: { anime: ListAnime[] }) {
       {shown.length ? (
         <div className="roster-grid people">
           {shown.map(({ a, d }) => (
-            <AnimeCard key={a.id} a={a} note={`MAL ${a.score!.toFixed(2)} · ${signed(d)}`} />
+            <AnimeCard key={a.id} a={a} note={`${src.short} ${a.score!.toFixed(2)} · ${signed(d)}`} />
           ))}
         </div>
       ) : (
@@ -125,8 +127,9 @@ export function GenreTaste({ anime }: { anime: ListAnime[] }) {
   )
 }
 
-/** Anime you scored highly that few people on MyAnimeList have watched. */
+/** Anime you scored highly that few people on the site have watched. */
 export function Gems({ anime }: { anime: ListAnime[] }) {
+  const src = useSource()
   const gems = useMemo(
     () =>
       anime
@@ -141,7 +144,7 @@ export function Gems({ anime }: { anime: ListAnime[] }) {
       <div className="section-head">
         <h2>Hidden gems</h2>
         <span className="muted">
-          scored {GEM_SCORE} or more by you, with fewer than {members(GEM_MEMBERS)} members on MyAnimeList, leaving out sequels
+          scored {GEM_SCORE} or more by you, with fewer than {members(GEM_MEMBERS)} members on {src.name}, leaving out sequels
         </span>
       </div>
       <div className="roster-grid people">

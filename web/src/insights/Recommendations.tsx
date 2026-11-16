@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type Recommendation } from '../api'
-import { useStore } from '../store'
+import { useSource, useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
 const VIA: { key: 'va' | 'staff' | 'studio'; label: string; hint: string }[] = [
@@ -10,6 +10,7 @@ const VIA: { key: 'va' | 'staff' | 'studio'; label: string; hint: string }[] = [
 ]
 
 export function Recommendations() {
+  const src = useSource()
   const [via, setVia] = useState<'va' | 'staff' | 'studio'>('va')
   const [minScore, setMinScore] = useState(7)
   const [movies, setMovies] = useState(true)
@@ -43,7 +44,7 @@ export function Recommendations() {
         ))}
         <span className="spacer" />
         <label className="row">
-          MAL score ≥
+          {src.short} score ≥
           <input type="number" min={0} max={10} step={0.5} value={minScore} onChange={(e) => setMinScore(+e.target.value)} style={{ width: 60 }} />
         </label>
         <label className="row">
@@ -69,7 +70,7 @@ export function Recommendations() {
               </button>
               <div className="muted">
                 {String(r.anime.props.type ?? '')} {String(r.anime.props.year ?? '')}
-                {r.anime.props.score ? ` · MAL ${String(r.anime.props.score)}` : ''}
+                {r.anime.props.score ? ` · ${src.short} ${String(r.anime.props.score)}` : ''}
                 {r.anime.props.episodes ? ` · ${String(r.anime.props.episodes)} ep` : ''}
               </div>
               <div className="via">
@@ -77,7 +78,7 @@ export function Recommendations() {
                 {r.n_people > 4 && <span className="muted"> +{r.n_people - 4} more</span>}
               </div>
               <a className="muted" href={String(r.anime.props.url ?? '')} target="_blank" rel="noreferrer" style={{ fontSize: 11 }}>
-                MAL ↗
+                {src.short} ↗
               </a>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { errorText, tourApi, type GraphPayload, type Tour, type TourBridge, type TourCluster, type TourCut, type TourDistance, type TourRec, type TourTeam, type TourThread, type TourTwins, type VoiceTour } from '../api'
-import { useStore } from '../store'
+import { useSource, useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
 /** Each step's short name for the step chips and its longer name for the Next button. */
@@ -177,7 +177,7 @@ function Lesson({ title, query, note, more, children }: { title: string; query: 
       <details>
         <summary>See the query</summary>
         <pre>{query}</pre>
-        <p className="muted small-text">{note ?? 'This is the query that ran on your graph. $user is your MyAnimeList name.'}</p>
+        <p className="muted small-text">{note ?? 'This is the query that ran on your graph. $user is your username.'}</p>
       </details>
       {more && (
         <details>
@@ -468,7 +468,7 @@ function Twins({ tour }: { tour: Tour }) {
     <>
       <h2>Which of your shows were made by the same team?</h2>
       <p>These anime come from different series but share a lot of the people behind them. Sequels are left out, since they share almost everything.</p>
-      <Lesson title="The graph idea: Jaccard similarity" query={tour.queries.twins} note="This is the query that ran on your graph. $user is your MyAnimeList name, and $min_shared is 3, since many anime only list a few makers.">
+      <Lesson title="The graph idea: Jaccard similarity" query={tour.queries.twins} note="This is the query that ran on your graph. $user is your username, and $min_shared is 3, since many anime only list a few makers.">
         <p>To compare two anime, the graph looks at their neighbours, which here are the people and studios linked to each. Jaccard similarity divides the neighbours they share by all the neighbours either of them has. Two anime made by exactly the same team score 1, and two with nobody in common score 0.</p>
         <p>Recommendation systems use the same idea, with the people who watched a show in place of the people who made it.</p>
       </Lesson>
@@ -499,12 +499,12 @@ function TwinsCard({ index, twins }: { index: number; twins: TourTwins }) {
 }
 
 function Recs({ tour }: { tour: Tour }) {
-  if (!tour.recs.length) return <p className="muted">Score some of your anime 8 or more on MyAnimeList, sync your list and come back.</p>
+  if (!tour.recs.length) return <p className="muted">Score some of your anime 8 or more, sync your list and come back.</p>
   return (
     <>
       <h2>What should you watch next, and why?</h2>
       <p>Each of these starts from anime you scored 8 or more and follows the graph two steps, through someone who made it, to a series you haven't watched. The paths are the reasons.</p>
-      <Lesson title="The graph idea: link prediction" query={tour.queries.recs} note="This is the query that ran on your graph. $user is your MyAnimeList name, $jobs are the credits the tour counts, and $min_members is 20,000.">
+      <Lesson title="The graph idea: link prediction" query={tour.queries.recs} note="This is the query that ran on your graph. $user is your username, $jobs are the credits the tour counts, and $min_members is 20,000.">
         <p>Link prediction guesses which missing links a graph is likely to grow, here a link from you to a show. The more short paths lead from you to a show, the likelier the link.</p>
         <p>Not every path counts the same. A path from a show you scored 10 counts for more than one from a show you scored 8. A path through a director with ten shows counts for more than one through a studio with a hundred, because the director says more about your taste. This weighting is called Adamic-Adar, after the two researchers who used it to predict friendships.</p>
       </Lesson>
@@ -516,8 +516,9 @@ function Recs({ tour }: { tour: Tour }) {
 }
 
 function RecCard({ index, rec }: { index: number; rec: TourRec }) {
+  const src = useSource()
   const a = rec.anime
-  const facts = [a.type, a.year, a.mal_score != null && `MAL ${a.mal_score.toFixed(2)}`].filter(Boolean).join(', ')
+  const facts = [a.type, a.year, a.mal_score != null && `${src.short} ${a.mal_score.toFixed(2)}`].filter(Boolean).join(', ')
   return (
     <section className="tour-card tour-rec">
       <div className="tour-rec-head">
@@ -549,7 +550,7 @@ function Teams({ tour }: { tour: Tour }) {
       <Lesson
         title="The graph idea: projection"
         query={tour.queries.teams}
-        note="This is the query that ran on your graph. $user is your MyAnimeList name, and $jobs are the credits the tour counts."
+        note="This is the query that ran on your graph. $user is your username, and $jobs are the credits the tour counts."
         more={{ label: 'See the query for what else they made', query: tour.queries.team_more }}
       >
         <p>Your graph links people to anime. A projection turns that into a graph of people only, with two people linked when they worked on the same anime. The anime disappear and leave behind a network of collaborators.</p>
@@ -564,6 +565,7 @@ function Teams({ tour }: { tour: Tour }) {
 }
 
 function TeamCard({ index, team }: { index: number; team: TourTeam }) {
+  const src = useSource()
   return (
     <section className="tour-card">
       <div className="tour-card-head">
@@ -579,7 +581,7 @@ function TeamCard({ index, team }: { index: number; team: TourTeam }) {
           <Covers
             items={team.more.map((m) => ({
               ...m,
-              note: [m.mal_score != null && `MAL ${m.mal_score.toFixed(2)}`, m.without.length > 0 && `without ${m.without.join(' and ')}`].filter(Boolean).join(', '),
+              note: [m.mal_score != null && `${src.short} ${m.mal_score.toFixed(2)}`, m.without.length > 0 && `without ${m.without.join(' and ')}`].filter(Boolean).join(', '),
             }))}
           />
         </>
@@ -600,7 +602,7 @@ function Distance({ distance: d, anime, query, show, voices = false }: { distanc
           : 'Two anime are one step apart when the same director, writer, composer, character designer, original creator or studio worked on both.'}{' '}
         Most of your list connects this way, and the rest sits on islands of its own.
       </p>
-      <Lesson title="The graph idea: shortest paths, the diameter and the centre" query={query} note="This is the query that found the islands. $user is your MyAnimeList name. The distances were measured on the same graph with a breadth-first search from each of your series.">
+      <Lesson title="The graph idea: shortest paths, the diameter and the centre" query={query} note="This is the query that found the islands. $user is your username. The distances were measured on the same graph with a breadth-first search from each of your series.">
         <p>The distance between two anime is the fewest steps it takes to get from one to the other. A breadth-first search finds it by visiting everything one step away, then everything two steps away, and so on until it runs out.</p>
         <p>The longest of these shortest distances is the graph's diameter, and the two anime at its ends are the furthest apart in your list. Each anime also has its own longest distance to anything else, called its eccentricity. The anime where it is smallest make up the centre of the graph.</p>
         <p>When a graph falls into pieces that no path joins, the pieces are called connected components. Each series counts as one point here, so sequels don't add steps.</p>
@@ -686,7 +688,7 @@ function VoiceBridges({ voices }: { voices: VoiceTour }) {
     <>
       <h2>Which voice actors connect your list?</h2>
       <p>These voice actors sit on the most shortest paths between your series. Take one away and many of your shows end up further apart.</p>
-      <Lesson title="The graph idea: betweenness centrality" query={voices.queries.bridges} note="This is the query that ran on your graph. $user is your MyAnimeList name.">
+      <Lesson title="The graph idea: betweenness centrality" query={voices.queries.bridges} note="This is the query that ran on your graph. $user is your username.">
         <p>Betweenness counts how many of the shortest walks between your anime pass through someone. Leading in many shows helps, but it matters more that those shows have little else in common. Each card shows where the voice actor would rank if you only counted their lead roles.</p>
       </Lesson>
       {voices.bridges.map((b, i) => {
@@ -715,7 +717,7 @@ function VoiceTwins({ voices }: { voices: VoiceTour }) {
     <>
       <h2>Which of your shows share a main cast?</h2>
       <p>These anime come from different series but share the voices of their main characters. Sequels and crossovers are left out, since they share their cast on purpose.</p>
-      <Lesson title="The graph idea: Jaccard similarity" query={voices.queries.twins} note="This is the query that ran on your graph. $user is your MyAnimeList name, and $min_shared is 2, since a main cast is small.">
+      <Lesson title="The graph idea: Jaccard similarity" query={voices.queries.twins} note="This is the query that ran on your graph. $user is your username, and $min_shared is 2, since a main cast is small.">
         <p>This is the measure from the makers' twins, used on main casts. Jaccard similarity divides the voice actors two anime share by all the voice actors either of them has, so two shows with exactly the same leads score 1.</p>
       </Lesson>
       {voices.twins.map((t, i) => (
@@ -744,7 +746,7 @@ function Duos({ voices }: { voices: VoiceTour }) {
     <>
       <h2>Which voice actors keep leading together?</h2>
       <p>Each of these pairs voiced main characters side by side in more than one of your series.</p>
-      <Lesson title="The graph idea: projection" query={voices.queries.duos} note="This is the query that ran on your graph. $user is your MyAnimeList name.">
+      <Lesson title="The graph idea: projection" query={voices.queries.duos} note="This is the query that ran on your graph. $user is your username.">
         <p>Projecting the graph onto voice actors links two of them whenever they lead the same anime. The anime drop out and leave a network of co-stars. Crossovers and spin-offs count as one series, so a pair has to meet in two separate shows.</p>
       </Lesson>
       {voices.duos.map((d, i) => (

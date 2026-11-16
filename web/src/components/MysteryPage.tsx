@@ -284,7 +284,7 @@ function GuessBox({ onGuess, disabled, exclude }: { onGuess: (n: GNode) => void;
         aria-label="Guess a character"
       />
       {show && !show.cast && !castError && <p className="muted small-text">Loading the characters…</p>}
-      {show && show.cast && !items.length && <p className="muted small-text">{show.cast.length ? 'No character by that name.' : "MyAnimeList doesn't list characters for this anime."}</p>}
+      {show && show.cast && !items.length && <p className="muted small-text">{show.cast.length ? 'No character by that name.' : 'No characters are listed for this anime.'}</p>}
       {castError && <p className="error">{castError}</p>}
       {items.length > 0 && (
         <ul className={`guess-results ${show ? 'inline' : ''}`}>

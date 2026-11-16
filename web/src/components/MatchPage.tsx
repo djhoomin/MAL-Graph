@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ANILIST_SIGN_IN_URL, errorText, matchApi, SIGN_IN_URL, type MakerKind, type Match, type MatchAnime, type MatchInvite, type MatchLink, type MatchMaker, type MatchPick } from '../api'
-import { useStore } from '../store'
+import { useSource, useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
 /** Where a visitor's invite waits while they sign in, since signing in comes back to the start page. */
@@ -41,13 +41,16 @@ export function MatchPage({ route }: { route: string[] }) {
 
 function SignIn({ text }: { text: string }) {
   const anilist = useStore((s) => !!s.me?.anilist)
+  const mal = useStore((s) => s.me?.mal ?? !!s.me?.sign_in)
   return (
     <div className="match-signin">
       <p>{text}</p>
       <div className="match-link-actions">
-        <a className="button primary" href={SIGN_IN_URL}>
-          Sign in with MyAnimeList
-        </a>
+        {mal && (
+          <a className="button primary" href={SIGN_IN_URL}>
+            Sign in with MyAnimeList
+          </a>
+        )}
         {anilist && (
           <a className="button primary" href={ANILIST_SIGN_IN_URL}>
             Sign in with AniList
@@ -225,6 +228,7 @@ function Join({ token }: { token: string }) {
 }
 
 function Compare({ them }: { them: string }) {
+  const src = useSource()
   const [m, setM] = useState<Match | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState(false)
@@ -291,7 +295,7 @@ function Compare({ them }: { them: string }) {
 
       <AnimeList title="You both loved" note="Both scored above your own averages." rows={m.loved} them={m.them} />
       <AnimeList title="Where you disagree" note="One of you scored it above your average and the other below." rows={m.split} them={m.them} />
-      <AnimeList title="Rare ones you've both seen" note="Fewer than 100,000 members on MyAnimeList." rows={m.rare} them={m.them} />
+      <AnimeList title="Rare ones you've both seen" note={`Fewer than 100,000 members on ${src.name}.`} rows={m.rare} them={m.them} />
       <MakerList rows={m.makers} them={m.them} />
 
       <PickList title={`For you, from ${m.them}'s favourites`} note={`Anime ${m.them} scored well above their average that you haven't watched, best fit for you first.`} rows={m.for_you} who={m.them} planned="On your plan to watch" />

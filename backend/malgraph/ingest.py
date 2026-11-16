@@ -1,4 +1,7 @@
-"""Upsert Jikan / MAL payloads into Memgraph. All writes are idempotent (MERGE) and batched via UNWIND."""
+"""Upsert Jikan / MAL payloads into Memgraph. All writes are idempotent (MERGE) and batched via UNWIND.
+
+With DATA_SOURCE=anilist the payloads come from anilist_source in the same shapes, with AniList ids, and
+characters carry a gender."""
 from __future__ import annotations
 
 import re
@@ -6,6 +9,7 @@ import time
 from typing import Any, Iterable
 
 from . import db, users
+from .config import settings
 from .jikan import JikanClient
 
 # --------------------------------------------------------------------------- helpers
@@ -26,7 +30,13 @@ def _ref(obj: dict[str, Any] | None, name_key: str = "name") -> dict[str, Any]:
         "name": obj.get(name_key) or obj.get("name") or obj.get("title"),
         "image_url": _img(obj.get("images")),
         "url": obj.get("url"),
+        "gender": obj.get("gender"),  # characters from AniList only
     }
+
+
+# A gender from the data source fills in, but never replaces a player's correction.
+SET_GENDER = """c.gender = CASE WHEN row.gender IS NULL OR c.gender_source = 'user' THEN c.gender ELSE row.gender END,
+                  c.gender_source = CASE WHEN row.gender IS NULL OR c.gender_source = 'user' THEN c.gender_source ELSE 'anilist' END"""
 
 
 def _now() -> int:
@@ -165,7 +175,7 @@ def upsert_anime_characters(anime_id: int, rows: Iterable[dict[str, Any]]) -> No
             UNWIND $rows AS row
             MERGE (c:Character {id: row.mal_id})
               SET c.name = row.name, c.image_url = coalesce(row.image_url, c.image_url), c.url = row.url,
-                  c.favorites = coalesce(row.favorites, c.favorites)
+                  c.favorites = coalesce(row.favorites, c.favorites), """ + SET_GENDER + """
             MERGE (a)-[h:HAS_CHARACTER]->(c) SET h.role = row.role
             """,
             id=anime_id, rows=chars,
@@ -275,7 +285,8 @@ def expand_person(j: JikanClient, mal_id: int) -> dict[str, int]:
             MERGE (a:Anime {id: row.anime.mal_id})
               ON CREATE SET a.title = row.anime.name, a.image_url = row.anime.image_url, a.url = row.anime.url
             MERGE (c:Character {id: row.character.mal_id})
-              ON CREATE SET c.name = row.character.name, c.image_url = row.character.image_url, c.url = row.character.url
+              ON CREATE SET c.name = row.character.name, c.image_url = row.character.image_url, c.url = row.character.url,
+                            c.gender = row.character.gender, c.gender_source = CASE WHEN row.character.gender IS NULL THEN null ELSE 'anilist' END
             MERGE (a)-[h:HAS_CHARACTER]->(c) ON CREATE SET h.role = row.role
             MERGE (p)-[v:VOICES]->(c)
               ON CREATE SET v.anime_ids = [row.anime.mal_id]
@@ -316,6 +327,8 @@ def expand_person(j: JikanClient, mal_id: int) -> dict[str, int]:
 def expand_character(j: JikanClient, mal_id: int) -> dict[str, int]:
     """/characters/{id}/full: anime appearances (with role) and voice actors (with language)."""
     d = j.character_full(mal_id)
+    if d.get("gender"):
+        db.run("MERGE (c:Character {id: $id}) WITH c, [{gender: $g}] AS rows UNWIND rows AS row SET " + SET_GENDER, id=mal_id, g=d["gender"])
     db.run(
         "MERGE (c:Character {id: $id}) SET c += $props",
         id=mal_id,
@@ -437,7 +450,8 @@ def upsert_user_list(username: str, entries: Iterable[dict[str, Any]]) -> int:
                 "season": season.get("season"),
                 "score": node.get("mean"),
                 "image_url": (node.get("main_picture") or {}).get("medium"),
-                "url": f"https://myanimelist.net/anime/{node['id']}",
+                "url": node.get("url") or (f"https://anilist.co/anime/{node['id']}" if settings.anilist_source
+                                           else f"https://myanimelist.net/anime/{node['id']}"),
             },
             "list": {
                 "status": ls.get("status"),

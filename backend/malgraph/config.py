@@ -23,6 +23,9 @@ class Settings:
     # "Sign in with AniList": an AniList API client whose redirect URL is {PUBLIC_URL}/api/auth/anilist/callback.
     anilist_client_id: str = os.getenv("ANILIST_CLIENT_ID", "")
     anilist_client_secret: str = os.getenv("ANILIST_API_KEY", "")  # the client's secret
+    # Where anime, characters and people come from: "mal" (MyAnimeList through Jikan) or "anilist". Each needs its
+    # own Memgraph data, since the ids differ. An AniList deployment signs people in with AniList only.
+    data_source: str = "anilist" if os.getenv("DATA_SOURCE", "mal").strip().lower() == "anilist" else "mal"
     genders_worker: bool = os.getenv("GENDERS_WORKER", "1") != "0"  # fill character genders in from AniList in the background
     privacy_contact: str = os.getenv("PRIVACY_CONTACT", "")  # who runs the site and how to reach them, shown on the privacy page
     memgraph_uri: str = os.getenv("MEMGRAPH_URI", "bolt://localhost:7687")
@@ -41,12 +44,26 @@ class Settings:
     openrouter_base: str = os.getenv("OPENROUTER_BASE", "https://openrouter.ai/api/v1")
 
     @property
-    def sign_in(self) -> bool:
-        return bool(self.public_url and self.mal_client_id)
+    def anilist_source(self) -> bool:
+        return self.data_source == "anilist"
+
+    @property
+    def source_name(self) -> str:
+        return "AniList" if self.anilist_source else "MyAnimeList"
+
+    @property
+    def mal_sign_in(self) -> bool:
+        return bool(self.public_url and self.mal_client_id and not self.anilist_source)
 
     @property
     def anilist_sign_in(self) -> bool:
-        return bool(self.sign_in and self.anilist_client_id and self.anilist_client_secret)
+        return bool(self.public_url and self.anilist_client_id and self.anilist_client_secret
+                    and (self.anilist_source or self.mal_client_id))
+
+    @property
+    def sign_in(self) -> bool:
+        """Any sign-in is configured, so users come from session cookies instead of MAL_USERNAME."""
+        return self.mal_sign_in or self.anilist_sign_in
 
 
 settings = Settings()

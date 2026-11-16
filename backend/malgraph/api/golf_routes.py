@@ -20,7 +20,7 @@ _last_practice: dict[str, float] = {}
 def _user() -> str:
     username = users.current_username()
     if not username:
-        raise HTTPException(401, "Sign in with MyAnimeList to play")
+        raise HTTPException(401, "Sign in to play")
     return username
 
 

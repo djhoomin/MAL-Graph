@@ -17,3 +17,23 @@
 		file_server
 	}
 }
+
+# The AniList copy (docker-compose.anilist.yml), e.g. staging.mal-graph.eu. Without that overlay this block listens
+# only inside the container on its default address, and nothing reaches it.
+{$STAGING_ADDRESS:http://localhost:8089} {
+	encode gzip
+
+	basic_auth {
+		import /etc/caddy/users
+	}
+
+	handle /api/* {
+		reverse_proxy api-anilist:8000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

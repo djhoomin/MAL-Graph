@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useGolf } from '../golf'
-import { useStore } from '../store'
+import { useSource, useStore } from '../store'
 import { MenuIcon } from './icons'
 import { useDismiss } from './useDismiss'
 
@@ -23,6 +23,7 @@ export function AppMenu() {
 }
 
 function MenuBody({ close }: { close: () => void }) {
+  const src = useSource()
   const user = useStore((s) => s.user)
   const busy = useStore((s) => s.busy)
   const sync = useStore((s) => s.sync)
@@ -46,7 +47,7 @@ function MenuBody({ close }: { close: () => void }) {
               <strong>{user.username}</strong>
               <span className="muted">{user.total} on list</span>
             </div>
-            {user.unfetched > 0 && <div className="muted small-text">{user.unfetched} not fetched from MAL yet</div>}
+            {user.unfetched > 0 && <div className="muted small-text">{user.unfetched} not fetched yet</div>}
           </>
         ) : (
           <div className="muted">{me?.sign_in ? 'Not signed in' : 'No list synced yet'}</div>
@@ -118,7 +119,11 @@ function MenuBody({ close }: { close: () => void }) {
         </label>
       </section>
 
-      <div className="muted small-text menu-credit">Data from MyAnimeList via the MyAnimeList API and Jikan, and character genders from AniList. Not affiliated with MyAnimeList or AniList.</div>
+      <div className="muted small-text menu-credit">
+        {src.anilist
+          ? 'Data from AniList via the AniList API. Not affiliated with AniList.'
+          : 'Data from MyAnimeList via the MyAnimeList API and Jikan, and character genders from AniList. Not affiliated with MyAnimeList or AniList.'}
+      </div>
     </div>
   )
 }

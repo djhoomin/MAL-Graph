@@ -51,6 +51,25 @@ cd /opt/mal-graph && git pull && docker compose -f docker-compose.prod.yml up -d
 Data lives in named volumes (`mg_lib`, `mongo_data`, `caddy_data`) and survives rebuilds.
 The **Sync list** button in the UI keeps the graph current with your MAL list; no cron needed.
 
+## AniList copy (staging)
+
+`docker-compose.anilist.yml` adds a second copy of the site that takes its anime data from AniList
+(`DATA_SOURCE=anilist`), with its own Memgraph (`mg_anilist_lib`) and data folder (`data-anilist/`). Caddy serves it on
+`STAGING_ADDRESS` behind the same basic auth. It needs, in `.env`:
+
+- `STAGING_ADDRESS`, such as `staging.mal-graph.eu`, with a DNS A record pointing at the server.
+- `ANILIST_STAGING_CLIENT_ID` and `ANILIST_STAGING_API_KEY` from a second AniList API client, whose redirect URL is
+  `https://<STAGING_ADDRESS>/api/auth/anilist/callback`. Each AniList client has a single redirect URL.
+
+```sh
+cd /opt/mal-graph && git pull && docker compose -f docker-compose.prod.yml -f docker-compose.anilist.yml up -d --build
+```
+
+Once the overlay is running, pass both files on every update, or `docker compose` reports the AniList services as
+orphans. The nightly backup covers only the MyAnimeList graph. Switching the live site to AniList means setting
+`DATA_SOURCE=anilist` on the main `api` service with an AniList graph behind it, and since usernames differ
+(`name@anilist`), people's lists, games and Taste match links start fresh there.
+
 ## Backups
 
 `deploy/backup.sh` runs every night at 03:30 UTC from `/etc/cron.d/mal-graph-backup` and logs to

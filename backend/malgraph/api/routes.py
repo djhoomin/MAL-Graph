@@ -125,7 +125,7 @@ async def expand(ref: str, only_watched: bool = False, lang: str | None = None) 
     try:
         # Wait for a slot on a worker thread, not the event loop.
         if not await run_in_threadpool(_fetch_slots.acquire, True, SLOT_WAIT):
-            raise HTTPException(503, "Many people are fetching from MyAnimeList right now. Try again in a moment.")
+            raise HTTPException(503, "Many people are fetching anime right now. Try again in a moment.")
         try:
             summary = await run_in_threadpool(fn, jikan(), key)
         finally:
@@ -320,6 +320,8 @@ def sync_user(username: str, token: str | None = None, anilist_id: int | None = 
     username = users.canonical(username)
     _cooldown(username)
     skipped: list[int] = []
+    if settings.anilist_source and not anilist.is_anilist(username):
+        raise HTTPException(400, "This site reads lists from AniList. Sign in with AniList, or upload a MyAnimeList export.")
     try:
         if anilist.is_anilist(username):
             n = ingest.upsert_user_list(username, anilist.iter_list(username, token=token, user_id=anilist_id, skipped=skipped))
@@ -362,8 +364,16 @@ def import_export(username: str, data: bytes) -> dict[str, Any]:
         exported_by, entries = mal_export.parse(data)
     except mal_export.ExportError as e:
         raise HTTPException(400, str(e))
+    skipped = 0
+    if settings.anilist_source:  # the graph uses AniList ids, so look each MyAnimeList id up
+        try:
+            ids = jikan().mal_to_anilist([e["node"]["id"] for e in entries])  # type: ignore[attr-defined]
+        except JikanError as e:
+            raise HTTPException(502, f"AniList couldn't be reached to match the export's anime: {e}")
+        mapped = [{**e, "node": {**e["node"], "id": ids[e["node"]["id"]]}} for e in entries if e["node"]["id"] in ids]
+        skipped, entries = len(entries) - len(mapped), mapped
     n = ingest.upsert_user_list(username, iter(entries))
-    return {**_after_sync(username, n, 0), "exported_by": exported_by}
+    return {**_after_sync(username, n, skipped), "exported_by": exported_by}
 
 
 @router.post("/sync/upload")
@@ -403,7 +413,7 @@ class AskBody(BaseModel):
 def _require_user() -> str:
     username = users.current_username()
     if not username:
-        raise HTTPException(401, "Sign in with MyAnimeList to ask questions")
+        raise HTTPException(401, "Sign in to ask questions")
     return username
 
 

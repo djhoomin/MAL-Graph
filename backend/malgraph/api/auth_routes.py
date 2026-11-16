@@ -28,7 +28,9 @@ def me() -> dict[str, Any]:
         "username": username,
         "source": "anilist" if anilist.is_anilist(username) else "mal" if username else None,
         "sign_in": settings.sign_in,
+        "mal": settings.mal_sign_in,
         "anilist": settings.anilist_sign_in,
+        "data_source": settings.data_source,
         "contact": settings.privacy_contact or None,
     }
 
@@ -47,7 +49,7 @@ async def delete_account() -> Response:
 
 @router.get("/login")
 def login() -> RedirectResponse:
-    if not settings.sign_in:
+    if not settings.mal_sign_in:
         raise HTTPException(404, "Sign-in is not configured on this server")
     url, attempt = auth.start()
     resp = RedirectResponse(url, status_code=303)

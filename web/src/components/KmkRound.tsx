@@ -14,7 +14,7 @@ const COLORS: Record<Fate, string> = { kiss: '#ff7eb6', marry: '#ffd166', kill: 
 export type DrawMode = 'random' | 'balanced' | 'spicy'
 const DRAW_MODES: { value: DrawMode; label: string; tip: string }[] = [
   { value: 'random', label: 'Random', tip: 'Any three from the theme.' },
-  { value: 'balanced', label: 'Balanced', tip: 'Three characters about as popular as each other on MyAnimeList.' },
+  { value: 'balanced', label: 'Balanced', tip: 'Three characters about as popular as each other.' },
   { value: 'spicy', label: 'Spicy', tip: 'One famous character and two obscure ones.' },
 ]
 const DRAW_KEY = 'malgraph.kmk.draw'
@@ -347,7 +347,7 @@ function loadImage(url: string | null): Promise<HTMLImageElement | null> {
   if (!url) return Promise.resolve(null)
   return new Promise((resolve) => {
     const img = new Image()
-    img.crossOrigin = 'anonymous' // MyAnimeList's image server allows it, so the canvas stays exportable
+    img.crossOrigin = 'anonymous' // MyAnimeList's and AniList's image servers allow it, so the canvas stays exportable
     img.onload = () => resolve(img)
     img.onerror = () => resolve(null)
     img.src = url

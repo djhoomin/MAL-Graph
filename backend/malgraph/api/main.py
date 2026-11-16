@@ -68,7 +68,7 @@ def _startup() -> None:
     ingest.drop_legacy_user_props()
     agent.migrate_conversations()
     agent.guard_self_test()
-    if settings.genders_worker:
+    if settings.genders_worker and not settings.anilist_source:  # AniList data comes with genders
         genders.start()
 
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { api, LABELS, LIST_STATUSES, REL_TYPES, type GEdge, type GNode, type GraphPayload, type Label, type ListStatus, type Me, type PathResult, type RelType, type SyncStatus, type UserSummary } from './api'
+import { api, LABELS, LIST_STATUSES, REL_TYPES, sourceOf, type GEdge, type GNode, type GraphPayload, type Label, type ListStatus, type Me, type PathResult, type RelType, type SyncStatus, type UserSummary } from './api'
 
 export interface Filters {
   labels: Record<Label, boolean>
@@ -241,12 +241,14 @@ export const useStore = create<State>((set, get) => ({
     } else set({ syncMsg: `List synced (${r.synced} entries). Nothing new to fetch.${skipped}` })
   },
   uploadList: async (file) => {
-    const { run, refreshUser } = get()
+    const { run, refreshUser, me } = get()
     set({ syncMsg: null })
     const r = await run('Reading your export…', () => api.uploadList(file))
     if (!r) return
     await refreshUser()
-    const msg = `List replaced with ${r.synced} entries from the export${r.exported_by ? ` of ${r.exported_by}` : ''}.`
+    // On an AniList site, anime in a MyAnimeList export that AniList doesn't have are left out.
+    const left = r.skipped ? ` ${r.skipped} ${r.skipped === 1 ? "isn't" : "aren't"} on ${sourceOf(me?.data_source).name}, so ${r.skipped === 1 ? "it's" : "they're"} left out.` : ''
+    const msg = `List replaced with ${r.synced} entries from the export${r.exported_by ? ` of ${r.exported_by}` : ''}.${left}`
     if (r.expanding) {
       set({ syncMsg: msg, sync: { running: true, total: r.unfetched, done: 0, failed: [], current: null, others_in_queue: 0 } })
       void get().pollSync()
@@ -306,7 +308,7 @@ export const useStore = create<State>((set, get) => ({
 
   fetchFromMal: async (id) => {
     const { filters, run, mergePayload, refreshUser } = get()
-    await run(`Fetching ${id} from MAL via Jikan…`, async () => {
+    await run(`Fetching ${id}…`, async () => {
       const p = await api.expand(id, { only_watched: filters.onlyWatched, lang: filters.lang })
       mergePayload(p)
       await refreshUser()
@@ -329,3 +331,8 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 }))
+
+/** The site the graph's data comes from, for naming it in the UI. */
+export function useSource() {
+  return sourceOf(useStore((s) => s.me?.data_source))
+}

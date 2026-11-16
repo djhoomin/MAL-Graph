@@ -19,6 +19,7 @@ from collections import deque
 from typing import Any
 
 from . import db, games
+from .config import settings
 
 POOL = 300
 MIN_CLUES = 6
@@ -146,7 +147,7 @@ def tracks(cid: int, franchise: dict[int, int]) -> tuple[list[str], list[str]]:
     popular = None
     if rank and len(cast) > 1:
         place = "the most favourited" if rank == 1 else f"the {_ordinal(rank)} most favourited"
-        popular = f"{v['subj']} {v['is']} {place} of the {len(cast)} characters in {best['title']} on MyAnimeList."
+        popular = f"{v['subj']} {v['is']} {place} of the {len(cast)} characters in {best['title']} on {settings.source_name}."
     name = games.natural(db.run("MATCH (c:Character {id: $id}) RETURN c.name AS name", id=cid)[0]["name"])
     parts = [p for p in name.replace(".", " ").split() if p[:1].isalpha()]
     starts = ends = None

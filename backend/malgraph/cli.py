@@ -7,7 +7,7 @@ from rich.progress import Progress
 
 from . import db, ingest, jikan
 from .config import settings
-from .jikan import JikanClient, JikanError
+from .jikan import JikanError
 from .mal import iter_user_animelist
 
 app = typer.Typer(help="MyAnimeList → Memgraph graph builder", no_args_is_help=True)
@@ -33,7 +33,7 @@ def sync_list(username: str = typer.Option(None, help="Defaults to MAL_USERNAME"
 def expand(kind: str = typer.Argument(..., help="anime | person | character"), mal_id: int = typer.Argument(...)) -> None:
     """Fetch one node's full neighbourhood from Jikan."""
     db.ensure_schema()
-    j = JikanClient()
+    j = jikan.shared()
     fn = {"anime": ingest.expand_anime, "person": ingest.expand_person, "character": ingest.expand_character}.get(kind)
     if fn is None:
         raise typer.BadParameter("kind must be anime, person or character")
@@ -51,7 +51,7 @@ def expand_list(
     if not ids:
         rprint("[green]nothing to expand[/green]")
         return
-    j = JikanClient()
+    j = jikan.shared()
     failed: list[tuple[int, str]] = []
     with Progress() as progress:
         task = progress.add_task(f"expanding {len(ids)} anime", total=len(ids))
@@ -79,7 +79,7 @@ def enrich(
 ) -> None:
     """Grow the graph beyond your list: your people's full filmographies + metadata of the anime they share (for recommendations)."""
     db.ensure_schema()
-    j = JikanClient()
+    j = jikan.shared()
     kinds = ["va", "Director", "Music", "Character Design", "Original Creator", "Series Composition"]
     people: list[int] = []
     for kind in kinds:

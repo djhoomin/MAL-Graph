@@ -32,3 +32,4 @@ deploy/caddy/users
 # server-only secrets and backups
 deploy/backup.env
 backups/
+data-anilist/

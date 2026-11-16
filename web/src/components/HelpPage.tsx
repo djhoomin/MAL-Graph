@@ -1,8 +1,10 @@
 import { useGolf } from '../golf'
+import { useSource } from '../store'
 import { navigate } from '../useHashRoute'
 
 /** What everything in the app does, for someone opening it for the first time. */
 export function HelpPage() {
+  const src = useSource()
   const golf = () => {
     navigate('')
     void useGolf.getState().start('daily')
@@ -16,14 +18,14 @@ export function HelpPage() {
       </header>
       <article className="doc">
         <h1>Help</h1>
-        <p>MAL-Graph draws your MyAnimeList anime list as a graph. Anime, characters, voice actors, staff and studios are the dots, and the lines between them show how they're connected, such as who voices a character or which studio made an anime.</p>
+        <p>MAL-Graph draws your {src.name} anime list as a graph. Anime, characters, voice actors, staff and studios are the dots, and the lines between them show how they're connected, such as who voices a character or which studio made an anime.</p>
 
         <h2>Exploring the graph</h2>
-        <p>Search for an anime, a character or a person in the bar at the top, and pick a result to put it on the graph. Tap any dot to open its card. On the card, Expand adds everything connected to it, and the ⋯ button has more, such as a voice actor's roles, opening it on MyAnimeList or removing it from the graph.</p>
+        <p>Search for an anime, a character or a person in the bar at the top, and pick a result to put it on the graph. Tap any dot to open its card. On the card, Expand adds everything connected to it, and the ⋯ button has more, such as a voice actor's roles, opening it on {src.name} or removing it from the graph.</p>
         <p>Path finds the shortest chain between two things. Tap Path on one card, then tap the other one on the graph or search for it, and the chain is drawn.</p>
         <p>Filters, at the bottom left, hide kinds of dots or connections, or everything that isn't on your list. The button at the bottom right fits the graph to the screen, and holding it down rearranges the graph. Drag with one finger to move around and pinch to zoom.</p>
-        <p>The menu at the top right has Add my list to the graph, which puts your whole list on at once, and Sync list, which picks up changes you've made on MyAnimeList or AniList since.</p>
-        <p>You can also bring a list from MyAnimeList as a file. On MyAnimeList, open <a href="https://myanimelist.net/panel.php?go=export" target="_blank" rel="noreferrer">Export lists</a>, export your anime list, and pick the downloaded file with Upload MyAnimeList export in the menu. It replaces the list you have here. Only statuses, scores and episode counts are read, and comments and tags in the file are ignored. Sync list afterwards would replace it again with the list from the account you signed in with.</p>
+        <p>The menu at the top right has Add my list to the graph, which puts your whole list on at once, and Sync list, which picks up changes you've made on {src.anilist ? 'AniList' : 'MyAnimeList or AniList'} since.</p>
+        <p>You can also bring a list from MyAnimeList as a file. On MyAnimeList, open <a href="https://myanimelist.net/panel.php?go=export" target="_blank" rel="noreferrer">Export lists</a>, export your anime list, and pick the downloaded file with Upload MyAnimeList export in the menu. It replaces the list you have here. Only statuses, scores and episode counts are read, and comments and tags in the file are ignored.{src.anilist && " Anime that AniList doesn't have are left out."} Sync list afterwards would replace it again with the list from the account you signed in with.</p>
 
         <h2>Ask</h2>
         <p>The speech bubble at the bottom right opens Ask. You can ask questions about your list and the anime, characters and people in it, such as "Which voice actors appear most in what I've watched?" or "What sequels haven't I seen?". The answer is written out, and you can open what it found on the graph. There's a limit on questions per day.</p>

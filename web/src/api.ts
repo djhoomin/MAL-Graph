@@ -134,10 +134,22 @@ export const ANILIST_SIGN_IN_URL = BASE + '/api/auth/anilist/login'
 export interface Me {
   username: string | null // AniList accounts end in "@anilist"
   source?: 'mal' | 'anilist' | null // where the signed-in user's list comes from
-  sign_in: boolean // false when the server has no MAL sign-in configured (local development)
+  sign_in: boolean // false when the server has no sign-in configured (local development)
+  mal?: boolean // whether "Sign in with MyAnimeList" is configured
   anilist?: boolean // whether "Sign in with AniList" is configured
+  data_source?: 'mal' | 'anilist' // where anime, characters and people come from
   contact?: string | null // who runs the site, for the privacy page
 }
+
+/** The site anime, characters and people come from, as the UI names it. */
+export interface Source {
+  name: string // "MyAnimeList" or "AniList"
+  short: string // "MAL" or "AniList", for tight spots like "MAL 8.21"
+  anilist: boolean
+}
+const MAL_SOURCE: Source = { name: 'MyAnimeList', short: 'MAL', anilist: false }
+const ANILIST_SOURCE: Source = { name: 'AniList', short: 'AniList', anilist: true }
+export const sourceOf = (dataSource: string | null | undefined): Source => (dataSource === 'anilist' ? ANILIST_SOURCE : MAL_SOURCE)
 
 /** Error message without the HTTP status prefix, for showing inline. */
 export const errorText = (e: unknown) => String((e as Error)?.message ?? e).replace(/^\d+: /, '')

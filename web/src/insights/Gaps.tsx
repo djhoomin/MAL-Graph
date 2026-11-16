@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, type Gap, type ListStatus } from '../api'
-import { useStore } from '../store'
+import { useSource, useStore } from '../store'
 
 const RELATIONS = ['Sequel', 'Prequel', 'Side Story', 'Spin-Off', 'Alternative Version', 'Parent Story', 'Alternative Setting']
 
@@ -102,7 +102,7 @@ export function Gaps({ statuses }: { statuses: ListStatus[] }) {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-/** When an anime that hasn't aired is due, as precisely as MyAnimeList knows it. */
+/** When an anime that hasn't aired is due, as precisely as the data source knows it. */
 function due(g: Gap): string {
   if (g.season && g.year) return `${g.season[0].toUpperCase()}${g.season.slice(1)} ${g.year}`
   const m = g.aired_from?.match(/^(\d{4})-(\d{2})/)
@@ -111,6 +111,7 @@ function due(g: Gap): string {
 }
 
 function GapGrid({ rows, fetchOne }: { rows: Gap[]; fetchOne: (g: Gap) => Promise<void> }) {
+  const src = useSource()
   return (
     <div className="gap-grid">
       {rows.map((g) => (
@@ -121,7 +122,7 @@ function GapGrid({ rows, fetchOne }: { rows: Gap[]; fetchOne: (g: Gap) => Promis
               {g.title}
             </a>
             <div className="muted">
-              {g.airing === 'Not yet aired' ? `${g.type ?? ''} ${due(g)}` : `${g.type ?? ''} ${g.year ?? ''} ${g.score ? `· MAL ${g.score}` : ''}`}
+              {g.airing === 'Not yet aired' ? `${g.type ?? ''} ${due(g)}` : `${g.type ?? ''} ${g.year ?? ''} ${g.score ? `· ${src.short} ${g.score}` : ''}`}
               {g.airing === 'Currently Airing' && ' · airing'}
               {!g.fetched && (
                 <button className="link" onClick={() => void fetchOne(g)}>

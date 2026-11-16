@@ -18,7 +18,7 @@ async def theme(avoid: str | None = None, kind: str | None = None, key: str | No
     recent themes (kind:key, most recent last), which are skipped, and whose kinds are tried last.
     `gender` (Female, Male) keeps only characters recorded with that gender."""
     if not users.current_username():
-        raise HTTPException(401, "Sign in with MyAnimeList to play")
+        raise HTTPException(401, "Sign in to play")
     if gender not in (None, "", *genders.GENDERS):
         raise HTTPException(400, "unknown gender filter")
     parsed: Any = int(key) if key and key.isdigit() else key
@@ -36,7 +36,7 @@ class GenderFix(BaseModel):
 async def fix_gender(character_id: int, body: GenderFix) -> dict[str, Any]:
     """Correct a character's gender. The fix is shared, and AniList updates never overwrite it."""
     if not users.current_username():
-        raise HTTPException(401, "Sign in with MyAnimeList to make corrections")
+        raise HTTPException(401, "Sign in to make corrections")
     if body.gender is not None and body.gender not in genders.GENDERS:
         raise HTTPException(400, "unknown gender")
     if not await run_in_threadpool(genders.correct, character_id, body.gender):
@@ -64,7 +64,7 @@ async def daily() -> dict[str, Any]:
     """Today's three, the same for everyone. After playing, also your choices and everyone's tally."""
     username = users.current_username()
     if not username:
-        raise HTTPException(401, "Sign in with MyAnimeList to play")
+        raise HTTPException(401, "Sign in to play")
     return await run_in_threadpool(_daily_view, username)
 
 
@@ -76,7 +76,7 @@ class DailyChoices(BaseModel):
 async def play_daily(body: DailyChoices) -> dict[str, Any]:
     username = users.current_username()
     if not username:
-        raise HTTPException(401, "Sign in with MyAnimeList to play")
+        raise HTTPException(401, "Sign in to play")
     try:
         await run_in_threadpool(kmk.play_daily, username, body.choices)
     except ValueError as e:
@@ -87,7 +87,7 @@ async def play_daily(body: DailyChoices) -> dict[str, Any]:
 def _player() -> str:
     username = users.current_username()
     if not username:
-        raise HTTPException(401, "Sign in with MyAnimeList to play")
+        raise HTTPException(401, "Sign in to play")
     return username
 
 

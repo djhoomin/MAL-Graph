@@ -135,7 +135,11 @@ _shared_lock = threading.Lock()
 
 
 def shared() -> JikanClient:
-    """The process-wide client. Interactive fetches and the background queue share one rate limiter."""
+    """The process-wide client for the configured data source (an AniListSource has the same calls). Interactive
+    fetches and the background queue share one rate limiter."""
+    if settings.anilist_source:
+        from . import anilist_source
+        return anilist_source.shared()  # type: ignore[return-value]
     global _shared
     with _shared_lock:
         if _shared is None:

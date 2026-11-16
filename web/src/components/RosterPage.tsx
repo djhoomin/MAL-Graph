@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, type KmkCard, type RosterEntry, type VaRole, type VaResult } from '../api'
-import { useStore } from '../store'
+import { useSource, useStore } from '../store'
 import { navigate } from '../useHashRoute'
 import { genderOf, loadWho, saveWho, WhoFilter, type Who } from './Gender'
 import { KmkRound } from './KmkRound'
@@ -90,6 +90,7 @@ function RosterList({ onlyWatched, mainOnly, lang }: Opts) {
 }
 
 function PersonRoster({ personId, onlyWatched, mainOnly, lang }: Opts & { personId: number }) {
+  const src = useSource()
   const [data, setData] = useState<VaResult | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -157,7 +158,7 @@ function PersonRoster({ personId, onlyWatched, mainOnly, lang }: Opts & { person
         <h2>{person?.name ?? `Person ${personId}`}</h2>
         {person?.props.url != null && (
           <a href={String(person.props.url)} target="_blank" rel="noreferrer">
-            MAL ↗
+            {src.short} ↗
           </a>
         )}
         <span className="muted">{cards.length} characters</span>

@@ -26,7 +26,7 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
     <div className="ctx-menu" style={{ left: menu.x, top: menu.y }}>
       {item('Expand', () => void expandNode(menu.id))}
       {item('Expand without fetching', () => void loadNeighbors(menu.id))}
-      {item('Refetch from MAL', () => void fetchFromMal(menu.id), !expandable)}
+      {item('Refetch', () => void fetchFromMal(menu.id), !expandable)}
       {item('Collapse neighbours', () => collapseNode(menu.id))}
       {menu.label === 'Person' &&
         item('Voice roles', () => {

@@ -1,0 +1,68 @@
+# A second copy of the site with AniList as its data source (DATA_SOURCE=anilist), next to the MyAnimeList one.
+# It has its own Memgraph, since AniList ids don't match MyAnimeList's, and its own data folder. Caddy serves it on
+# STAGING_ADDRESS, behind the same basic auth.
+#
+# Usage: docker compose -f docker-compose.prod.yml -f docker-compose.anilist.yml up -d --build
+#
+# .env needs STAGING_ADDRESS (e.g. staging.mal-graph.eu, with a DNS record pointing at the server), and an AniList
+# API client whose redirect URL is https://<STAGING_ADDRESS>/api/auth/anilist/callback in ANILIST_STAGING_CLIENT_ID
+# and ANILIST_STAGING_API_KEY. AniList clients have one redirect URL each, so it can't share the live site's client.
+#
+# Switching the live site to AniList later means setting DATA_SOURCE=anilist on the main api service and starting it
+# on an AniList graph (this one, or an empty one), then telling MyAnimeList users to sign in with AniList.
+
+# Anchors don't carry across compose files, so the log cap is repeated here.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  memgraph-anilist:
+    image: memgraph/memgraph-mage@sha256:cc33431b088c6b9580528d8d5aff92f3b958de1af5d40126f831ab8512eb855a
+    restart: unless-stopped
+    logging: *logging
+    command: ["--log-level=WARNING", "--storage-snapshot-interval-sec=300", "--storage-wal-enabled=true", "--query-execution-timeout-sec=30", "--memory-limit=512"]
+    volumes:
+      - mg_anilist_lib:/var/lib/memgraph
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'RETURN 0;' | mgconsole || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api-anilist:
+    build: ./backend
+    restart: unless-stopped
+    logging: *logging
+    env_file: .env
+    environment:
+      - DATA_SOURCE=anilist
+      - PUBLIC_URL=https://${STAGING_ADDRESS:?set STAGING_ADDRESS in .env}
+      - ANILIST_CLIENT_ID=${ANILIST_STAGING_CLIENT_ID:?set ANILIST_STAGING_CLIENT_ID in .env}
+      - ANILIST_API_KEY=${ANILIST_STAGING_API_KEY:?set ANILIST_STAGING_API_KEY in .env}
+      - MAL_CLIENT_ID=
+      - GENDERS_WORKER=0
+      - MEMGRAPH_URI=bolt://memgraph-anilist:7687
+      - CACHE_DIR=/app/data/cache
+      - CONVERSATIONS_DIR=/app/data/conversations
+      - GOLF_DIR=/app/data/golf
+    volumes:
+      - ./data-anilist/cache:/app/data/cache
+      - ./data-anilist/conversations:/app/data/conversations
+      - ./data-anilist/golf:/app/data/golf
+    depends_on:
+      memgraph-anilist:
+        condition: service_healthy
+
+  web:
+    environment:
+      - SITE_ADDRESS=${SITE_ADDRESS:-http://localhost:8088}
+      - STAGING_ADDRESS=${STAGING_ADDRESS}
+    depends_on:
+      - api
+      - api-anilist
+
+volumes:
+  mg_anilist_lib:

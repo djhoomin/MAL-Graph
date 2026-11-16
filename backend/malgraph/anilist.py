@@ -3,9 +3,10 @@
 AniList uses OAuth 2 with an authorization code. The state travels in a short-lived signed cookie, as with
 MyAnimeList, and the access token is used once during the callback to read the list, then discarded.
 
-The graph is built from MyAnimeList data, so an AniList list joins it through each anime's MyAnimeList id (idMal).
-Entries are turned into the same shape the MyAnimeList API returns, so ingest.upsert_user_list reads both. Anime that
-aren't on MyAnimeList are skipped and counted.
+With MyAnimeList as the data source, an AniList list joins the graph through each anime's MyAnimeList id (idMal), and
+anime that aren't on MyAnimeList are skipped and counted. With DATA_SOURCE=anilist the graph uses AniList ids, so
+nothing is skipped. Entries are turned into the same shape the MyAnimeList API returns, so ingest.upsert_user_list
+reads both.
 
 AniList users are stored as "<name>@anilist". MyAnimeList usernames can't contain "@", so the two never clash, and
 someone with both accounts has two separate lists.
@@ -44,7 +45,7 @@ LIST = """query ($id: Int, $name: String, $chunk: Int, $per: Int) {
     hasNextChunk
     lists { isCustomList entries {
       status score(format: POINT_10) progress updatedAt
-      media { id idMal title { romaji english } format episodes season seasonYear averageScore }
+      media { id idMal title { romaji english } format episodes season seasonYear averageScore coverImage { medium } siteUrl }
     } }
   }
 }"""
@@ -105,14 +106,18 @@ def finish(code: str, state: str, oauth_cookie: str | None) -> tuple[str, str, i
 
 
 def _entry(e: dict[str, Any]) -> dict[str, Any] | None:
-    """An AniList list entry in the MyAnimeList API's shape, or None for anime that aren't on MyAnimeList."""
+    """An AniList list entry in the MyAnimeList API's shape, or None for anime that aren't on MyAnimeList when the
+    graph uses MyAnimeList ids."""
     m = e["media"]
-    if not m.get("idMal"):
+    own = settings.anilist_source
+    if not own and not m.get("idMal"):
         return None
     updated = datetime.fromtimestamp(e["updatedAt"], timezone.utc).isoformat() if e.get("updatedAt") else None
     return {
         "node": {
-            "id": m["idMal"],
+            "id": m["id"] if own else m["idMal"],
+            "url": m.get("siteUrl") if own else None,
+            "main_picture": {"medium": (m.get("coverImage") or {}).get("medium")} if own else None,
             "title": m["title"].get("romaji") or m["title"].get("english"),
             "alternative_titles": {"en": m["title"].get("english")},
             "media_type": FORMAT.get(m.get("format") or "", (m.get("format") or "").lower() or None),

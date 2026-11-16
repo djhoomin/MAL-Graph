@@ -28,8 +28,12 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       nodes, where `id` is already the "Label:key" ref, so the source id is `key`. Links to MyAnimeList come from each
       node's `url`. Jikan's own `mal_id` fields, the Jikan and MyAnimeList clients and the AniList gender lookup by
       MyAnimeList id keep the name, since those really are MyAnimeList ids. UI copy still says MAL.
-- [ ] **Step 2: AniList data adapter.** Build the same graph shape from AniList, on demand: the user's list anime
-      plus whatever they expand. Reuse the rate-limited client in `backend/malgraph/genders.py`.
+- [x] **Step 2: AniList data adapter.** `anilist_source.AniListSource` answers the same calls as the Jikan client
+      and returns Jikan's shapes with AniList ids, so ingest builds the same graph. It fetches on demand at 25 requests
+      a minute and caches answers on disk. An anime takes 1 or 2 requests, with up to 50 characters and 50 staff (main
+      cast and key staff first). Genres keep fixed ids, and up to 5 strong theme and setting tags become themes.
+      Characters come with genders, so the gender worker is off. The Ask agent's catalogue tools (search, top,
+      season, recommendations) use AniList too.
 - [x] **Step 3a: sign in with AniList.** AniList OAuth (`/api/auth/anilist/login` and `/callback`, client in
       `ANILIST_CLIENT_ID` and `ANILIST_API_KEY`). AniList users are stored as `<name>@anilist`, and their list joins
       today's graph through each anime's `idMal`, so anime without one are skipped and counted. Sync list rereads a
@@ -39,8 +43,10 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       (`.xml` or `.xml.gz`) to `/api/sync/upload`, which replaces the signed-in user's list. Only ids, statuses, scores
       and episode counts are read. Size is capped before and after unzipping, and files with a DOCTYPE are refused.
       Checked with a real export (355 entries), which matched the synced list on every id, status, score and episode count.
-- [ ] **Step 4: source switch.** A setting such as `DATA_SOURCE=anilist` chooses the source per deployment, with its
-      own Memgraph data. Try it on a staging copy before switching the live site.
+- [ ] **Step 4: source switch.** `DATA_SOURCE=anilist` chooses the source per deployment, signs people in with
+      AniList only, maps a MyAnimeList export to AniList ids, and makes the UI name AniList. Tested locally on a
+      second Memgraph with the full AniList list. Left: run the staging copy (`docker-compose.anilist.yml`, see
+      `deploy/README.md`), which needs a DNS record for `staging.mal-graph.eu` and a second AniList API client.
 - [ ] **Ask AniList to confirm** that a shared, on-demand cache fits their terms (their Discord is the quickest route).
 
 ## Operations

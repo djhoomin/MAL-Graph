@@ -18,6 +18,7 @@ from itertools import combinations
 from typing import Any
 
 from . import db, games
+from .config import settings
 
 POOL = 800
 ROUNDS = 5
@@ -96,13 +97,14 @@ def describe(f: Facts, key: str) -> dict[str, str]:
     }[kind]
     if kind == "season":
         year, season = rest.split("-")
-        href = f"https://myanimelist.net/anime/season/{year}/{season}"
+        href = (f"https://anilist.co/search/anime?year={year}&season={season.upper()}" if settings.anilist_source
+                else f"https://myanimelist.net/anime/season/{year}/{season}")
+    elif kind == "va":
+        href = f"#/roster/{rest}"
+    elif settings.anilist_source:
+        href = f"https://anilist.co/{'studio' if kind == 'studio' else 'staff'}/{rest}"
     else:
-        href = {
-            "va": f"#/roster/{rest}",
-            "studio": f"https://myanimelist.net/anime/producer/{rest}",
-            "creator": f"https://myanimelist.net/people/{rest}",
-        }[kind]
+        href = {"studio": f"https://myanimelist.net/anime/producer/{rest}", "creator": f"https://myanimelist.net/people/{rest}"}[kind]
     return {"text": text, "name": label, "href": href}
 
 

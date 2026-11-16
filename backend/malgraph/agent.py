@@ -15,7 +15,8 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.errors import GraphRecursionError
 from langsmith import tracing_context
 
-from . import ask_graph, db, ingest, mal, users
+from . import anilist_source, ask_graph, db, ingest, users
+from . import mal as mal_api
 from .config import settings
 from .api import queries as Q
 from .api import routes as R
@@ -89,6 +90,19 @@ TOOLS: list[dict[str, Any]] = [
     {"type": "function", "function": {"name": "show_on_canvas", "description": "Display these nodes (and the edges between them) in the user's graph view.", "parameters": {"type": "object", "properties": {"refs": {"type": "array", "items": {"type": "string"}}, "select": {"type": "string", "description": "Optional ref to select"}}, "required": ["refs"]}}},
     {"type": "function", "function": {"name": "present_cards", "description": "Show a card grid (image, name, caption) — use for sets of characters/anime the user should look at or choose between.", "parameters": {"type": "object", "properties": {"title": {"type": "string"}, "cards": {"type": "array", "items": {"type": "object", "properties": {"ref": {"type": "string"}, "caption": {"type": "string"}}, "required": ["ref"]}}}, "required": ["cards"]}}},
 ]
+
+
+def _for_source(text: str) -> str:
+    """The prompt and tool descriptions name MyAnimeList. An AniList deployment names AniList instead."""
+    if not settings.anilist_source:
+        return text
+    for a, b in (("MyAnimeList", "AniList"), ("MAL ids", "AniList ids"), ("with MAL ", "with AniList "), ("MAL users'", "AniList users'")):
+        text = text.replace(a, b)
+    return text
+
+
+SYSTEM_PROMPT = _for_source(SYSTEM_PROMPT)
+TOOLS = json.loads(_for_source(json.dumps(TOOLS)))
 
 
 # --------------------------------------------------------------------------- tool execution
@@ -292,6 +306,7 @@ def _compact_mal_anime(a: dict[str, Any]) -> dict[str, Any]:
 
 
 def _mal_tool(name: str, args: dict[str, Any]) -> Any:
+    mal = anilist_source.shared() if settings.anilist_source else mal_api  # same calls, same node shape
     if name == "mal_search":
         return _annotate_on_list([_compact_mal_anime(a) for a in mal.search_anime(args["q"], int(args.get("limit") or 15))])
     if name == "mal_recommendations":

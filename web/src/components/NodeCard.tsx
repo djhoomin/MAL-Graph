@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, type NodeDetail } from '../api'
-import { useStore } from '../store'
+import { useSource, useStore } from '../store'
 import { GenderFix } from './Gender'
 import { navigate } from '../useHashRoute'
 import { LABEL_COLORS, REL_LABELS } from '../graph/style'
@@ -16,6 +16,7 @@ export function NodeCard() {
 }
 
 function NodeSummary() {
+  const src = useSource()
   const node = useStore((s) => (s.selected ? s.nodes[s.selected] : undefined))
   const pathPicking = useStore((s) => s.pathPicking)
   const pathFrom = useStore((s) => s.pathFrom)
@@ -47,7 +48,7 @@ function NodeSummary() {
   const statusLine = node.watched
     ? `✓ ${String(node.list_status ?? '').replace(/_/g, ' ')}${props.my_score ? ` · ${String(props.my_score)}/10` : ''}`
     : !node.fetched && expandable
-      ? 'Not fetched from MAL yet'
+      ? 'Not fetched yet'
       : null
 
   const menuItem = (text: string, fn: () => void) => (
@@ -94,9 +95,9 @@ function NodeSummary() {
           <div className="menu-list card-more">
             {node.label === 'Person' && menuItem('Voice roles', () => setView('va'))}
             {node.label === 'Person' && menuItem('Roster', () => navigate(`/roster/${node.key}`))}
-            {expandable && node.fetched && menuItem('Refetch from MAL', () => void fetchFromMal(node.id))}
+            {expandable && node.fetched && menuItem('Refetch', () => void fetchFromMal(node.id))}
             {menuItem('Collapse neighbours', () => collapseNode(node.id))}
-            {typeof props.url === 'string' && menuItem('Open on MAL', () => window.open(props.url as string, '_blank', 'noreferrer'))}
+            {typeof props.url === 'string' && menuItem(`Open on ${src.short}`, () => window.open(props.url as string, '_blank', 'noreferrer'))}
             {menuItem('Remove from canvas', () => removeNode(node.id))}
             {node.label === 'Character' && (
               <div className="card-gender">
