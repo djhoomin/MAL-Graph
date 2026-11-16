@@ -35,7 +35,10 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       today's graph through each anime's `idMal`, so anime without one are skipped and counted. Sync list rereads a
       public AniList list, and a private one needs signing in again, as with MyAnimeList. An AniList deployment will
       use the same sign-in with AniList ids instead.
-- [ ] **Step 3b: list export upload.** Accept the list export file that MyAnimeList lets every user download.
+- [x] **Step 3b: list export upload.** Upload MyAnimeList export in the menu sends the file from Export lists
+      (`.xml` or `.xml.gz`) to `/api/sync/upload`, which replaces the signed-in user's list. Only ids, statuses, scores
+      and episode counts are read. Size is capped before and after unzipping, and files with a DOCTYPE are refused.
+      Checked with a real export (355 entries), which matched the synced list on every id, status, score and episode count.
 - [ ] **Step 4: source switch.** A setting such as `DATA_SOURCE=anilist` chooses the source per deployment, with its
       own Memgraph data. Try it on a staging copy before switching the live site.
 - [ ] **Ask AniList to confirm** that a shared, on-demand cache fits their terms (their Discord is the quickest route).

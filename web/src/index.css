@@ -681,3 +681,9 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .match-maker { padding: 8px 10px !important; }
 .match-maker-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .match-maker-name i { font-style: normal; color: var(--muted); font-size: 11px; }
+
+/* A file picker that looks like the menu's buttons */
+.menu-upload { display: block; width: 100%; margin-top: 8px; text-align: center; background: #20242f; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
+.menu-upload:hover { border-color: var(--accent); }
+.menu-upload.disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+.menu-upload input { display: none; }

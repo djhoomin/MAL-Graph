@@ -62,6 +62,7 @@ interface State {
   relayout: () => void
   fit: () => void
   startSync: () => Promise<void>
+  uploadList: (file: File) => Promise<void>
   /** Who is signed in, plus what a sign-in redirect left in the URL. */
   loadMe: () => Promise<void>
   signOut: () => Promise<void>
@@ -238,6 +239,18 @@ export const useStore = create<State>((set, get) => ({
       set({ sync: { running: true, total: r.unfetched, done: 0, failed: [], current: null, others_in_queue: 0 } })
       void get().pollSync()
     } else set({ syncMsg: `List synced (${r.synced} entries). Nothing new to fetch.${skipped}` })
+  },
+  uploadList: async (file) => {
+    const { run, refreshUser } = get()
+    set({ syncMsg: null })
+    const r = await run('Reading your export…', () => api.uploadList(file))
+    if (!r) return
+    await refreshUser()
+    const msg = `List replaced with ${r.synced} entries from the export${r.exported_by ? ` of ${r.exported_by}` : ''}.`
+    if (r.expanding) {
+      set({ syncMsg: msg, sync: { running: true, total: r.unfetched, done: 0, failed: [], current: null, others_in_queue: 0 } })
+      void get().pollSync()
+    } else set({ syncMsg: msg })
   },
   loadMe: async () => {
     const { signedIn, authError } = signInRedirect

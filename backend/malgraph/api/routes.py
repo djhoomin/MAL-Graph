@@ -6,10 +6,10 @@ import time
 from contextlib import contextmanager
 from typing import Any, Iterator, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from starlette.concurrency import run_in_threadpool
 
-from .. import anilist, db, ingest, jobs, tour, users
+from .. import anilist, db, ingest, jobs, mal_export, tour, users
 from .. import jikan as jikan_client
 from ..jikan import JikanClient, JikanError
 from ..mal import MalError, iter_user_animelist
@@ -318,9 +318,7 @@ def sync_user(username: str, token: str | None = None, anilist_id: int | None = 
     """
     # MAL usernames are case-insensitive: reuse an existing user rather than creating a second one.
     username = users.canonical(username)
-    wait = SYNC_COOLDOWN - (time.time() - _last_sync.get(username.lower(), 0))
-    if wait > 0:
-        raise HTTPException(429, f"Your list was synced a moment ago. Try again in {int(wait) + 1} seconds.")
+    _cooldown(username)
     skipped: list[int] = []
     try:
         if anilist.is_anilist(username):
@@ -329,11 +327,22 @@ def sync_user(username: str, token: str | None = None, anilist_id: int | None = 
             n = ingest.upsert_user_list(username, iter_user_animelist(username, token=token))
     except (MalError, anilist.AniListError) as e:
         raise HTTPException(e.status if e.status in (403, 404) else 502, str(e))
+    return _after_sync(username, n, len(skipped))
+
+
+def _cooldown(username: str) -> None:
+    wait = SYNC_COOLDOWN - (time.time() - _last_sync.get(username.lower(), 0))
+    if wait > 0:
+        raise HTTPException(429, f"Your list was synced a moment ago. Try again in {int(wait) + 1} seconds.")
+
+
+def _after_sync(username: str, n: int, skipped: int) -> dict[str, Any]:
+    """After a list was replaced: start the cooldown, and queue anime not yet in the graph for fetching."""
     _last_sync[username.lower()] = time.time()
     tour.invalidate(username)
     stubs = ingest.listed_stub_ids(username)
     queued = jobs.queue.enqueue(username, stubs) if stubs else 0
-    return {"username": username, "synced": n, "skipped": len(skipped), "unfetched": len(stubs),
+    return {"username": username, "synced": n, "skipped": skipped, "unfetched": len(stubs),
             "expanding": queued > 0 or jobs.queue.status(username)["running"]}
 
 
@@ -345,6 +354,34 @@ async def sync_list() -> dict[str, Any]:
     return await run_in_threadpool(sync_user, username)
 
 
+def import_export(username: str, data: bytes) -> dict[str, Any]:
+    """Replace the user's list with the entries in a MyAnimeList list export."""
+    username = users.canonical(username)
+    _cooldown(username)
+    try:
+        exported_by, entries = mal_export.parse(data)
+    except mal_export.ExportError as e:
+        raise HTTPException(400, str(e))
+    n = ingest.upsert_user_list(username, iter(entries))
+    return {**_after_sync(username, n, 0), "exported_by": exported_by}
+
+
+@router.post("/sync/upload")
+async def upload_list(request: Request) -> dict[str, Any]:
+    """The file from MyAnimeList's Export lists, sent as the raw request body, gzipped or not."""
+    username = users.current_username()
+    if not username:
+        raise HTTPException(401, "Sign in first")
+    data = bytearray()
+    async for chunk in request.stream():
+        data += chunk
+        if len(data) > mal_export.MAX_UPLOAD:
+            raise HTTPException(413, "That file is too big to be a MyAnimeList anime list export.")
+    if not data:
+        raise HTTPException(400, "The file was empty.")
+    return await run_in_threadpool(import_export, username, bytes(data))
+
+
 @router.get("/sync/status")
 def sync_status() -> dict[str, Any]:
     return jobs.queue.status(users.current_username())
@@ -352,7 +389,6 @@ def sync_status() -> dict[str, Any]:
 
 # --------------------------------------------------------------------------- ask the graph (agent)
 
-from fastapi import Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 

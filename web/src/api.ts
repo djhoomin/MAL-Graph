@@ -280,6 +280,13 @@ export const api = {
     if (!r.ok) throw new Error('Your data could not be deleted. Please try again.')
   }),
   sync: () => req<{ username: string; synced: number; skipped?: number; unfetched: number; expanding: boolean }>('/api/sync', { method: 'POST' }),
+  /** Replace the list with the file from MyAnimeList's Export lists, sent as is. */
+  uploadList: (file: File) =>
+    req<{ username: string; synced: number; skipped?: number; unfetched: number; expanding: boolean; exported_by: string | null }>('/api/sync/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: file,
+    }),
   syncStatus: () => req<SyncStatus>('/api/sync/status'),
   stats: () => req<Record<string, number>>('/api/stats'),
 }

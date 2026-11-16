@@ -31,7 +31,7 @@ function MenuBody({ close }: { close: () => void }) {
   const nodeCount = useStore((s) => Object.keys(s.nodes).length)
   const edgeCount = useStore((s) => Object.keys(s.edges).length)
   const me = useStore((s) => s.me)
-  const { startSync, setFilter, loadNeighbors, relayout, clear, signOut } = useStore.getState()
+  const { startSync, uploadList, setFilter, loadNeighbors, relayout, clear, signOut } = useStore.getState()
   const act = (fn: () => void) => () => {
     fn()
     close()
@@ -54,6 +54,21 @@ function MenuBody({ close }: { close: () => void }) {
         <button className="wide" hidden={!user?.username} disabled={!!busy || !!sync?.running} onClick={() => void startSync()} title="Re-read your list, then fetch any new anime">
           {sync?.running ? `Fetching ${sync.done} of ${sync.total}…` : 'Sync list'}
         </button>
+        {user?.username && (
+          <label className={`button wide menu-upload ${busy || sync?.running ? 'disabled' : ''}`} title="Replace your list with the file from Export lists on MyAnimeList (.xml or .xml.gz)">
+            Upload MyAnimeList export
+            <input
+              type="file"
+              accept=".xml,.gz,application/xml,text/xml,application/gzip"
+              disabled={!!busy || !!sync?.running}
+              onChange={(e) => {
+                const file = e.currentTarget.files?.[0]
+                e.currentTarget.value = '' // the same file can be picked again
+                if (file) void uploadList(file)
+              }}
+            />
+          </label>
+        )}
         {syncMsg && <div className="muted small-text">{syncMsg}</div>}
       </section>
 
