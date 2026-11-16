@@ -30,6 +30,9 @@ export function HelpPage() {
         <h2>Graph tour</h2>
         <p>The <a href="#/tour">graph tour</a>, in the menu, answers questions about your taste from the shape of your graph. It finds clusters of anime that belong together, the people who connect them, and the one person a cluster would fall apart without. It also finds shows made by the same team, new shows to watch with the reasons that lead to them, and the people who keep working together. Last, it measures how far apart your anime are, from the two furthest apart to the ones at the centre and the islands that connect to nothing else. The Voices switch asks some of the same questions of a graph linked only by the voice actors of main characters, such as which shows share a main cast and which voice actors keep leading together. It explains the graph idea behind each answer.</p>
 
+        <h2>Taste match</h2>
+        <p><a href="#/match">Taste match</a> compares your list with a friend's, once you've both agreed. Make an invite link and send it to them, and when they accept you'll each see a match score. It's made from how closely you scored the anime you've both watched, measured against each person's own average, from how alike the studios, directors, writers, voice actors and genres you each rate highly are, and from how much of the same anime you've watched, where rarer shared shows count for more. It also suggests anime from each other's favourites and from your shared plans to watch. Either of you can unlink at any time.</p>
+
         <h2>Insights and the voice actor roster</h2>
         <p>Insights, in the menu, sums up your list with a timeline, the people who show up most in it, recommendations and gaps. The voice actor roster lists the voice actors in your anime and the characters they voice in it.</p>
 

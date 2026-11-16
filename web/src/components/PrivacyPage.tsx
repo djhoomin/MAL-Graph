@@ -44,11 +44,12 @@ export function PrivacyPage() {
           <li>Your anime list. For each anime that means its status, your score, the episodes you've watched, whether you're rewatching it and when you last updated it. Private lists are included, because you sign in with your own account.</li>
           <li>The questions you ask in Ask the graph, the answers, and how many questions you asked each day.</li>
           <li>Your plays of the daily games, meaning your Graph Golf moves and score, your Odd one out picks, your Mystery character guesses, and every Kiss Marry Kill round you finish, which make up your collection.</li>
+          <li>Who you've linked with in Taste match, and your open invite link.</li>
         </ul>
         <p>MAL-Graph never sees your MyAnimeList password, because MyAnimeList handles the sign-in. The access MyAnimeList grants is used once to read your list and is then discarded. MAL-Graph never changes anything on MyAnimeList.</p>
 
         <h2>Who can see it</h2>
-        <p>Only you. Other people can't see your list, your questions or your game plays. Daily results show only counts, such as how many players got each score or chose Kiss for a character, and never names.</p>
+        <p>Only you, unless you link with someone in Taste match. Linking needs an invite link from one of you that the other accepts. Once linked, you each see how well your tastes match, the scores you each gave the anime you've both watched, the studios and people you both rate highly, the anime each of you rated highest that the other hasn't watched, and the anime you both plan to watch. Either of you can unlink at any time. Otherwise, other people can't see your list, your questions or your game plays. Daily results show only counts, such as how many players got each score or chose Kiss for a character, and never names.</p>
         <p>The anime, characters, voice actors and staff in the graph are public MyAnimeList data that everyone shares.</p>
 
         <h2>Other services involved</h2>
@@ -69,7 +70,7 @@ export function PrivacyPage() {
           <p className="doc-done">Your data has been deleted and you are signed out. Copies in backups disappear within 30 days.</p>
         ) : me?.username && me.sign_in ? (
           <>
-            <p>This removes your list, your Ask conversations and your game plays from MAL-Graph straight away, and signs you out. Copies in backups disappear within 30 days. Your MyAnimeList account isn't affected, and signing in again would read your list again.</p>
+            <p>This removes your list, your Ask conversations, your game plays and your Taste match links from MAL-Graph straight away, and signs you out. Copies in backups disappear within 30 days. Your MyAnimeList account isn't affected, and signing in again would read your list again.</p>
             {confirming ? (
               <div className="doc-confirm">
                 <p>

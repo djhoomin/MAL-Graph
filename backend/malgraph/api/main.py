@@ -6,7 +6,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .. import agent, auth, db, genders, ingest, users
 from ..config import settings
-from . import auth_routes, game_routes, golf_routes, kmk_routes, tour_routes
+from . import auth_routes, game_routes, golf_routes, kmk_routes, match_routes, tour_routes
 from .ratelimit import RateLimitMiddleware
 from .routes import router
 
@@ -59,6 +59,7 @@ app.include_router(golf_routes.router)
 app.include_router(kmk_routes.router)
 app.include_router(game_routes.router)
 app.include_router(tour_routes.router)
+app.include_router(match_routes.router)
 
 
 @app.on_event("startup")

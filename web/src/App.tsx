@@ -10,6 +10,7 @@ import { PathBar } from './components/PathBar'
 import { PrivacyPage } from './components/PrivacyPage'
 import { HelpPage } from './components/HelpPage'
 import { KmkPage } from './components/KmkPage'
+import { MatchPage, PENDING_INVITE_KEY } from './components/MatchPage'
 import { MysteryPage } from './components/MysteryPage'
 import { OddPage } from './components/OddPage'
 import { RosterPage } from './components/RosterPage'
@@ -20,10 +21,21 @@ import { SyncPill, Welcome } from './components/Welcome'
 import { useGolf } from './golf'
 import { InsightsPage } from './insights/InsightsPage'
 import { useStore } from './store'
-import { useHashRoute } from './useHashRoute'
+import { navigate, useHashRoute } from './useHashRoute'
 
 export default function App() {
   const route = useHashRoute()
+  // Someone opened an invite before signing in, and signing in brought them back to the start page.
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem(PENDING_INVITE_KEY)
+      if (!token) return
+      localStorage.removeItem(PENDING_INVITE_KEY)
+      if (!window.location.hash.replace(/^#\/?/, '')) navigate(`match/join/${token}`)
+    } catch {
+      /* storage blocked */
+    }
+  }, [])
   if (route[0] === 'roster') return <RosterPage personId={route[1]} />
   if (route[0] === 'insights') return <InsightsPage />
   if (route[0] === 'privacy') return <PrivacyPage />
@@ -33,6 +45,7 @@ export default function App() {
   if (route[0] === 'odd') return <OddPage />
   if (route[0] === 'mystery') return <MysteryPage />
   if (route[0] === 'yay') return <YayPage />
+  if (route[0] === 'match') return <MatchPage route={route} />
   return <GraphPage />
 }
 

@@ -570,3 +570,71 @@ export const kmkHistoryApi = {
   rescue: (roundId: string) => req<{ rescued: number }>(`/api/kmk/rounds/${roundId}/rescue`, post({})),
   history: () => req<KmkHistory>('/api/kmk/history'),
 }
+
+/** An anime named in a taste match, with each person's score (the average over a series' seasons). */
+export interface MatchAnime {
+  id: number
+  title: string
+  image: string | null
+  members: number | null
+  you: number | null
+  them: number | null
+}
+export type MakerKind = 'studio' | 'director' | 'writer' | 'voice' | 'genre'
+export interface MatchMaker {
+  kind: MakerKind
+  name: string
+  you: number // points above your own average, on average, for their series
+  them: number
+}
+/** Something to watch, with what makes it likely to suit the person it's for. */
+export interface MatchPick {
+  id: number
+  title: string
+  image: string | null
+  members: number | null
+  score?: number // what the person recommending it gave it
+  planned?: boolean // already on the plan to watch of the person it's for
+  because: { kind: MakerKind; name: string } | null
+}
+export interface Match {
+  them: string
+  match: number // 0 to 100
+  parts: { agreement: number | null; makers: number | null; overlap: number } // null when there's too little to compare
+  weights: { agreement: number; makers: number; overlap: number } // percent of the match
+  counts: { shared: number; scored: number; only_you: number; only_them: number; rare: number; planned: number }
+  means: { you: number; them: number }
+  loved: MatchAnime[]
+  split: MatchAnime[]
+  rare: MatchAnime[]
+  makers: MatchMaker[]
+  for_you: MatchPick[]
+  for_them: MatchPick[]
+  together: MatchPick[]
+}
+export interface MatchLink {
+  username: string
+  since: number
+  match: number
+  shared: number
+}
+export interface MatchInvite {
+  token: string
+  expires: number
+}
+
+/** A request that answers 204 No Content. */
+async function send(path: string, init: RequestInit): Promise<void> {
+  const res = await fetch(BASE + path, init)
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`)
+}
+
+export const matchApi = {
+  overview: () => req<{ links: MatchLink[]; invite: MatchInvite | null; invite_days: number }>('/api/match'),
+  invite: () => req<MatchInvite>('/api/match/invite', { method: 'POST' }),
+  cancelInvite: () => send('/api/match/invite', { method: 'DELETE' }),
+  seeInvite: (token: string) => req<{ from: string; own: boolean; linked: boolean }>(`/api/match/invite/${encodeURIComponent(token)}`),
+  accept: (token: string) => req<{ username: string }>(`/api/match/invite/${encodeURIComponent(token)}`, { method: 'POST' }),
+  compare: (username: string) => req<Match>(`/api/match/with/${encodeURIComponent(username)}`),
+  unlink: (username: string) => send(`/api/match/with/${encodeURIComponent(username)}`, { method: 'DELETE' }),
+}

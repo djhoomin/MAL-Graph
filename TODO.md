@@ -56,7 +56,7 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
 - [x] **Yay or Nay.** Swipe right or left on character cards, as a daily stack of 20 with each card's yay share and as
       an endless stack from your list. Your patterns shows the voice actors, studios, genres and series your yays and
       nays lean towards. It asks no question on purpose: a "Smash or Pass" framing would need age data the graph lacks.
-- [ ] **Yay or Nay on a real phone.** The swipe is built on pointer events and tested with a mouse and keyboard only.
+- [x] **Yay or Nay on a real phone.** The swipe is built on pointer events. Checked on a phone and works well.
 - [ ] **Who's the link.** Two anime, and the player names a person who worked on both using search. Rarer answers
       score more, so a much-cast voice actor is worth less than the shared sound director.
 - [ ] **Voice chain.** Build the longest chain alternating character, voice actor, character through anime you've
@@ -90,12 +90,17 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       a main role in 9 series. Generations of voice actors may still form islands on lists that go back decades.
 - [ ] **Theme draft.** Two to four friends take turns drafting characters for a Kiss Marry Kill roulette theme, then
       vote on the best team. Reuses the existing theme pools.
-- [ ] **Taste match (next up).** Compare two people's lists for a compatibility score with reasons: how closely they
-      scored the anime both have seen, shared favourite voice actors and studios both rate highly. It should also list
-      what one loved that the other hasn't seen, both ways, and the anime both have on plan to watch, as picks to watch
-      together. Lists are private, so both people must agree through an invite link before anything is compared, and
-      either one can unlink at any time. Unlinking and account deletion must remove the link. Asked for in November
-      2026, now that two people use the app.
+- [x] **Taste match.** Invite links (one use, 7 days), unlinking, and removal on account deletion. The match blends
+      score agreement (cosine of each person's scores measured from their own average, over shared series), shared
+      makers (cosine of profiles of studios, directors, series composers, lead voices and genres) and watched overlap
+      (Jaccard weighted by 1 / log(members)). Agreement weighs up to 50%, less with few shared scores, and makers take
+      the rest after overlap's 20%. It names the series both loved, where they disagree, rare shared ones and the makers
+      both rate, and picks from each other's favourites and from both plans to watch, each with the maker behind it.
+      Links live in `data/golf/match/links.json`.
+- [ ] **Taste match summary (later).** An LLM-written summary of a match, written from the same data the page shows.
+- [ ] **Calibrate taste match** once a few real pairs are linked. The weights and the square root on overlap were set
+      on one real list and a synthetic one. A pick shows its series' most-watched entry, which picks a later season when
+      the first one has no member count yet (Bungou Stray Dogs).
 
 ## Checks not done yet
 
