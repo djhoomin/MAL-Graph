@@ -1,4 +1,4 @@
-import { SIGN_IN_URL } from '../api'
+import { ANILIST_SIGN_IN_URL, SIGN_IN_URL } from '../api'
 import { useStore } from '../store'
 
 // Sign-in error codes from /api/auth/callback. Unknown codes get the generic message, so a crafted link can't show
@@ -7,8 +7,8 @@ const AUTH_ERRORS: Record<string, string> = {
   cancelled: 'Sign-in was cancelled.',
   incomplete: 'Sign-in did not complete. Please try again.',
   expired: 'The sign-in took too long or was started in another tab. Please try again.',
-  rejected: 'MyAnimeList did not accept the sign-in. Please try again.',
-  profile: 'MyAnimeList did not return your profile. Please try again.',
+  rejected: 'The sign-in was not accepted. Please try again.',
+  profile: 'Your profile could not be read. Please try again.',
   list: 'You are signed in, but your list could not be read. Try Sync list in the menu.',
 }
 
@@ -16,18 +16,24 @@ const AUTH_ERRORS: Record<string, string> = {
 export function Welcome() {
   const code = useStore((s) => s.authError)
   const authError = code ? (AUTH_ERRORS[code] ?? AUTH_ERRORS.incomplete) : null
+  const anilist = useStore((s) => !!s.me?.anilist)
   return (
     <div className="welcome float-panel" role="dialog" aria-labelledby="welcome-title">
       <h2 id="welcome-title">Your anime, as a graph</h2>
-      <p className="muted">Sign in with MyAnimeList to map your list and the characters, voice actors and staff behind it.</p>
+      <p className="muted">Sign in with {anilist ? 'MyAnimeList or AniList' : 'MyAnimeList'} to map your list and the characters, voice actors and staff behind it.</p>
       <a className="button primary" href={SIGN_IN_URL}>
         Sign in with MyAnimeList
       </a>
+      {anilist && (
+        <a className="button secondary" href={ANILIST_SIGN_IN_URL}>
+          Sign in with AniList
+        </a>
+      )}
       {authError && <div className="error">{authError}</div>}
       <div className="muted small-text">
-        MAL-Graph only reads your anime list and never posts to MyAnimeList. By signing in you agree to the <a href="#/privacy">privacy notice</a>.
+        MAL-Graph only reads your anime list and never posts anything. By signing in you agree to the <a href="#/privacy">privacy notice</a>.
       </div>
-      <div className="muted small-text">Data from MyAnimeList. Not affiliated with MyAnimeList.</div>
+      <div className="muted small-text">Data from MyAnimeList{anilist ? ' and AniList' : ''}. Not affiliated with MyAnimeList{anilist ? ' or AniList' : ''}.</div>
     </div>
   )
 }

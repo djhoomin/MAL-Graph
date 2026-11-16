@@ -9,7 +9,7 @@ from typing import Any, Iterator, Literal
 from fastapi import APIRouter, HTTPException, Query
 from starlette.concurrency import run_in_threadpool
 
-from .. import db, ingest, jobs, tour, users
+from .. import anilist, db, ingest, jobs, tour, users
 from .. import jikan as jikan_client
 from ..jikan import JikanClient, JikanError
 from ..mal import MalError, iter_user_animelist
@@ -309,33 +309,39 @@ SYNC_COOLDOWN = 60  # seconds between list syncs for the same user (each one cal
 _last_sync: dict[str, float] = {}
 
 
-def sync_user(username: str, token: str | None = None) -> dict[str, Any]:
-    """Re-read a user's MAL list, then queue any anime not yet in the graph for background fetching.
+def sync_user(username: str, token: str | None = None, anilist_id: int | None = None) -> dict[str, Any]:
+    """Re-read a user's list from MyAnimeList or AniList, then queue any anime not yet in the graph for background
+    fetching.
 
-    Raises HTTPException for the cooldown and for MAL errors. With a token (straight after sign-in) a private list
-    can be read too.
+    Raises HTTPException for the cooldown and for errors from the list's site. With a token (straight after sign-in)
+    a private list can be read too.
     """
     # MAL usernames are case-insensitive: reuse an existing user rather than creating a second one.
     username = users.canonical(username)
     wait = SYNC_COOLDOWN - (time.time() - _last_sync.get(username.lower(), 0))
     if wait > 0:
         raise HTTPException(429, f"Your list was synced a moment ago. Try again in {int(wait) + 1} seconds.")
+    skipped: list[int] = []
     try:
-        n = ingest.upsert_user_list(username, iter_user_animelist(username, token=token))
-    except MalError as e:
+        if anilist.is_anilist(username):
+            n = ingest.upsert_user_list(username, anilist.iter_list(username, token=token, user_id=anilist_id, skipped=skipped))
+        else:
+            n = ingest.upsert_user_list(username, iter_user_animelist(username, token=token))
+    except (MalError, anilist.AniListError) as e:
         raise HTTPException(e.status if e.status in (403, 404) else 502, str(e))
     _last_sync[username.lower()] = time.time()
     tour.invalidate(username)
     stubs = ingest.listed_stub_ids(username)
     queued = jobs.queue.enqueue(username, stubs) if stubs else 0
-    return {"username": username, "synced": n, "unfetched": len(stubs), "expanding": queued > 0 or jobs.queue.status(username)["running"]}
+    return {"username": username, "synced": n, "skipped": len(skipped), "unfetched": len(stubs),
+            "expanding": queued > 0 or jobs.queue.status(username)["running"]}
 
 
 @router.post("/sync")
 async def sync_list() -> dict[str, Any]:
     username = users.current_username()
     if not username:
-        raise HTTPException(401, "Sign in with MyAnimeList first")
+        raise HTTPException(401, "Sign in first")
     return await run_in_threadpool(sync_user, username)
 
 

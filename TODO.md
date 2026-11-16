@@ -30,8 +30,12 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       MyAnimeList id keep the name, since those really are MyAnimeList ids. UI copy still says MAL.
 - [ ] **Step 2: AniList data adapter.** Build the same graph shape from AniList, on demand: the user's list anime
       plus whatever they expand. Reuse the rate-limited client in `backend/malgraph/genders.py`.
-- [ ] **Step 3: lists without the MyAnimeList API.** Sign in with AniList (OAuth), and accept an upload of the list
-      export file that MyAnimeList lets every user download.
+- [x] **Step 3a: sign in with AniList.** AniList OAuth (`/api/auth/anilist/login` and `/callback`, client in
+      `ANILIST_CLIENT_ID` and `ANILIST_API_KEY`). AniList users are stored as `<name>@anilist`, and their list joins
+      today's graph through each anime's `idMal`, so anime without one are skipped and counted. Sync list rereads a
+      public AniList list, and a private one needs signing in again, as with MyAnimeList. An AniList deployment will
+      use the same sign-in with AniList ids instead.
+- [ ] **Step 3b: list export upload.** Accept the list export file that MyAnimeList lets every user download.
 - [ ] **Step 4: source switch.** A setting such as `DATA_SOURCE=anilist` chooses the source per deployment, with its
       own Memgraph data. Try it on a staging copy before switching the live site.
 - [ ] **Ask AniList to confirm** that a shared, on-demand cache fits their terms (their Discord is the quickest route).

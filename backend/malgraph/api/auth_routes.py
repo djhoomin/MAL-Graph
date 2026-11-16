@@ -1,4 +1,4 @@
-"""/api/auth: sign in with MyAnimeList, sign out, and who is signed in."""
+"""/api/auth: sign in with MyAnimeList or AniList, sign out, and who is signed in."""
 from __future__ import annotations
 
 from typing import Any
@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from .. import auth, privacy, users
+from .. import anilist, auth, privacy, users
 from ..config import settings
 from .routes import sync_user
 
@@ -23,7 +23,14 @@ def _home(**params: str) -> RedirectResponse:
 
 @router.get("/me")
 def me() -> dict[str, Any]:
-    return {"username": users.current_username(), "sign_in": settings.sign_in, "contact": settings.privacy_contact or None}
+    username = users.current_username()
+    return {
+        "username": username,
+        "source": "anilist" if anilist.is_anilist(username) else "mal" if username else None,
+        "sign_in": settings.sign_in,
+        "anilist": settings.anilist_sign_in,
+        "contact": settings.privacy_contact or None,
+    }
 
 
 @router.delete("/account")
@@ -70,6 +77,39 @@ async def callback(request: Request, code: str | None = None, state: str | None 
     resp = _home(**params)
     resp.set_cookie(auth.SESSION_COOKIE, auth.session_value(username), **auth.cookie_options(auth.SESSION_DAYS * 86400))
     resp.delete_cookie(auth.OAUTH_COOKIE, path="/api/auth")
+    return resp
+
+
+@router.get("/anilist/login")
+def anilist_login() -> RedirectResponse:
+    if not settings.anilist_sign_in:
+        raise HTTPException(404, "Sign-in with AniList is not configured on this server")
+    url, attempt = anilist.start()
+    resp = RedirectResponse(url, status_code=303)
+    resp.set_cookie(anilist.OAUTH_COOKIE, attempt, **auth.cookie_options(auth.OAUTH_MINUTES * 60, path="/api/auth"))
+    return resp
+
+
+@router.get("/anilist/callback")
+async def anilist_callback(request: Request, code: str | None = None, state: str | None = None, error: str | None = None) -> RedirectResponse:
+    if error or not code or not state:
+        return _home(auth_error="cancelled" if error == "access_denied" else "incomplete")
+    try:
+        username, token, user_id = await run_in_threadpool(anilist.finish, code, state, request.cookies.get(anilist.OAUTH_COOKIE))
+    except auth.AuthError as e:
+        return _home(auth_error=e.code)
+
+    username = await run_in_threadpool(users.canonical, username)
+    params: dict[str, str] = {"signed_in": "1"}
+    try:
+        with users.use_user(username):
+            await run_in_threadpool(sync_user, username, token, user_id)
+    except HTTPException as e:
+        if e.status_code != 429:
+            params["auth_error"] = "list"
+    resp = _home(**params)
+    resp.set_cookie(auth.SESSION_COOKIE, auth.session_value(username), **auth.cookie_options(auth.SESSION_DAYS * 86400))
+    resp.delete_cookie(anilist.OAUTH_COOKIE, path="/api/auth")
     return resp
 
 

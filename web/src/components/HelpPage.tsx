@@ -22,7 +22,7 @@ export function HelpPage() {
         <p>Search for an anime, a character or a person in the bar at the top, and pick a result to put it on the graph. Tap any dot to open its card. On the card, Expand adds everything connected to it, and the ⋯ button has more, such as a voice actor's roles, opening it on MyAnimeList or removing it from the graph.</p>
         <p>Path finds the shortest chain between two things. Tap Path on one card, then tap the other one on the graph or search for it, and the chain is drawn.</p>
         <p>Filters, at the bottom left, hide kinds of dots or connections, or everything that isn't on your list. The button at the bottom right fits the graph to the screen, and holding it down rearranges the graph. Drag with one finger to move around and pinch to zoom.</p>
-        <p>The menu at the top right has Add my list to the graph, which puts your whole list on at once, and Sync list, which picks up changes you've made on MyAnimeList since.</p>
+        <p>The menu at the top right has Add my list to the graph, which puts your whole list on at once, and Sync list, which picks up changes you've made on MyAnimeList or AniList since.</p>
 
         <h2>Ask</h2>
         <p>The speech bubble at the bottom right opens Ask. You can ask questions about your list and the anime, characters and people in it, such as "Which voice actors appear most in what I've watched?" or "What sequels haven't I seen?". The answer is written out, and you can open what it found on the graph. There's a limit on questions per day.</p>

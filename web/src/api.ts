@@ -130,9 +130,12 @@ const BASE = import.meta.env.VITE_API_BASE ?? ''
 
 /** Full-page navigation target that starts "Sign in with MyAnimeList". */
 export const SIGN_IN_URL = BASE + '/api/auth/login'
+export const ANILIST_SIGN_IN_URL = BASE + '/api/auth/anilist/login'
 export interface Me {
-  username: string | null
+  username: string | null // AniList accounts end in "@anilist"
+  source?: 'mal' | 'anilist' | null // where the signed-in user's list comes from
   sign_in: boolean // false when the server has no MAL sign-in configured (local development)
+  anilist?: boolean // whether "Sign in with AniList" is configured
   contact?: string | null // who runs the site, for the privacy page
 }
 
@@ -276,7 +279,7 @@ export const api = {
   deleteAccount: () => fetch(BASE + '/api/auth/account', { method: 'DELETE' }).then((r) => {
     if (!r.ok) throw new Error('Your data could not be deleted. Please try again.')
   }),
-  sync: () => req<{ username: string; synced: number; unfetched: number; expanding: boolean }>('/api/sync', { method: 'POST' }),
+  sync: () => req<{ username: string; synced: number; skipped?: number; unfetched: number; expanding: boolean }>('/api/sync', { method: 'POST' }),
   syncStatus: () => req<SyncStatus>('/api/sync/status'),
   stats: () => req<Record<string, number>>('/api/stats'),
 }

@@ -20,6 +20,9 @@ class Settings:
     # the MAL app's redirect URL must be {PUBLIC_URL}/api/auth/callback.
     public_url: str = os.getenv("PUBLIC_URL", "").rstrip("/")
     session_secret: str = os.getenv("SESSION_SECRET", "")
+    # "Sign in with AniList": an AniList API client whose redirect URL is {PUBLIC_URL}/api/auth/anilist/callback.
+    anilist_client_id: str = os.getenv("ANILIST_CLIENT_ID", "")
+    anilist_client_secret: str = os.getenv("ANILIST_API_KEY", "")  # the client's secret
     genders_worker: bool = os.getenv("GENDERS_WORKER", "1") != "0"  # fill character genders in from AniList in the background
     privacy_contact: str = os.getenv("PRIVACY_CONTACT", "")  # who runs the site and how to reach them, shown on the privacy page
     memgraph_uri: str = os.getenv("MEMGRAPH_URI", "bolt://localhost:7687")
@@ -40,6 +43,10 @@ class Settings:
     @property
     def sign_in(self) -> bool:
         return bool(self.public_url and self.mal_client_id)
+
+    @property
+    def anilist_sign_in(self) -> bool:
+        return bool(self.sign_in and self.anilist_client_id and self.anilist_client_secret)
 
 
 settings = Settings()

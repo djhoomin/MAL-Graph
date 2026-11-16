@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { errorText, matchApi, SIGN_IN_URL, type MakerKind, type Match, type MatchAnime, type MatchInvite, type MatchLink, type MatchMaker, type MatchPick } from '../api'
+import { ANILIST_SIGN_IN_URL, errorText, matchApi, SIGN_IN_URL, type MakerKind, type Match, type MatchAnime, type MatchInvite, type MatchLink, type MatchMaker, type MatchPick } from '../api'
+import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
 /** Where a visitor's invite waits while they sign in, since signing in comes back to the start page. */
@@ -14,6 +15,10 @@ const inviteUrl = (token: string) => `${window.location.origin}${window.location
 /** Taste match: compare your list with someone else's, once you've both agreed to it through an invite link. */
 export function MatchPage({ route }: { route: string[] }) {
   const [view, arg] = [route[1], route[2] ? decodeURIComponent(route[2]) : '']
+  // Opened straight from an invite link, the app hasn't asked who is signed in or which sign-ins exist yet.
+  useEffect(() => {
+    if (!useStore.getState().me) void useStore.getState().loadMe()
+  }, [])
   return (
     <div className="doc-page">
       <header className="doc-head">
@@ -35,12 +40,20 @@ export function MatchPage({ route }: { route: string[] }) {
 }
 
 function SignIn({ text }: { text: string }) {
+  const anilist = useStore((s) => !!s.me?.anilist)
   return (
     <div className="match-signin">
       <p>{text}</p>
-      <a className="button primary" href={SIGN_IN_URL}>
-        Sign in with MyAnimeList
-      </a>
+      <div className="match-link-actions">
+        <a className="button primary" href={SIGN_IN_URL}>
+          Sign in with MyAnimeList
+        </a>
+        {anilist && (
+          <a className="button primary" href={ANILIST_SIGN_IN_URL}>
+            Sign in with AniList
+          </a>
+        )}
+      </div>
     </div>
   )
 }

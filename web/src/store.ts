@@ -228,13 +228,16 @@ export const useStore = create<State>((set, get) => ({
   startSync: async () => {
     const { run, refreshUser } = get()
     set({ syncMsg: null })
-    const r = await run('Syncing MAL list…', api.sync)
+    const r = await run('Syncing your list…', api.sync)
     if (!r) return
     await refreshUser()
+    // AniList anime that aren't on MyAnimeList can't join the graph yet.
+    const skipped = r.skipped ? ` ${r.skipped} ${r.skipped === 1 ? "anime isn't" : "anime aren't"} on MyAnimeList, so ${r.skipped === 1 ? "it's" : "they're"} left out.` : ''
     if (r.expanding) {
+      if (skipped) set({ syncMsg: skipped.trim() })
       set({ sync: { running: true, total: r.unfetched, done: 0, failed: [], current: null, others_in_queue: 0 } })
       void get().pollSync()
-    } else set({ syncMsg: `List synced (${r.synced} entries). Nothing new to fetch.` })
+    } else set({ syncMsg: `List synced (${r.synced} entries). Nothing new to fetch.${skipped}` })
   },
   loadMe: async () => {
     const { signedIn, authError } = signInRedirect
@@ -242,7 +245,7 @@ export const useStore = create<State>((set, get) => ({
       const me = await api.me()
       set({ me, authError })
       // Signed in, but reading the list failed: the welcome card isn't shown, so say it in the toast.
-      if (me.username && authError === 'list') set({ error: 'Your list could not be read from MyAnimeList. Try Sync list in the menu.' })
+      if (me.username && authError === 'list') set({ error: 'Your list could not be read. Try Sync list in the menu.' })
       // First thing after signing in: the user's own list on the canvas.
       if (signedIn && me.username && Object.keys(get().nodes).length === 0) void get().loadNeighbors(`User:${me.username}`)
     } catch {

@@ -49,9 +49,9 @@ function MenuBody({ close }: { close: () => void }) {
             {user.unfetched > 0 && <div className="muted small-text">{user.unfetched} not fetched from MAL yet</div>}
           </>
         ) : (
-          <div className="muted">{me?.sign_in ? 'Not signed in' : 'No MAL list synced yet'}</div>
+          <div className="muted">{me?.sign_in ? 'Not signed in' : 'No list synced yet'}</div>
         )}
-        <button className="wide" hidden={!user?.username} disabled={!!busy || !!sync?.running} onClick={() => void startSync()} title="Re-fetch your MAL list, then fetch any new anime from MAL">
+        <button className="wide" hidden={!user?.username} disabled={!!busy || !!sync?.running} onClick={() => void startSync()} title="Re-read your list, then fetch any new anime">
           {sync?.running ? `Fetching ${sync.done} of ${sync.total}…` : 'Sync list'}
         </button>
         {syncMsg && <div className="muted small-text">{syncMsg}</div>}

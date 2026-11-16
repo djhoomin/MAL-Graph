@@ -333,6 +333,7 @@ button.wide { display: block; width: 100%; margin-top: 8px; }
 .welcome p { margin: 0; line-height: 1.45; }
 .welcome a.button { display: flex; align-items: center; justify-content: center; height: 40px; margin-top: 4px; border-radius: 6px; background: var(--accent); color: #fff; font-weight: 600; text-decoration: none; }
 .welcome a.button:hover { filter: brightness(1.1); }
+.welcome a.button.secondary { margin-top: 0; background: #02a9ff; }
 .shell.welcoming .empty-hint { display: none; }
 
 /* background fetch progress */
