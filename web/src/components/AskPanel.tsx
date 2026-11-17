@@ -13,6 +13,9 @@ interface Turn {
   usage?: { prompt_tokens: number; completion_tokens: number; cached_tokens?: number } | null
   error?: string | null
   notice?: string
+  draft?: string // the answer as it streams in, replaced by text when it's done
+  run_id?: string
+  feedback?: number | null
 }
 
 const when = (t: number) => {
@@ -146,7 +149,13 @@ export function AskPanel() {
         sessionRef.current = ev.id
         break
       case 'tool_call':
-        update((a) => (a.steps = [...a.steps, { name: ev.name, args: ev.args }]))
+        update((a) => {
+          a.steps = [...a.steps, { name: ev.name, args: ev.args }]
+          a.draft = undefined // what the model wrote before calling a tool was a preamble
+        })
+        break
+      case 'delta':
+        update((a) => (a.draft = (a.draft ?? '') + ev.text))
         break
       case 'tool_error':
         update((a) => {
@@ -164,14 +173,34 @@ export function AskPanel() {
         update((a) => (a.cards = [...a.cards, { title: ev.title, cards: ev.cards }]))
         break
       case 'answer':
-        update((a) => (a.text = ev.text))
+        update((a) => {
+          a.text = ev.text
+          a.draft = undefined
+        })
         break
       case 'error':
         update((a) => (a.error = ev.message))
         break
       case 'done':
-        update((a) => (a.usage = ev.usage))
+        update((a) => {
+          a.usage = ev.usage
+          a.run_id = ev.run_id
+          a.draft = undefined
+        })
         break
+    }
+  }
+
+  const rate = async (i: number, score: number) => {
+    const id = sessionRef.current
+    const t = turns[i]
+    if (!id || !t.run_id) return
+    const next = t.feedback === score ? null : score // the same thumb again takes it back
+    setTurns((all) => all.map((x, j) => (j === i ? { ...x, feedback: next } : x)))
+    try {
+      await api.answerFeedback(id, t.run_id, next)
+    } catch {
+      setTurns((all) => all.map((x, j) => (j === i ? { ...x, feedback: t.feedback } : x)))
     }
   }
 
@@ -287,6 +316,7 @@ export function AskPanel() {
                 </div>
               ))}
               {t.text && <div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(t.text) }} />}
+              {!t.text && t.draft && <div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(t.draft) }} />}
               {t.text && t.steps.some((s) => s.name === 'show_on_canvas' && !s.error) && (
                 <button className="link phone-only" onClick={() => useStore.getState().setAskOpen(false)}>
                   See it on the graph
@@ -294,7 +324,17 @@ export function AskPanel() {
               )}
               {t.error && <div className="error">{t.error}</div>}
               {t.notice && <div className="muted" style={{ fontSize: 11 }}>{t.notice}</div>}
-              {!t.text && !t.error && t.steps.length === 0 && busy && i === turns.length - 1 && <div className="muted">thinking…</div>}
+              {!t.text && !t.draft && !t.error && t.steps.length === 0 && busy && i === turns.length - 1 && <div className="muted">thinking…</div>}
+              {t.text && t.run_id && !(busy && i === turns.length - 1) && (
+                <div className="answer-rating">
+                  <button className={`small ${t.feedback === 1 ? 'on' : ''}`} onClick={() => void rate(i, 1)} aria-pressed={t.feedback === 1} title="Good answer">
+                    👍
+                  </button>
+                  <button className={`small ${t.feedback === 0 ? 'on' : ''}`} onClick={() => void rate(i, 0)} aria-pressed={t.feedback === 0} title="Bad answer">
+                    👎
+                  </button>
+                </div>
+              )}
               {t.usage && (
                 <div className="usage muted">
                   {t.usage.prompt_tokens.toLocaleString()} in

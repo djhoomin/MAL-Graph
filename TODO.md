@@ -118,6 +118,26 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       on one real list and a synthetic one. A pick shows its series' most-watched entry, which picks a later season when
       the first one has no member count yet (Bungou Stray Dogs).
 
+## Ask agent
+
+- [x] **Answer from what it has when the tool budget runs out.** The graph counts tool calls per turn. Past
+      `MAX_STEPS` (20), an `out_of_steps` node answers the pending calls with a note and the model answers with
+      `tool_choice="none"`, from what it found. `recursion_limit` stays only as a guard against a loop.
+- [x] **Stronger evals.** Experiments ask every question three times (`--repetitions`). A trajectory check looks for
+      a tool suited to the question, no repeated calls and no cards before data. A judge model (`ASK_JUDGE_MODEL`,
+      Claude Sonnet 5.5 by default) grades how well each answer serves its question, with rubrics for the
+      recommendations, privacy and connection questions.
+- [x] **Keep old tool results out of the context.** The model sees the current turn in full and only the questions
+      and answers of earlier turns, the last 10 within 30,000 characters. The checkpointer still keeps everything.
+- [x] **Stream the answer.** The graph streams in `messages` and `updates` modes, and the UI shows the reply as it
+      arrives. Text a model writes before a tool call is dropped when the call arrives.
+- [x] **Compile the graph once.** The system prompt, the conversation id and the turn's UI side effects travel as the
+      run's context (`AskContext`), and a small tool node of our own replaced the prebuilt ToolNode and the
+      ContextVar. `create_agent` needs the `langchain` package, which isn't installed, and the nudge and out-of-steps
+      steps are custom, so the hand-built graph stays.
+- [x] **Thumbs up and down on answers.** Each turn keeps its run id. A thumb is saved with the conversation and, for
+      traced users, sent to LangSmith as `user_score` feedback on the run. The same thumb again takes it back.
+
 ## Checks not done yet
 
 - [x] **Graph Golf on a phone.** The layout was built for phones but only tested on a desktop.

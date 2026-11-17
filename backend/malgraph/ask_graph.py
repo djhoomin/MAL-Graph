@@ -1,21 +1,26 @@
 """Ask the graph, as a LangGraph agent.
 
-The graph has three nodes:
+The graph has four nodes:
 
-    START -> agent -> (tool calls?) -> tools -> agent -> ...
+    START -> agent -> (tool calls, within the budget?) -> tools -> agent -> ...
+                   -> (tool calls past the budget?) -> out_of_steps -> agent
                    -> (empty reply, first time?) -> nudge -> agent
                    -> END
 
-`agent` calls the model through OpenRouter with the tools bound. `tools` is LangGraph's prebuilt ToolNode, which runs
-the tool calls of one reply in parallel. `nudge` handles a quirk of reasoning models: they sometimes spend their whole
-token budget thinking and reply with nothing, so the graph asks once for the answer before giving up.
+`agent` calls the model through OpenRouter with the tools bound. `tools` runs the tool calls of one reply in parallel
+on worker threads, which copy the request's context (the user and their choice of titles). A turn may make MAX_STEPS
+tool calls. Calls past that aren't run: `out_of_steps` answers the reply's calls with a note that the budget is used
+up, and the model then answers with tools switched off, from what it found. `nudge` handles a quirk of reasoning
+models: they sometimes spend their whole token budget thinking and reply with nothing, so the graph asks once for the
+answer before giving up.
+
+The graph is compiled once. What changes per turn travels as the run's context (AskContext): the system prompt, the
+conversation id that keeps OpenRouter on one provider, and the turn's ToolContext, which collects what tools show in
+the UI (show_on_canvas, present_cards).
 
 Conversations are LangGraph threads. Their messages live in a SQLite checkpointer next to the conversation files,
-keyed by user and conversation, and the model only sees the last MAX_HISTORY messages of a thread.
-
-The tools are the same ones the hand-written loop used: their JSON schemas from agent.TOOLS, run by agent.execute_tool.
-Tools that change the UI (show_on_canvas, present_cards) add to the turn's ToolContext, which reaches them through a
-context variable, since the ToolNode runs tools on worker threads that copy the caller's context.
+keyed by user and conversation. The model sees the current turn in full, and only the questions and answers of earlier
+turns, since their tool results can be tens of thousands of characters each.
 
 With LANGSMITH_TRACING on and a LANGSMITH_API_KEY, runs of the users listed in LANGSMITH_TRACE_USERS are traced to
 LangSmith. Nobody else's questions or lists leave the server that way.
@@ -26,54 +31,42 @@ import asyncio
 import json
 import os
 import sqlite3
-from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Any
 
 import aiosqlite
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage, trim_messages
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_core.tools import StructuredTool
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, MessagesState, StateGraph
-from langgraph.prebuilt import ToolNode
+from langgraph.runtime import Runtime
 
 from .config import settings
 
-MAX_HISTORY = 60  # messages of a thread the model sees, starting at a question
+EARLIER_TURNS = 10  # earlier questions and answers the model sees
+EARLIER_CHARS = 30_000  # and at most this many characters of them
 MAX_RESULT = 60_000  # characters of a tool result passed back to the model
+MAX_STEPS = 20  # tool calls a turn may make before the model must answer
 NUDGE = "Please write your answer now, from the results you already have. List the results themselves."
+OUT_OF_STEPS = ("Not run: this question has used all its tool calls. Answer now from the results you already have, "
+                "and say briefly what you couldn't check.")
 
-# The UI side effects of the current turn. A ContextVar reaches tools on the ToolNode's worker threads.
-turn_context: ContextVar[Any] = ContextVar("ask_turn_context")
+
+@dataclass
+class AskContext:
+    system: str  # the system prompt, which names the user
+    session_id: str  # the conversation, for OpenRouter's sticky sessions
+    turn: Any  # agent.ToolContext: the UI side effects of this turn
 
 
 class AskState(MessagesState):
     nudged: bool  # asked once for an answer after an empty reply, reset every turn
+    steps: int  # tool calls the model has made this turn, reset every turn
+    stopped: bool  # the model was told its tool calls are used up, reset every turn
 
 
-def _run_tool(name: str, args: dict[str, Any]) -> str:
-    from .agent import execute_tool  # agent imports this module
-
-    result = execute_tool(name, args, turn_context.get())
-    content = json.dumps(result, ensure_ascii=False, default=str)
-    return content if len(content) <= MAX_RESULT else content[:MAX_RESULT] + '... (truncated)"}'
-
-
-def make_tools(specs: list[dict[str, Any]]) -> list[StructuredTool]:
-    """LangChain tools from OpenAI-style function specs, keeping the hand-written schemas and descriptions."""
-    tools = []
-    for spec in specs:
-        f = spec["function"]
-
-        def call(_name: str = f["name"], **kwargs: Any) -> str:
-            return _run_tool(_name, kwargs)
-
-        tools.append(StructuredTool.from_function(func=call, name=f["name"], description=f["description"], args_schema=f["parameters"]))
-    return tools
-
-
-def make_model(session_id: str) -> ChatOpenAI:
+def make_model() -> ChatOpenAI:
     return ChatOpenAI(
         model=settings.openrouter_model,
         api_key=settings.openrouter_api_key,
@@ -81,43 +74,108 @@ def make_model(session_id: str) -> ChatOpenAI:
         max_tokens=4000,
         stream_usage=True,
         default_headers={"HTTP-Referer": "https://github.com/djhoomin/MAL-Graph", "X-Title": "MAL-Graph"},
-        # OpenRouter sticky sessions: every request of a conversation goes to the same provider, so prompt caching hits.
-        extra_body={"session_id": session_id, "cache_control": {"type": "ephemeral"}},
     )
 
 
 def history(messages: list[BaseMessage]) -> list[BaseMessage]:
-    """The last MAX_HISTORY messages, starting at a question so no tool result loses its call."""
-    return trim_messages(messages, strategy="last", max_tokens=MAX_HISTORY, token_counter=len, start_on="human")
+    """What the model sees of a thread: the current turn in full, from its question on, and before it only questions
+    and final answers, the last EARLIER_TURNS of them within EARLIER_CHARS."""
+    start = next((i for i in range(len(messages) - 1, -1, -1)
+                  if isinstance(messages[i], HumanMessage) and messages[i].text != NUDGE), 0)
+    earlier: list[BaseMessage] = []
+    for m in messages[:start]:
+        if isinstance(m, HumanMessage) and m.text != NUDGE:
+            earlier.append(HumanMessage(m.text))
+        elif isinstance(m, AIMessage) and not m.tool_calls and m.text.strip():
+            earlier.append(AIMessage(m.text))
+    kept: list[BaseMessage] = []
+    chars = 0
+    for m in reversed(earlier):
+        chars += len(m.text)
+        if chars > EARLIER_CHARS or sum(isinstance(k, HumanMessage) for k in kept) >= EARLIER_TURNS:
+            break
+        kept.insert(0, m)
+    while kept and not isinstance(kept[0], HumanMessage):  # start on a question
+        kept.pop(0)
+    return kept + messages[start:]
 
 
-def build(model: ChatOpenAI, tools: list[StructuredTool], system: str, checkpointer: AsyncSqliteSaver | None):
-    bound = model.bind_tools(tools, tool_choice="auto")
+def _run_tool(name: str, args: dict[str, Any], turn: Any) -> str:
+    from .agent import execute_tool  # agent imports this module
 
-    async def agent(state: AskState, config: RunnableConfig) -> dict[str, Any]:
-        reply = await bound.ainvoke([SystemMessage(system), *history(state["messages"])], config)
-        return {"messages": [reply]}
+    result = execute_tool(name, args, turn)
+    content = json.dumps(result, ensure_ascii=False, default=str)
+    return content if len(content) <= MAX_RESULT else content[:MAX_RESULT] + '... (truncated)"}'
+
+
+def build(specs: list[dict[str, Any]], checkpointer: AsyncSqliteSaver | None):
+    """The agent graph, over tools given as OpenAI-style function specs (agent.TOOLS)."""
+    model = make_model()
+    bound = model.bind_tools(specs, tool_choice="auto")
+    # Past the budget the tools stay declared, since the messages refer to them, but the model may not call them.
+    answer_only = model.bind_tools(specs, tool_choice="none")
+
+    async def agent(state: AskState, config: RunnableConfig, runtime: Runtime[AskContext]) -> dict[str, Any]:
+        steps = state.get("steps") or 0
+        llm = (answer_only if steps > MAX_STEPS else bound).bind(
+            # OpenRouter sticky sessions: every request of a conversation goes to the same provider, so caching hits.
+            extra_body={"session_id": runtime.context.session_id, "cache_control": {"type": "ephemeral"}})
+        reply = await llm.ainvoke([SystemMessage(runtime.context.system), *history(state["messages"])], config)
+        return {"messages": [reply], "steps": steps + len(reply.tool_calls)}
+
+    async def tools(state: AskState, runtime: Runtime[AskContext]) -> dict[str, Any]:
+        calls = state["messages"][-1].tool_calls
+
+        async def one(call: dict[str, Any]) -> ToolMessage:
+            try:
+                content = await asyncio.to_thread(_run_tool, call["name"], call["args"], runtime.context.turn)
+                return ToolMessage(content, tool_call_id=call["id"], name=call["name"])
+            except Exception as e:  # noqa: BLE001
+                return ToolMessage(f"Error: {e}", tool_call_id=call["id"], name=call["name"], status="error")
+
+        return {"messages": list(await asyncio.gather(*(one(c) for c in calls)))}
 
     def nudge(state: AskState) -> dict[str, Any]:
         return {"messages": [HumanMessage(NUDGE)], "nudged": True}
 
+    def out_of_steps(state: AskState) -> dict[str, Any]:
+        last = state["messages"][-1]
+        return {"messages": [ToolMessage(OUT_OF_STEPS, tool_call_id=c["id"], name=c["name"]) for c in last.tool_calls],
+                "stopped": True}
+
     def route(state: AskState) -> str:
         last = state["messages"][-1]
         if isinstance(last, AIMessage) and last.tool_calls:
-            return "tools"
+            if (state.get("steps") or 0) <= MAX_STEPS:
+                return "tools"
+            return END if state.get("stopped") else "out_of_steps"  # a model that ignores tool_choice gets one note
         if not last.text.strip() and not state.get("nudged"):
             return "nudge"
         return END
 
-    g = StateGraph(AskState)
+    g = StateGraph(AskState, context_schema=AskContext)
     g.add_node("agent", agent)
-    g.add_node("tools", ToolNode(tools, handle_tool_errors=lambda e: f"Error: {e}"))
+    g.add_node("tools", tools)
     g.add_node("nudge", nudge)
+    g.add_node("out_of_steps", out_of_steps)
     g.add_edge(START, "agent")
-    g.add_conditional_edges("agent", route, ["tools", "nudge", END])
+    g.add_conditional_edges("agent", route, ["tools", "out_of_steps", "nudge", END])
     g.add_edge("tools", "agent")
+    g.add_edge("out_of_steps", "agent")
     g.add_edge("nudge", "agent")
     return g.compile(checkpointer=checkpointer, name="Ask")
+
+
+_graph: tuple[Any, Any] | None = None  # (checkpointer, compiled graph)
+
+
+async def graph(specs: list[dict[str, Any]]):
+    """The compiled graph, built once per checkpointer (scripts close and reopen theirs)."""
+    global _graph
+    saver = await checkpointer()
+    if _graph is None or _graph[0] is not saver:
+        _graph = (saver, build(specs, saver))
+    return _graph[1]
 
 
 _saver: AsyncSqliteSaver | None = None
@@ -137,7 +195,10 @@ async def checkpointer() -> AsyncSqliteSaver:
             if _saver is None:
                 path = settings.conversations_dir / "checkpoints.sqlite"
                 path.parent.mkdir(parents=True, exist_ok=True)
-                saver = AsyncSqliteSaver(await aiosqlite.connect(str(path)))
+                conn = await aiosqlite.connect(str(path), timeout=30)
+                # WAL lets the delete routes write while a turn is saving, instead of failing with "database is locked".
+                await conn.execute("PRAGMA journal_mode=WAL")
+                saver = AsyncSqliteSaver(conn)
                 await saver.setup()
                 _saver = saver
     return _saver
@@ -162,7 +223,7 @@ def delete_threads(user_folder: str, conversation_id: str | None = None) -> None
     if not path.exists():
         return
     pattern = thread_id(user_folder, conversation_id) if conversation_id else thread_id(user_folder, "%")
-    with sqlite3.connect(str(path)) as conn:
+    with sqlite3.connect(str(path), timeout=30) as conn:
         for table in ("checkpoints", "writes"):
             conn.execute(f"DELETE FROM {table} WHERE thread_id LIKE ?", (pattern,))
 

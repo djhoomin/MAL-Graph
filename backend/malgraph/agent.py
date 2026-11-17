@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import shutil
 import time
@@ -10,7 +11,7 @@ import uuid
 from pathlib import Path
 from typing import Any, AsyncIterator
 
-from langchain_core.messages import AIMessage, HumanMessage, convert_to_messages
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, convert_to_messages
 from langchain_core.runnables import RunnableConfig
 from langgraph.errors import GraphRecursionError
 from langsmith import tracing_context
@@ -23,7 +24,6 @@ from .api import routes as R
 from .api.serialize import PayloadBuilder, node_payload
 
 log = logging.getLogger(__name__)
-MAX_STEPS = 20
 MAX_ROWS = 200
 FORBIDDEN = re.compile(r"\b(CREATE|MERGE|SET|DELETE|DETACH|REMOVE|DROP|INDEX|CONSTRAINT|LOAD\s+CSV|IMPORT|ALTER|STORAGE\s+MODE|FREE\s+MEMORY|CREATE\s+TRIGGER)\b", re.I)
 
@@ -576,11 +576,16 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
     ctx = ToolContext()
     usage = {"prompt_tokens": 0, "completion_tokens": 0, "cached_tokens": 0}
 
-    saver = await ask_graph.checkpointer()
-    graph = ask_graph.build(ask_graph.make_model(sid), ask_graph.make_tools(TOOLS), system, saver)
+    graph = await ask_graph.graph(TOOLS)
+    run_id = uuid.uuid4()  # the LangSmith run, when traced, so feedback on the answer can find it
+    turn["run_id"] = str(run_id)
+    turn["traced"] = ask_graph.traced(username)
+    context = ask_graph.AskContext(system=system, session_id=sid, turn=ctx)
     config: RunnableConfig = {
+        "run_id": run_id,
         "configurable": {"thread_id": ask_graph.thread_id(_user_dir().name, sid)},
-        "recursion_limit": 2 * MAX_STEPS + 3,
+        # The step budget lives in the graph (ask_graph.MAX_STEPS). This limit only stops a graph that loops anyway.
+        "recursion_limit": 2 * ask_graph.MAX_STEPS + 12,
         "run_name": "Ask",
         "tags": ["ask"],
         "metadata": {"conversation": sid, "model": settings.openrouter_model, "username": username},
@@ -592,11 +597,18 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
         conv["messages"] = []
 
     steps: dict[str, dict[str, Any]] = {}  # tool call id -> step, to mark errors
-    token = ask_graph.turn_context.set(ctx)
     try:
         with tracing_context(enabled=ask_graph.traced(username)):
-            async for update in graph.astream({"messages": [HumanMessage(user_message)], "nudged": False}, config, stream_mode="updates"):
-                for node, change in update.items():
+            start = {"messages": [HumanMessage(user_message)], "nudged": False, "steps": 0, "stopped": False}
+            async for mode, data in graph.astream(start, config, context=context, stream_mode=["messages", "updates"]):
+                if mode == "messages":
+                    # The model's reply token by token. A reply that ends in tool calls was a preamble, and the UI drops
+                    # it when the tool call arrives. The full answer follows as an "answer" event.
+                    chunk, meta = data
+                    if meta.get("langgraph_node") == "agent" and isinstance(chunk, AIMessageChunk) and chunk.text:
+                        yield {"type": "delta", "text": chunk.text}
+                    continue
+                for node, change in data.items():
                     if node == "agent":
                         reply: AIMessage = change["messages"][-1]
                         meta = reply.usage_metadata or {}
@@ -635,8 +647,34 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
         log.exception("ask failed")
         turn["error"] = f"{type(e).__name__}: {e}"
         yield {"type": "error", "message": turn["error"]}
-    finally:
-        ask_graph.turn_context.reset(token)
     turn["usage"] = usage
     save_conversation(conv)
-    yield {"type": "done", "usage": usage}
+    yield {"type": "done", "usage": usage, "run_id": turn["run_id"]}
+
+
+def set_feedback(cid: str, run_id: str, score: int | None) -> dict[str, Any] | None:
+    """A thumbs up (1) or down (0) on one answer, or None to take it back. It is kept with the conversation, and for
+    answers that were traced it also goes to LangSmith as `user_score` feedback on the run. None if there's no such
+    answer."""
+    conv = load_conversation(cid)
+    turn = next((t for t in (conv or {}).get("turns", []) if t.get("role") == "assistant" and t.get("run_id") == run_id), None)
+    if turn is None:
+        return None
+    turn["feedback"] = score
+    if turn.get("traced"):
+        try:
+            from langsmith import Client
+
+            client = Client()
+            if turn.get("feedback_id") and score is None:
+                client.delete_feedback(turn.pop("feedback_id"))
+            elif turn.get("feedback_id"):
+                client.update_feedback(turn["feedback_id"], score=score)
+            elif score is not None:
+                project = client.read_project(project_name=os.getenv("LANGSMITH_PROJECT") or "default").id
+                feedback = client.create_feedback(run_id, key="user_score", score=score, session_id=project)
+                turn["feedback_id"] = str(feedback.id)
+        except Exception:  # noqa: BLE001
+            log.warning("feedback didn't reach LangSmith", exc_info=True)
+    save_conversation(conv)
+    return {"run_id": run_id, "feedback": score}

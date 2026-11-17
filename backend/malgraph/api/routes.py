@@ -451,6 +451,24 @@ def rename(cid: str, body: RenameBody) -> dict[str, Any]:
     return {"id": cid, "title": conv["title"]}
 
 
+class FeedbackBody(BaseModel):
+    run_id: str = Field(max_length=64)
+    score: int | None = Field(default=None, ge=0, le=1)
+
+
+@router.post("/conversations/{cid}/feedback")
+def feedback(cid: str, body: FeedbackBody) -> dict[str, Any]:
+    """Thumbs up (1) or down (0) on one answer, or no score to take it back."""
+    _require_user()
+    try:
+        result = agent.set_feedback(cid, body.run_id, body.score)
+    except ValueError:
+        raise HTTPException(400, "bad id")
+    if result is None:
+        raise HTTPException(404, "answer not found")
+    return result
+
+
 @router.delete("/conversations/{cid}")
 def delete(cid: str) -> dict[str, Any]:
     _require_user()

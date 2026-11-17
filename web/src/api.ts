@@ -202,6 +202,8 @@ export interface ConversationTurn {
   cards: { title: string; cards: { node: GNode; caption: string }[] }[]
   usage?: { prompt_tokens: number; completion_tokens: number; cached_tokens?: number } | null
   error?: string | null
+  run_id?: string
+  feedback?: number | null
 }
 export interface Conversation {
   id: string
@@ -218,9 +220,10 @@ export type AskEvent =
   | { type: 'tool_error'; name: string; message: string }
   | { type: 'canvas'; payload: GraphPayload & { select?: string } }
   | { type: 'cards'; title: string; cards: { node: GNode; caption: string }[] }
+  | { type: 'delta'; text: string }
   | { type: 'answer'; text: string }
   | { type: 'error'; message: string }
-  | { type: 'done'; usage: { prompt_tokens: number; completion_tokens: number; cached_tokens?: number } }
+  | { type: 'done'; usage: { prompt_tokens: number; completion_tokens: number; cached_tokens?: number }; run_id?: string }
 
 /** POST /api/ask and yield server-sent events as they arrive. */
 export async function* ask(message: string, sessionId: string | null, signal?: AbortSignal): AsyncGenerator<AskEvent> {
@@ -280,6 +283,8 @@ export const api = {
   renameConversation: (id: string, title: string) =>
     req<{ id: string; title: string }>(`/api/conversations/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }),
   deleteConversation: (id: string) => req<{ deleted: boolean }>(`/api/conversations/${id}`, { method: 'DELETE' }),
+  answerFeedback: (id: string, runId: string, score: number | null) =>
+    req<{ run_id: string; feedback: number | null }>(`/api/conversations/${id}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ run_id: runId, score }) }),
   insightsList: () => req<{ anime: ListAnime[] }>('/api/insights/list'),
   insightsPeople: (kind: string, statuses: string[], lang: string | null, min_anime = 2, limit = 40) =>
     req<{ kind: string; people: RankedPerson[] }>(`/api/insights/people${qs({ kind, statuses: statuses.join(','), lang, min_anime, limit })}`),

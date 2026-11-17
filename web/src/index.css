@@ -197,6 +197,10 @@ tr.clickable:hover { background: #20242f; }
 .md table { border-collapse: collapse; font-size: 12px; }
 .md td, .md th { border: 1px solid var(--border); padding: 2px 6px; }
 .usage { font-size: 10px; margin-top: 4px; }
+.answer-rating { display: flex; gap: 4px; margin-top: 6px; }
+.answer-rating button { padding: 0 6px; opacity: 0.55; background: transparent; }
+.answer-rating button:hover, .answer-rating button.on { opacity: 1; }
+.answer-rating button.on { background: var(--accent-soft, rgba(127, 127, 127, 0.18)); }
 .ask-input { display: flex; gap: 6px; align-items: flex-end; padding-top: 8px; border-top: 1px solid var(--border); }
 .ask-input textarea { flex: 1; resize: none; font-size: 13px; }
 

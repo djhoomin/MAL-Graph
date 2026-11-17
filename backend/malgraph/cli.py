@@ -153,10 +153,11 @@ def eval_ask(
     langsmith: bool = typer.Option(False, help="Record the run as a LangSmith experiment (needs LANGSMITH_API_KEY)"),
     prefix: str = typer.Option("ask", help="LangSmith experiment name prefix"),
     only: str = typer.Option("", help="Comma list of checks to run, locally only"),
+    repetitions: int = typer.Option(3, help="Times each question is asked in a LangSmith experiment"),
 ) -> None:
     """Run the Ask agent on the eval questions and score the answers against the graph."""
     from . import ask_eval
 
-    ask_eval.main(user or settings.mal_username, langsmith, prefix, [c for c in only.split(",") if c] or None)
+    ask_eval.main(user or settings.mal_username, langsmith, prefix, [c for c in only.split(",") if c] or None, repetitions)
 if __name__ == "__main__":
     app()
