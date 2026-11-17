@@ -77,24 +77,26 @@ WHERE a.id IN $anime AND p.id IN $people AND v.language = 'Japanese' AND a.id IN
 RETURN a, h, c, v, p"""
 
 _lock = threading.Lock()
-_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_cache: dict[tuple[str, bool], tuple[float, dict[str, Any]]] = {}  # by user and English titles
 
 
 def voices(username: str) -> dict[str, Any]:
     """The voice tour for one user, cached for TTL seconds. Fields starting with _ stay on the server."""
+    key = (username, db.english_titles())
     with _lock:
-        hit = _cache.get(username)
+        hit = _cache.get(key)
     if hit and time.time() - hit[0] < TTL:
         return hit[1]
     result = _build(username)
     with _lock:
-        _cache[username] = (time.time(), result)
+        _cache[key] = (time.time(), result)
     return result
 
 
 def forget(username: str) -> None:
     with _lock:
-        _cache.pop(username, None)
+        for english in (False, True):
+            _cache.pop((username, english), None)
 
 
 def show_item(username: str, step: str, index: int) -> dict[str, list[int]] | None:

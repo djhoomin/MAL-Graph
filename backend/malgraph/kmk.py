@@ -45,7 +45,7 @@ def _staff(position: str, title: str, name: str, top: int = 30) -> Kind:
         f"{SEEN} MATCH (p:Person)-[w:WORKED_ON]->(a) WHERE '{position}' IN w.positions {MAIN} "
         "WITH p, count(DISTINCT c) AS n WHERE n >= $min RETURN p.id AS key, p.name AS label, n",
         f"{SEEN} MATCH (p:Person {{id: $key}})-[w:WORKED_ON]->(a) WHERE '{position}' IN w.positions {MAIN} "
-        "RETURN c, collect(DISTINCT a.title) AS anime, true AS main",
+        "RETURN c, collect(DISTINCT " + db.title("a") + ") AS anime, true AS main",
         title,
         top,
     )
@@ -57,7 +57,7 @@ KINDS = [
         f"{SEEN} MATCH (a)-[:HAS_CHARACTER]->(c:Character)<-[:VOICES {{language: 'Japanese'}}]-(p:Person) WHERE {GENDER} "
         "WITH p, count(DISTINCT c) AS n WHERE n >= $min RETURN p.id AS key, p.name AS label, n",
         f"{SEEN} MATCH (a)-[h:HAS_CHARACTER]->(c:Character)<-[:VOICES {{language: 'Japanese'}}]-(p:Person {{id: $key}}) WHERE {GENDER} "
-        "RETURN c, collect(DISTINCT a.title) AS anime, 'Main' IN collect(h.role) AS main",
+        "RETURN c, collect(DISTINCT " + db.title("a") + ") AS anime, 'Main' IN collect(h.role) AS main",
         "Voiced by {label}",
         60,
     ),
@@ -66,7 +66,7 @@ KINDS = [
         f"{SEEN} MATCH (a)-[:PRODUCED_BY]->(s:Studio) {MAIN} "
         "WITH s, count(DISTINCT c) AS n WHERE n >= $min RETURN s.id AS key, s.name AS label, n",
         f"{SEEN} MATCH (a)-[:PRODUCED_BY]->(s:Studio {{id: $key}}) {MAIN} "
-        "RETURN c, collect(DISTINCT a.title) AS anime, true AS main",
+        "RETURN c, collect(DISTINCT " + db.title("a") + ") AS anime, true AS main",
         "Main characters from {label} anime",
         25,
     ),
@@ -77,7 +77,7 @@ KINDS = [
         "a.season AS season, a.year AS year, count(DISTINCT c) AS n WHERE n >= $min "
         "RETURN key, toUpper(substring(season, 0, 1)) + substring(season, 1) + ' ' + toString(year) AS label, n",
         f"{SEEN} AND a.year * 10 + CASE a.season WHEN 'winter' THEN 1 WHEN 'spring' THEN 2 WHEN 'summer' THEN 3 ELSE 4 END = $key {MAIN} "
-        "RETURN c, collect(DISTINCT a.title) AS anime, true AS main",
+        "RETURN c, collect(DISTINCT " + db.title("a") + ") AS anime, true AS main",
         "Main characters from {label}",
     ),
     _staff("Director", "Main characters from anime directed by {label}", "director"),
@@ -88,13 +88,13 @@ KINDS = [
         f"{SEEN} MATCH (a)-[:HAS_GENRE]->(g:Genre) WHERE g.kind IN ['genre', 'theme'] AND NOT g.name IN ['Hentai', 'Erotica', 'Ecchi'] {MAIN} "
         "WITH g, count(DISTINCT c) AS n WHERE n >= $min RETURN g.id AS key, g.name AS label, n",
         f"{SEEN} MATCH (a)-[:HAS_GENRE]->(g:Genre {{id: $key}}) {MAIN} "
-        "RETURN c, collect(DISTINCT a.title) AS anime, true AS main",
+        "RETURN c, collect(DISTINCT " + db.title("a") + ") AS anime, true AS main",
         "Main characters from {label} anime",
     ),
     Kind(
         "favourites",
         f"{SEEN} AND l.score >= 9 {MAIN} WITH count(DISTINCT c) AS n WHERE n >= $min RETURN 0 AS key, 'your top-rated anime' AS label, n",
-        f"{SEEN} AND l.score >= 9 {MAIN} RETURN c, collect(DISTINCT a.title) AS anime, true AS main",
+        f"{SEEN} AND l.score >= 9 {MAIN} RETURN c, collect(DISTINCT " + db.title("a") + ") AS anime, true AS main",
         "Main characters from anime you rated 9 or 10",
     ),
 ]

@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import json
 import random
+import re
 import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from . import db
 from .config import settings
 
 GAMES = ("odd", "mystery", "kmk", "yay")
@@ -47,19 +49,69 @@ def _read(path: Path) -> Any:
 
 
 def daily(game: str, make: Callable[[random.Random], dict[str, Any]], day: str | None = None) -> dict[str, Any]:
-    """The day's puzzle for a game, made on first request from a date-seeded random generator."""
+    """The day's puzzle for a game, made on first request from a date-seeded random generator. It is saved with the
+    main anime titles, whoever asks first, and shown with English ones to viewers who chose them."""
     day = day or today()
     path = _dir(game, "puzzles") / f"{day}.json"
     puzzle = _read(path)
-    if puzzle:
+    if not puzzle:
+        with _make_locks[game]:
+            puzzle = _read(path)  # another request may have made it while this one waited
+            if not puzzle:
+                with db.use_english_titles(False):
+                    puzzle = {"date": day, **make(random.Random(f"mal-graph-{game}-{day}"))}
+                _write(path, puzzle)
+    return english(puzzle, f"{game}:{day}")
+
+
+ENGLISH_FOR = """
+UNWIND $strings AS s
+MATCH (a:Anime) WHERE a.title_english IS NOT NULL AND a.title_english <> a.title AND size(a.title) >= 3
+  AND s CONTAINS a.title
+RETURN a.title AS title, a.title_english AS english ORDER BY coalesce(a.members, 0) DESC
+"""
+_english_swaps: dict[str, dict[str, str]] = {}
+SKIP_KEYS = {"href", "url", "image_url"}
+
+
+def _strings(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [s for k, v in value.items() if k not in SKIP_KEYS for s in _strings(v)]
+    if isinstance(value, list):
+        return [s for v in value for s in _strings(v)]
+    return []
+
+
+def english(puzzle: dict[str, Any], key: str) -> dict[str, Any]:
+    """A saved puzzle with the anime titles in its text swapped for English ones, when the viewer chose English.
+    Odd one out and Mystery character write titles into their cards and clues, so the swap finds the main titles
+    that appear as whole words in the puzzle's strings, longest first, in one pass. Swaps are kept per puzzle."""
+    if not db.english_titles():
         return puzzle
-    with _make_locks[game]:
-        puzzle = _read(path)  # another request may have made it while this one waited
-        if puzzle:
-            return puzzle
-        puzzle = {"date": day, **make(random.Random(f"mal-graph-{game}-{day}"))}
-        _write(path, puzzle)
+    swaps = _english_swaps.get(key)
+    if swaps is None:
+        swaps = {}
+        for r in db.run(ENGLISH_FOR, strings=sorted(set(_strings(puzzle)))):
+            swaps.setdefault(r["title"], r["english"])  # the most-watched anime of a shared title wins
+        if len(_english_swaps) > 50:
+            _english_swaps.clear()
+        _english_swaps[key] = swaps
+    if not swaps:
         return puzzle
+    pattern = re.compile(r"(?<!\w)(" + "|".join(re.escape(t) for t in sorted(swaps, key=len, reverse=True)) + r")(?!\w)")
+
+    def swap(value: Any) -> Any:
+        if isinstance(value, str):
+            return pattern.sub(lambda m: swaps[m.group(1)], value)
+        if isinstance(value, dict):
+            return {k: v if k in SKIP_KEYS else swap(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [swap(v) for v in value]
+        return value
+
+    return swap(puzzle)
 
 
 def plays(game: str, day: str) -> dict[str, Any]:
@@ -105,7 +157,6 @@ def histogram(values: list[int]) -> list[dict[str, int]]:
 def character_cards(ids: list[int], shown: dict[str, str] | None = None) -> list[dict[str, Any]]:
     """Cards for characters in the given order: the API's node shape plus the title of their best-known anime, or
     of the anime in `shown` (by character id). The shape matches Kiss Marry Kill's, so the UI can reuse its cards."""
-    from . import db
     from .api.serialize import node_payload  # imported late: the API package imports the game modules
 
     with db.get_driver().session() as session:
@@ -113,8 +164,8 @@ def character_cards(ids: list[int], shown: dict[str, str] | None = None) -> list
             "MATCH (c:Character) WHERE c.id IN $ids "
             "OPTIONAL MATCH (a:Anime)-[h:HAS_CHARACTER]->(c) "
             "WITH c, a ORDER BY CASE WHEN a IS NULL THEN 0 ELSE coalesce(a.members, 0) END DESC "
-            "RETURN c, collect(a.title) AS anime",
-            ids=ids,
+            f"RETURN c, collect({db.title('a')}) AS anime",
+            ids=ids, **db.title_params(db.title("a")),
         ))
     by_id = {r["c"]["id"]: r for r in rows}
     shown = shown or {}

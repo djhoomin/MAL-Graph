@@ -140,7 +140,7 @@ def _features(ids: list[int]) -> dict[int, list[tuple[str, str, str]]]:
         "WITH c, a ORDER BY coalesce(a.members, 0) DESC WITH c, head(collect(a)) AS a "
         "OPTIONAL MATCH (a)-[:PRODUCED_BY]->(s:Studio) "
         "OPTIONAL MATCH (a)-[:HAS_GENRE]->(g:Genre) WHERE g.kind IN ['genre', 'theme'] AND NOT g.name IN $hidden "
-        "RETURN c.id AS c, a.id AS anime, a.title AS title, collect(DISTINCT s.name) AS studios, collect(DISTINCT g.name) AS genres",
+        "RETURN c.id AS c, a.id AS anime, " + db.title("a") + " AS title, collect(DISTINCT s.name) AS studios, collect(DISTINCT g.name) AS genres",
         ids=ids, hidden=HIDDEN_GENRES,
     )
     franchise = games.recent_franchises()

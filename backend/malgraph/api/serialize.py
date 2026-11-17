@@ -5,6 +5,7 @@ from typing import Any, Iterable
 
 from neo4j.graph import Node, Path, Relationship
 
+from .. import db
 from ..users import user_list
 
 LABEL_ORDER = ["Anime", "Character", "Person", "Studio", "Genre", "User"]
@@ -24,6 +25,13 @@ def node_payload(n: Node, *, full: bool = False) -> dict[str, Any]:
     label = node_id(n).split(":", 1)[0]
     props = {k: v for k, v in n.items() if (full or k not in HEAVY_PROPS) and k not in LEGACY_USER_PROPS}
     status = score = None
+    name = n.get("title") or n.get("name") or n.get("username")
+    if label == "Anime" and db.english_titles() and n.get("title_english"):
+        # The viewer chose English titles: lead with the English one and keep the main title among the details.
+        name = n.get("title_english")
+        props.pop("title_english", None)
+        if n.get("title") != name:
+            props["title_romaji"] = n.get("title")
     if label == "Anime":
         # Personal state comes from the current user's list, never from the shared node.
         status, score = user_list().personal(n.get("id"))
@@ -35,7 +43,7 @@ def node_payload(n: Node, *, full: bool = False) -> dict[str, Any]:
         "id": node_id(n),
         "label": label,
         "key": n.get("id"),  # the node's id in the data source, since "id" is the graph's "Label:key"
-        "name": n.get("title") or n.get("name") or n.get("username"),
+        "name": name,
         "image_url": n.get("image_url"),
         "watched": bool(status and status != "plan_to_watch") if label == "Anime" else None,
         "list_status": status if label == "Anime" else None,

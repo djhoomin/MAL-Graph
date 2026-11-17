@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { englishTitles, setEnglishTitles } from '../api'
 import { useGolf } from '../golf'
 import { useSource, useStore } from '../store'
 import { MenuIcon } from './icons'
@@ -116,6 +117,10 @@ function MenuBody({ close }: { close: () => void }) {
         <label className="toggle">
           <input type="checkbox" checked={filters.onlyWatched} onChange={(e) => setFilter({ onlyWatched: e.target.checked })} />
           Only load anime I've seen
+        </label>
+        <label className="toggle" title="Show anime by their English titles where they have one. The page reloads, which clears the graph.">
+          <input type="checkbox" defaultChecked={englishTitles()} onChange={(e) => setEnglishTitles(e.target.checked)} />
+          English anime titles
         </label>
       </section>
 

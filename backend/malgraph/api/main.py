@@ -11,8 +11,12 @@ from .ratelimit import RateLimitMiddleware
 from .routes import router
 
 
+TITLES_COOKIE = "titles"
+
+
 class UserMiddleware:
-    """Bind the signed-in MAL user for the duration of a request (see users.current_username).
+    """Bind the signed-in MAL user for the duration of a request (see users.current_username), and the viewer's
+    choice of anime titles from the `titles` cookie, which the UI sets ("english" or "romaji", romaji by default).
 
     With sign-in configured (PUBLIC_URL set) the user comes only from the session cookie, and a visitor who has not
     signed in has no user. Without it, as in local development, every request belongs to MAL_USERNAME.
@@ -25,17 +29,18 @@ class UserMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
+        raw = dict(scope.get("headers") or []).get(b"cookie", b"").decode("latin-1")
+        jar = SimpleCookie()
+        try:
+            jar.load(raw)
+        except Exception:
+            pass
         username: str | None = None  # None falls back to MAL_USERNAME
         if settings.sign_in:
-            raw = dict(scope.get("headers") or []).get(b"cookie", b"").decode("latin-1")
-            jar = SimpleCookie()
-            try:
-                jar.load(raw)
-            except Exception:
-                pass
             morsel = jar.get(auth.SESSION_COOKIE)
             username = auth.session_user(morsel.value if morsel else None) or ""  # "" means nobody
-        with users.use_user(username):
+        titles = jar.get(TITLES_COOKIE)
+        with users.use_user(username), db.use_english_titles(bool(titles and titles.value == "english")):
             await self.app(scope, receive, send)
 
 

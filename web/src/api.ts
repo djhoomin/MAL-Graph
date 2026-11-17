@@ -663,3 +663,14 @@ export const matchApi = {
   compare: (username: string) => req<Match>(`/api/match/with/${encodeURIComponent(username)}`),
   unlink: (username: string) => send(`/api/match/with/${encodeURIComponent(username)}`, { method: 'DELETE' }),
 }
+
+// The viewer's choice of anime titles lives in a cookie, so the server can name anime in every response. The page
+// reloads on a change, since titles are already in the graph and pages on screen.
+export function englishTitles(): boolean {
+  return /(?:^|;\s*)titles=english(?:;|$)/.test(document.cookie)
+}
+
+export function setEnglishTitles(english: boolean): void {
+  document.cookie = `titles=${english ? 'english' : 'romaji'}; path=/; max-age=31536000; SameSite=Lax`
+  location.reload()
+}

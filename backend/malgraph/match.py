@@ -223,7 +223,7 @@ def _anime(ids: set[int]) -> dict[int, dict[str, Any]]:
     rows = db.run(
         "MATCH (a:Anime) WHERE a.id IN $ids "
         "OPTIONAL MATCH (a)-[:HAS_GENRE]->(g:Genre) WHERE g.name IN $hidden "
-        "RETURN a.id AS id, a.title AS title, a.url AS url, a.image_url AS image, a.members AS members, count(g) > 0 AS hidden",
+        "RETURN a.id AS id, " + db.title("a") + " AS title, a.url AS url, a.image_url AS image, a.members AS members, count(g) > 0 AS hidden",
         ids=list(ids), hidden=HIDDEN_GENRES,
     )
     return {r["id"]: r for r in rows}
@@ -295,12 +295,12 @@ def _maker(m: Maker | None) -> dict[str, str] | None:
     return None if m is None else {"kind": m[0], "name": m[2]}
 
 
-_cache: dict[tuple[str, str], tuple[float, dict[str, Any]]] = {}
+_cache: dict[tuple[str, str, bool], tuple[float, dict[str, Any]]] = {}
 
 
 def compare(me: str, them: str) -> dict[str, Any]:
     """The match between two linked people, from the first one's side. Cached for CACHE_SECONDS."""
-    key = (me.lower(), them.lower())
+    key = (me.lower(), them.lower(), db.english_titles())
     hit = _cache.get(key)
     if hit and time.time() - hit[0] < CACHE_SECONDS:
         return hit[1]

@@ -1,14 +1,43 @@
 """Memgraph access via the Bolt-compatible neo4j driver."""
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import lru_cache
-from typing import Any
+from typing import Any, Iterator
 
 from neo4j import GraphDatabase, Driver
 
 from .config import settings
 
 NODE_LABELS = ["Anime", "Character", "Person", "Studio", "Genre"]
+
+# Whether the viewer chose English anime titles. Set per request by the API middleware from the `titles` cookie.
+_english: ContextVar[bool] = ContextVar("malgraph_english_titles", default=False)
+
+
+def english_titles() -> bool:
+    return _english.get()
+
+
+@contextmanager
+def use_english_titles(english: bool) -> Iterator[None]:
+    token = _english.set(english)
+    try:
+        yield
+    finally:
+        _english.reset(token)
+
+
+def title(alias: str) -> str:
+    """Cypher for an anime's title as the viewer wants it: the English title when they chose English and the anime
+    has one, otherwise the main (romanised Japanese) title. `run` fills in $english_titles."""
+    return f"coalesce(CASE WHEN $english_titles THEN {alias}.title_english END, {alias}.title)"
+
+
+def title_params(query: str) -> dict[str, Any]:
+    """The $english_titles parameter, for queries run on a session directly instead of through `run`."""
+    return {"english_titles": _english.get()} if "$english_titles" in query else {}
 
 
 @lru_cache(maxsize=1)
@@ -20,6 +49,7 @@ def get_driver() -> Driver:
 
 def run(query: str, **params: Any) -> list[dict[str, Any]]:
     """Run a Cypher query and return records as dicts."""
+    params = {**title_params(query), **params}
     with get_driver().session() as session:
         result = session.run(query, **params)
         return [r.data() for r in result]

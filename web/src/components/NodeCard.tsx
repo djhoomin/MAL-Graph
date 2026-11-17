@@ -8,7 +8,7 @@ import { CloseIcon, MoreIcon } from './icons'
 import { useDismiss } from './useDismiss'
 import { VaView } from './VaView'
 
-const SHOWN_PROPS = ['title_english', 'title_japanese', 'type', 'episodes', 'year', 'season', 'status', 'score', 'rank', 'popularity', 'members', 'rating', 'source', 'studio', 'list_status', 'my_score', 'given_name', 'family_name', 'birthday', 'favorites', 'name_kanji', 'kind']
+const SHOWN_PROPS = ['title_english', 'title_romaji', 'title_japanese', 'type', 'episodes', 'year', 'season', 'status', 'score', 'rank', 'popularity', 'members', 'rating', 'source', 'studio', 'list_status', 'my_score', 'given_name', 'family_name', 'birthday', 'favorites', 'name_kanji', 'kind']
 
 export function NodeCard() {
   const view = useStore((s) => s.view)

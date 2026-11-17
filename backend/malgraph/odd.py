@@ -61,7 +61,7 @@ def facts() -> Facts:
     rows = db.run(
         "MATCH (a:Anime)-[h:HAS_CHARACTER]->(c:Character) WHERE c.id IN $ids "
         "RETURN c.id AS c, a.id AS a, h.role = 'Main' AS main, a.season AS season, a.year AS year, "
-        "a.title AS title, coalesce(a.members, 0) AS members",
+        + db.title("a") + " AS title, coalesce(a.members, 0) AS members",
         ids=f.ids,
     )
     for r in rows:
@@ -72,10 +72,10 @@ def facts() -> Facts:
         ("va", "MATCH (p:Person)-[:VOICES {language: 'Japanese'}]->(c:Character) WHERE c.id IN $ids "
                "RETURN c.id AS c, p.id AS k, p.name AS label"),
         ("studio", "MATCH (s:Studio)<-[:PRODUCED_BY]-(a:Anime)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character) WHERE c.id IN $ids "
-                   "RETURN c.id AS c, s.id AS k, s.name AS label, a.title AS title, coalesce(a.members, 0) AS members"),
+                   "RETURN c.id AS c, s.id AS k, s.name AS label, " + db.title("a") + " AS title, coalesce(a.members, 0) AS members"),
         ("creator", "MATCH (p:Person)-[w:WORKED_ON]->(a:Anime)-[:HAS_CHARACTER {role: 'Main'}]->(c:Character) "
                     "WHERE c.id IN $ids AND 'Original Creator' IN w.positions "
-                    "RETURN c.id AS c, p.id AS k, p.name AS label, a.title AS title, coalesce(a.members, 0) AS members"),
+                    "RETURN c.id AS c, p.id AS k, p.name AS label, " + db.title("a") + " AS title, coalesce(a.members, 0) AS members"),
     ]:
         for r in db.run(query, ids=f.ids):
             f.add(r["c"], f"{kind}:{r['k']}", r["label"], r.get("title"), r.get("members") or 0)
@@ -216,16 +216,17 @@ def summary(puzzle: dict[str, Any]) -> dict[str, Any]:
 # --------------------------------------------------------------------------- practice
 
 _lock = threading.Lock()
-_facts: tuple[float, Facts] | None = None
+_facts: dict[bool, tuple[float, Facts]] = {}  # by whether the titles in them are English
 _practice: dict[str, tuple[float, dict[str, Any]]] = {}  # token -> (expiry, round)
 
 
 def _cached_facts() -> Facts:
-    global _facts
+    english = db.english_titles()
     with _lock:
-        if _facts is None or time.time() - _facts[0] > FACTS_TTL:
-            _facts = (time.time(), facts())
-        return _facts[1]
+        hit = _facts.get(english)
+        if hit is None or time.time() - hit[0] > FACTS_TTL:
+            hit = _facts[english] = (time.time(), facts())
+        return hit[1]
 
 
 def practice_round() -> dict[str, Any] | None:

@@ -86,7 +86,7 @@ RETURN a.id AS anime, labels(maker)[0] AS label, maker.id AS id, maker.name AS n
 
 ANIME = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime) WHERE l.status <> 'plan_to_watch'
 OPTIONAL MATCH (a)-[:HAS_GENRE]->(g:Genre) WHERE g.kind IN ['genre', 'theme'] AND NOT g.name IN ['Hentai', 'Erotica', 'Ecchi']
-RETURN a.id AS id, a.title AS title, a.image_url AS image_url, coalesce(a.members, 0) AS members,
+RETURN a.id AS id, """ + db.title("a") + """ AS title, a.image_url AS image_url, coalesce(a.members, 0) AS members,
        coalesce(l.score, 0) AS score, collect(g.name) AS genres, a.year AS year, a.season AS season, a.aired_from AS aired_from"""
 
 TWINS = """MATCH (:User {username: $user})-[l:LISTED]->(a:Anime)
@@ -110,7 +110,7 @@ RETURN x.anime.id AS a, y.anime.id AS b,
 ORDER BY jaccard DESC"""
 
 _lock = threading.Lock()
-_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_cache: dict[tuple[str, bool], tuple[float, dict[str, Any]]] = {}  # by user and English titles
 
 
 JOBS = ['Director', 'Series Composition', 'Music', 'Character Design', 'Original Creator']
@@ -129,7 +129,7 @@ WHERE type(r3) = 'PRODUCED_BY' OR (type(r3) = 'WORKED_ON' AND any(job IN r3.posi
 WITH rec, maker, best, because, count(DISTINCT made) AS made
 WITH rec, sum((best - 7) / log(made + 1)) AS score,
      collect({maker: labels(maker)[0] + ':' + toString(maker.id), made: made, best: best, because: because}) AS paths
-RETURN rec.id AS id, rec.title AS title, rec.image_url AS image_url, rec.score AS mal_score,
+RETURN rec.id AS id, """ + db.title("rec") + """ AS title, rec.image_url AS image_url, rec.score AS mal_score,
        rec.members AS members, rec.type AS type, rec.year AS year, score, paths
 ORDER BY score DESC LIMIT 200"""
 
@@ -150,7 +150,7 @@ WHERE p.id IN $people AND any(job IN w.positions WHERE job IN $jobs)
   AND NOT (:User {username: $user})-[:LISTED]->(rec)
   AND NOT (rec)-[:RELATED_TO {relation: 'Prequel'}]->() AND NOT (rec)-[:RELATED_TO {relation: 'Parent Story'}]->()
   AND (rec.fetched_at IS NULL OR (rec.type IN ['TV', 'Movie', 'ONA'] AND rec.members >= $min_members))
-RETURN rec.id AS id, rec.title AS title, rec.image_url AS image_url, rec.score AS mal_score,
+RETURN rec.id AS id, """ + db.title("rec") + """ AS title, rec.image_url AS image_url, rec.score AS mal_score,
        rec.type AS type, rec.year AS year, rec.fetched_at IS NOT NULL AS fetched, collect(DISTINCT p.id) AS people"""
 
 
@@ -177,8 +177,9 @@ def public(t: dict[str, Any]) -> dict[str, Any]:
 
 def tour(username: str) -> dict[str, Any]:
     """Clusters and bridges for one user, cached for TTL seconds. Fields starting with _ stay on the server."""
+    key = (username, db.english_titles())
     with _lock:
-        hit = _cache.get(username)
+        hit = _cache.get(key)
     if hit and time.time() - hit[0] < TTL:
         return hit[1]
     result = _build(username)
@@ -187,7 +188,7 @@ def tour(username: str) -> dict[str, Any]:
 
     pending = jobs.queue.status(f"tour:{username}")["running"]
     with _lock:
-        _cache[username] = (time.time() - (TTL - PENDING_TTL if pending else 0), result)
+        _cache[key] = (time.time() - (TTL - PENDING_TTL if pending else 0), result)
     return result
 
 
@@ -749,7 +750,8 @@ def invalidate(username: str) -> None:
     from . import voice_tour
 
     with _lock:
-        _cache.pop(username, None)
+        for english in (False, True):
+            _cache.pop((username, english), None)
     voice_tour.forget(username)
 
 
@@ -757,6 +759,7 @@ def forget(username: str) -> None:
     from . import jobs, voice_tour
 
     with _lock:
-        _cache.pop(username, None)
+        for english in (False, True):
+            _cache.pop((username, english), None)
     voice_tour.forget(username)
     jobs.queue.cancel(f"tour:{username}")

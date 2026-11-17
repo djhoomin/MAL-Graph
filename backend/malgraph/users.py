@@ -106,7 +106,7 @@ _PARAM = {name: re.compile(rf"\${name}\b") for name in ("user", "watched", "fran
 
 def params_for(query: str) -> dict[str, Any]:
     """The per-user parameters this query refers to, filled in for the current user."""
-    out: dict[str, Any] = {}
+    out: dict[str, Any] = db.title_params(query)
     if _PARAM["user"].search(query):
         out["user"] = current_username()
     if _PARAM["watched"].search(query):

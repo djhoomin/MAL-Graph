@@ -66,7 +66,7 @@ def tracks(cid: int, franchise: dict[int, int]) -> tuple[list[str], list[str]]:
     """
     rows = db.run(
         "MATCH (a:Anime)-[h:HAS_CHARACTER]->(c:Character {id: $id}) "
-        "RETURN c.gender AS gender, h.role = 'Main' AS main, a.id AS id, a.title AS title, a.type AS type, a.year AS year, "
+        "RETURN c.gender AS gender, h.role = 'Main' AS main, a.id AS id, " + db.title("a") + " AS title, a.type AS type, a.year AS year, "
         "a.season AS season, a.aired_from AS aired, a.source AS source, coalesce(a.members, 0) AS members ORDER BY members DESC",
         id=cid,
     )
@@ -109,7 +109,7 @@ def tracks(cid: int, franchise: dict[int, int]) -> tuple[list[str], list[str]]:
         others = db.run(
             "MATCH (:Person {id: $p})-[:VOICES {language: 'Japanese'}]->(o:Character)<-[:HAS_CHARACTER {role: 'Main'}]-(a:Anime) "
             "WHERE o.id <> $id AND o.favorites IS NOT NULL "
-            "RETURN o.name AS name, a.id AS anime, a.title AS title ORDER BY o.favorites DESC, coalesce(a.members, 0) DESC LIMIT 20",
+            "RETURN o.name AS name, a.id AS anime, " + db.title("a") + " AS title ORDER BY o.favorites DESC, coalesce(a.members, 0) DESC LIMIT 20",
             p=va[0]["id"], id=cid,
         )
         other = next((o for o in others if franchise.get(o["anime"], o["anime"]) not in own), None)

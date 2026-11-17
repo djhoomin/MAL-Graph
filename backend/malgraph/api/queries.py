@@ -1,4 +1,5 @@
 """Cypher used by the API, in one place."""
+from .. import db
 
 REL_TYPES = ["LISTED", "HAS_CHARACTER", "VOICES", "WORKED_ON", "RELATED_TO", "PRODUCED_BY", "HAS_GENRE"]
 NODE_LABELS = ["Anime", "Character", "Person", "Studio", "Genre", "User"]
@@ -105,7 +106,7 @@ INSIGHTS_LIST = """
     OPTIONAL MATCH (a)-[pr:RELATED_TO]->(:Anime) WHERE pr.relation IN ['Prequel', 'Parent Story']
     WITH a, l, studios, count(pr) > 0 AS follow_up
     OPTIONAL MATCH (a)-[:HAS_GENRE]->(g:Genre)
-    RETURN a.id AS id, a.title AS title, a.title_english AS title_english, a.image_url AS image_url,
+    RETURN a.id AS id, """ + db.title("a") + """ AS title, a.title_english AS title_english, a.image_url AS image_url,
            a.type AS type, a.year AS year, a.season AS season, a.aired_from AS aired_from,
            a.episodes AS episodes, a.score AS score, a.members AS members,
            l.status AS status, l.score AS my_score, l.episodes_watched AS episodes_watched, l.updated_at AS updated_at,
@@ -137,9 +138,9 @@ INSIGHTS_STAFF = """
 INSIGHTS_GAPS = """
     MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime)-[r:RELATED_TO]->(b:Anime)
     WHERE l.status IN $statuses AND r.relation IN $relations AND NOT (u)-[:LISTED]->(b)
-    RETURN b.id AS id, b.title AS title, b.url AS url, b.image_url AS image_url, b.score AS score, b.type AS type,
+    RETURN b.id AS id, """ + db.title("b") + """ AS title, b.url AS url, b.image_url AS image_url, b.score AS score, b.type AS type,
            b.year AS year, b.season AS season, b.aired_from AS aired_from, b.status AS airing, b.fetched_at IS NOT NULL AS fetched,
-           collect({relation: r.relation, id: a.id, title: a.title, my_score: l.score, status: l.status}) AS via
+           collect({relation: r.relation, id: a.id, title: """ + db.title("a") + """, my_score: l.score, status: l.status}) AS via
     ORDER BY size(via) DESC, id
 """
 

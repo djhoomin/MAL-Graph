@@ -348,7 +348,7 @@ def taste_profile() -> dict[str, Any]:
         RETURN g.name AS name, n AS anime, round(avg * 10) / 10 AS avg_my_score ORDER BY n DESC LIMIT 12""")
     out["top_rated"] = users.run("""
         MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) WHERE l.score >= 9
-        RETURN 'Anime:' + toString(a.id) AS ref, a.title AS title, l.score AS my_score, a.year AS year ORDER BY l.score DESC, a.members DESC LIMIT 20""")
+        RETURN 'Anime:' + toString(a.id) AS ref, """ + db.title("a") + """ AS title, l.score AS my_score, a.year AS year ORDER BY l.score DESC, a.members DESC LIMIT 20""")
     out["counts"] = users.run("MATCH (u:User {username: $user})-[l:LISTED]->(a:Anime) RETURN l.status AS status, count(*) AS n ORDER BY n DESC")
     return out
 
@@ -565,6 +565,9 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
     yield {"type": "session", "id": sid, "model": settings.openrouter_model, "resumed": resumed}
     username = users.current_username()
     system = SYSTEM_PROMPT.format(username=username or "the user")
+    if db.english_titles():
+        system += ("\n\nThe user reads anime titles in English. Name anime by their English title (title_english "
+                   "in the graph, or the official English title you know), falling back to the main title when there is none.")
     if not conv["title"]:
         conv["title"] = user_message.strip()[:80]
     turn: dict[str, Any] = {"role": "assistant", "text": "", "steps": [], "cards": [], "usage": None, "error": None}
