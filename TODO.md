@@ -43,10 +43,11 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       (`.xml` or `.xml.gz`) to `/api/sync/upload`, which replaces the signed-in user's list. Only ids, statuses, scores
       and episode counts are read. Size is capped before and after unzipping, and files with a DOCTYPE are refused.
       Checked with a real export (355 entries), which matched the synced list on every id, status, score and episode count.
-- [ ] **Step 4: source switch.** `DATA_SOURCE=anilist` chooses the source per deployment, signs people in with
+- [x] **Step 4: source switch.** `DATA_SOURCE=anilist` chooses the source per deployment, signs people in with
       AniList only, maps a MyAnimeList export to AniList ids, and makes the UI name AniList. Tested locally on a
-      second Memgraph with the full AniList list. Left: run the staging copy (`docker-compose.anilist.yml`, see
-      `deploy/README.md`), which needs a DNS record for `staging.mal-graph.eu` and a second AniList API client.
+      second Memgraph with the full AniList list. The AniList copy runs at `staging.mal-graph.eu` from
+      `docker-compose.anilist.yml` (see `deploy/README.md`), with its own AniList API client and graph, and fetched
+      a 355-anime list on 16 November 2026.
 - [ ] **Ask AniList to confirm** that a shared, on-demand cache fits their terms (their Discord is the quickest route).
 
 ## Operations
