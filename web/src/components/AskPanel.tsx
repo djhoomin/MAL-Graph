@@ -158,6 +158,9 @@ export function AskPanel() {
           a.draft = undefined // what the model wrote before calling a tool was a preamble
         })
         break
+      case 'retry':
+        update((a) => (a.draft = undefined)) // the reply was cut off, and the agent is asked for it again
+        break
       case 'delta':
         update((a) => (a.draft = (a.draft ?? '') + ev.text))
         break

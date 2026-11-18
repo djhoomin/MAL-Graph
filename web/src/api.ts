@@ -231,6 +231,7 @@ export type AskEvent =
   | { type: 'canvas'; payload: GraphPayload & { select?: string } }
   | { type: 'cards'; title: string; cards: { node: GNode; caption: string }[] }
   | { type: 'delta'; text: string }
+  | { type: 'retry' }
   | { type: 'answer'; text: string }
   | { type: 'error'; message: string }
   | { type: 'done'; usage: { prompt_tokens: number; completion_tokens: number; cached_tokens?: number }; run_id?: string }

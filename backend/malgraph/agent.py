@@ -79,7 +79,7 @@ TOOLS: list[dict[str, Any]] = [
     {"type": "function", "function": {"name": "roster", "description": "Voice actors ranked by how many distinct characters they play in the user's watched anime.", "parameters": {"type": "object", "properties": {"min_characters": {"type": "integer", "default": 3}, "main_only": {"type": "boolean", "default": False}, "only_watched": {"type": "boolean", "default": True}, "lang": {"type": "string", "default": "Japanese"}, "q": {"type": "string"}, "limit": {"type": "integer", "default": 30}}}}},
     {"type": "function", "function": {"name": "people", "description": "Ranked people by anime count on the user's list. kind='va' or a staff position like 'Director', 'Music', 'Character Design', 'Original Creator', 'Series Composition'.", "parameters": {"type": "object", "properties": {"kind": {"type": "string", "default": "va"}, "statuses": {"type": "string", "default": "completed,watching,on_hold,dropped"}, "lang": {"type": "string", "default": "Japanese"}, "min_anime": {"type": "integer", "default": 2}, "limit": {"type": "integer", "default": 30}}}}},
     {"type": "function", "function": {"name": "gaps", "description": "Related anime (sequels, prequels, ...) of anime the user has seen that are NOT on their list.", "parameters": {"type": "object", "properties": {"statuses": {"type": "string", "default": "completed,watching"}, "relations": {"type": "string", "default": "Sequel,Prequel"}}}}},
-    {"type": "function", "function": {"name": "cypher_read", "description": "Run a read-only Cypher query (MATCH/RETURN; no writes). Max 200 rows. Nodes are returned as refs with key properties.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "params": {"type": "object", "description": "Query parameters", "additionalProperties": True}}, "required": ["query"]}}},
+    {"type": "function", "function": {"name": "cypher_read", "description": "Run a read-only Cypher query (MATCH/RETURN; no writes). Max 200 rows. Nodes are returned as refs with key properties. Return the nodes themselves (RETURN p, a) along with names and counts where you can: the user sees returned nodes drawn on their graph.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "params": {"type": "object", "description": "Query parameters", "additionalProperties": True}}, "required": ["query"]}}},
     {"type": "function", "function": {"name": "taste_profile", "description": "One-call summary of the user's taste: top voice actors, directors, composers, studios, genres (with their average score) and their highest-rated anime. Use this first for any recommendation or 'what do I like' question.", "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {"name": "recommendations", "description": "Graph-based recommendations: unseen anime ranked by how many of the user's favourite voice actors (via='va'), key staff (via='staff') or studios (via='studio') are involved, with the names as 'via'. Excludes sequels/prequels of seen anime.", "parameters": {"type": "object", "properties": {"via": {"type": "string", "enum": ["va", "staff", "studio"], "default": "va"}, "min_score": {"type": "number", "default": 7.0}, "types": {"type": "string", "default": "TV,Movie,ONA"}, "limit": {"type": "integer", "default": 20}}}}},
     {"type": "function", "function": {"name": "fetch_from_mal", "description": "Fetch a node from MyAnimeList into the graph (anime: metadata+characters+staff; person: full filmography; character: appearances+voice actors). Use when the graph lacks details or connections for something.", "parameters": {"type": "object", "properties": {"ref": {"type": "string", "description": "Anime:<id> | Person:<id> | Character:<id>"}}, "required": ["ref"]}}},
@@ -632,6 +632,7 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
         conv["messages"] = []
 
     steps: dict[str, dict[str, Any]] = {}  # tool call id -> step, to mark errors
+    partial = ""  # an answer cut off by the token limit
     try:
         with tracing_context(enabled=ask_graph.traced(username)):
             start = {"messages": [HumanMessage(user_message)], "nudged": False, "steps": 0, "stopped": False}
@@ -655,7 +656,12 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
                             steps[call["id"] or ""] = step
                             turn["steps"].append(step)
                             yield {"type": "tool_call", "id": step["id"], "name": call["name"], "args": call["args"]}
-                        if not reply.tool_calls and reply.text.strip():
+                        if ask_graph.cut_off(reply):
+                            # Out of tokens mid-answer. The graph asks once more, so keep this only as a fallback.
+                            log.warning("model reply cut off after %s tokens", meta.get("output_tokens"))
+                            partial = reply.text.strip()
+                            yield {"type": "retry"}
+                        elif not reply.tool_calls and reply.text.strip():
                             turn["text"] = reply.text
                             yield {"type": "answer", "text": turn["text"]}
                         elif not reply.tool_calls:
@@ -678,7 +684,8 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
                             turn["cards"].append(group)
                             yield {"type": "cards", **group}
         if not turn["text"]:
-            turn["text"] = "I couldn't put an answer together this time. Try asking again, or ask a narrower question."
+            turn["text"] = (partial + "\n\n*(This answer was cut short.)*" if len(partial) > 200 else
+                            "I couldn't put an answer together this time. Try asking again, or ask a narrower question.")
             yield {"type": "answer", "text": turn["text"]}
     except GraphRecursionError:
         turn["text"] = "I ran out of steps before finishing. Try a narrower question."

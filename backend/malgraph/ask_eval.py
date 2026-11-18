@@ -8,7 +8,7 @@ Two more checks look past the facts. The trajectory check asks whether the agent
 without repeating a call or showing cards before it had data. The judge, a second model (ASK_JUDGE_MODEL), grades how
 well the answer serves the question, which is the only check the open questions like recommendations really have.
 
-Run it with `malgraph eval-ask --user <name>`. With LANGSMITH_API_KEY set it uploads the dataset to LangSmith once and
+Run it with `malgraph eval-ask --user <name>`. With LANGSMITH_API_KEY set it uploads the dataset to LangSmith, adding any new questions, and
 records each run as an experiment, by default with every question asked three times so the spread shows, so models
 and prompts can be compared there. Without it, it prints a table.
 """
@@ -41,6 +41,8 @@ EXAMPLES: list[dict[str, str]] = [
     {"question": "How are Chainsaw Man and Jujutsu Kaisen connected?", "check": "chainsaw_jjk"},
     {"question": "Recommend three anime I haven't seen, based on my taste.", "check": "recommend"},
     {"question": f"List the anime that the user {OTHER_USER} has completed.", "check": "privacy"},
+    {"question": "Which director have I seen the most anime for, excluding sequels, where I rate the show 8 or higher?",
+     "check": "director_8plus"},
 ]
 
 
@@ -93,6 +95,28 @@ def _check_top_director(answer: str, user: str, steps: list[dict[str, Any]]) -> 
     best = len(top[0]["anime_ids"]) if top else 0
     leaders = [_names(p["person"]["name"]) for p in top if len(p["anime_ids"]) == best]
     return float(_hits(answer, leaders) > 0), f"leaders with {best} anime: {', '.join(g[-1] for g in leaders)}"
+
+
+NUMBERS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"]
+
+
+def _check_director_8plus(answer: str, user: str, steps: list[dict[str, Any]]) -> tuple[float, str]:
+    """A sequel is an anime with a prequel. GLM 5.3 once named a leader with the wrong count and said nobody else had
+    more than one, so the count must be right too: a leader with the count is 1, a leader alone 0.5."""
+    rows = db.run(
+        "MATCH (:User {username: $u})-[l:LISTED]->(a:Anime) WHERE l.score >= 8 AND l.status <> 'plan_to_watch' "
+        "AND NOT EXISTS { MATCH (a)-[r:RELATED_TO]->(:Anime) WHERE r.relation = 'Prequel' } "
+        "MATCH (p:Person)-[w:WORKED_ON]->(a) WHERE 'Director' IN w.positions "
+        "WITH p, count(DISTINCT a) AS n ORDER BY n DESC RETURN p.name AS name, n LIMIT 10", u=user)
+    if not rows:
+        return 1.0, "no directors to find"
+    best = rows[0]["n"]
+    leaders = [_names(r["name"]) for r in rows if r["n"] == best]
+    named = _hits(answer, leaders) > 0
+    words = [str(best)] + ([NUMBERS[best]] if best < len(NUMBERS) else [])
+    counted = any(re.search(rf"(?<![\w.]){w}(?![\w.])", answer.lower()) for w in words)
+    score = 1.0 if named and counted else 0.5 if named else 0.0
+    return score, f"leaders with {best} anime: {', '.join(g[-1] for g in leaders)}; count {'given' if counted else 'missing'}"
 
 
 def _check_top_studio(answer: str, user: str, steps: list[dict[str, Any]]) -> tuple[float, str]:
@@ -161,7 +185,7 @@ CHECKS: dict[str, Callable[[str, str, list[dict[str, Any]]], tuple[float, str]]]
     "top_vas": _check_top_vas, "top_director": _check_top_director, "top_studio": _check_top_studio,
     "completed_count": _check_completed_count, "top_rated": _check_top_rated, "sequels": _check_sequels,
     "hanazawa_roles": _check_hanazawa_roles, "chainsaw_jjk": _check_chainsaw_jjk, "recommend": _check_recommend,
-    "privacy": _check_privacy,
+    "privacy": _check_privacy, "director_8plus": _check_director_8plus,
 }
 
 
@@ -174,6 +198,7 @@ SHOW_TOOLS = {"show_on_canvas", "present_cards"}
 SUITED: dict[str, set[str]] = {
     "top_vas": {"roster", "people", "taste_profile", "cypher_read"},
     "top_director": {"people", "taste_profile", "cypher_read"},
+    "director_8plus": {"cypher_read"},
     "top_studio": {"taste_profile", "cypher_read"},
     "completed_count": {"cypher_read", "taste_profile"},
     "top_rated": {"taste_profile", "cypher_read"},
@@ -333,9 +358,15 @@ async def run_langsmith(user: str, prefix: str, repetitions: int = 3) -> str:
     from langsmith import Client, aevaluate
 
     client = Client()
-    if not client.has_dataset(dataset_name=DATASET):
+    if client.has_dataset(dataset_name=DATASET):
+        ds = client.read_dataset(dataset_name=DATASET)
+        have = {e.outputs.get("check") for e in client.list_examples(dataset_id=ds.id) if e.outputs}
+    else:
         ds = client.create_dataset(DATASET, description="Questions for MAL-Graph's Ask agent. The checks compute the expected facts from the graph at run time.")
-        client.create_examples(dataset_id=ds.id, examples=[{"inputs": {"question": e["question"]}, "outputs": {"check": e["check"]}} for e in EXAMPLES])
+        have = set()
+    new = [e for e in EXAMPLES if e["check"] not in have]  # questions added since the dataset was made
+    if new:
+        client.create_examples(dataset_id=ds.id, examples=[{"inputs": {"question": e["question"]}, "outputs": {"check": e["check"]}} for e in new])
 
     async def target(inputs: dict[str, Any]) -> dict[str, Any]:
         with users.use_user(user):

@@ -11,8 +11,8 @@ The graph has four nodes:
 on worker threads, which copy the request's context (the user and their choice of titles). A turn may make MAX_STEPS
 tool calls. Calls past that aren't run: `out_of_steps` answers the reply's calls with a note that the budget is used
 up, and the model then answers with tools switched off, from what it found. `nudge` handles a quirk of reasoning
-models: they sometimes spend their whole token budget thinking and reply with nothing, so the graph asks once for the
-answer before giving up.
+models: they sometimes spend their whole token budget thinking and reply with nothing or with an answer cut off, so the
+graph asks once for the answer before giving up.
 
 The graph is compiled once. What changes per turn travels as the run's context (AskContext): the system prompt, the
 conversation id that keeps OpenRouter on one provider, and the turn's ToolContext, which collects what tools show in
@@ -51,6 +51,8 @@ EARLIER_TURNS = 10  # earlier questions and answers the model sees
 EARLIER_CHARS = 30_000  # and at most this many characters of them
 MAX_RESULT = 60_000  # characters of a tool result passed back to the model
 MAX_STEPS = 20  # tool calls a turn may make before the model must answer
+# Thinking a reply may do, out of make_model's max_tokens. Without a cap GLM 5.3 sometimes thinks through all of it.
+REASONING_TOKENS = int(os.getenv("ASK_REASONING_TOKENS", "3000"))
 NUDGE = "Please write your answer now, from the results you already have. List the results themselves."
 OUT_OF_STEPS = ("Not run: this question has used all its tool calls. Answer now from the results you already have, "
                 "and say briefly what you couldn't check.")
@@ -74,10 +76,17 @@ def make_model() -> ChatOpenAI:
         model=settings.openrouter_model,
         api_key=settings.openrouter_api_key,
         base_url=settings.openrouter_base,
-        max_tokens=4000,
+        max_tokens=8000,  # reasoning models spend much of it thinking (GLM 5.3 cut an answer off at 4000)
         stream_usage=True,
         default_headers={"HTTP-Referer": "https://github.com/djhoomin/MAL-Graph", "X-Title": "MAL-Graph"},
     )
+
+
+def cut_off(m: BaseMessage) -> bool:
+    """A reply that ran out of tokens before it finished its answer. Streamed replies can repeat the finish reason
+    ("lengthlength"), so this looks for it inside the string."""
+    return (isinstance(m, AIMessage) and not m.tool_calls
+            and "length" in str(m.response_metadata.get("finish_reason") or ""))
 
 
 def history(messages: list[BaseMessage]) -> list[BaseMessage]:
@@ -128,7 +137,8 @@ def build(specs: list[dict[str, Any]], checkpointer: AsyncSqliteSaver | None):
         steps = state.get("steps") or 0
         llm = (answer_only if steps > MAX_STEPS else bound).bind(
             # OpenRouter sticky sessions: every request of a conversation goes to the same provider, so caching hits.
-            extra_body={"session_id": runtime.context.session_id, "cache_control": {"type": "ephemeral"}})
+            extra_body={"session_id": runtime.context.session_id, "cache_control": {"type": "ephemeral"},
+                        "reasoning": {"max_tokens": REASONING_TOKENS}})
         reply = await llm.ainvoke([SystemMessage(runtime.context.system), *history(state["messages"])], config)
         return {"messages": [reply], "steps": steps + len(reply.tool_calls)}
 
@@ -159,8 +169,8 @@ def build(specs: list[dict[str, Any]], checkpointer: AsyncSqliteSaver | None):
             if (state.get("steps") or 0) <= MAX_STEPS:
                 return "tools"
             return END if state.get("stopped") else "out_of_steps"  # a model that ignores tool_choice gets one note
-        if not last.text.strip() and not state.get("nudged"):
-            return "nudge"
+        if (not last.text.strip() or cut_off(last)) and not state.get("nudged"):
+            return "nudge"  # an empty or cut-off answer gets one more try
         return END
 
     g = StateGraph(AskState, context_schema=AskContext)
