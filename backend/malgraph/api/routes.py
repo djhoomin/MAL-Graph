@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 from contextlib import contextmanager
@@ -467,6 +468,17 @@ def feedback(cid: str, body: FeedbackBody) -> dict[str, Any]:
     if result is None:
         raise HTTPException(404, "answer not found")
     return result
+
+
+class SubgraphBody(BaseModel):
+    refs: list[str] = Field(max_length=150)
+
+
+@router.post("/subgraph")
+def subgraph(body: SubgraphBody) -> dict[str, Any]:
+    """Nodes for these refs and the edges between them, to draw a step of an Ask answer again."""
+    refs = [r for r in body.refs if re.fullmatch(r"(Anime|Character|Person|Studio|Genre):\d+", r)]
+    return agent._subgraph(refs) if refs else {"nodes": [], "edges": []}
 
 
 @router.delete("/conversations/{cid}")

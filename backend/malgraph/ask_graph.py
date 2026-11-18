@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import sqlite3
 from dataclasses import dataclass
@@ -43,6 +44,8 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.runtime import Runtime
 
 from .config import settings
+
+log = logging.getLogger(__name__)
 
 EARLIER_TURNS = 10  # earlier questions and answers the model sees
 EARLIER_CHARS = 30_000  # and at most this many characters of them
@@ -100,11 +103,17 @@ def history(messages: list[BaseMessage]) -> list[BaseMessage]:
     return kept + messages[start:]
 
 
-def _run_tool(name: str, args: dict[str, Any], turn: Any) -> str:
-    from .agent import execute_tool  # agent imports this module
+def _run_tool(name: str, args: dict[str, Any], turn: Any, call_id: str) -> str:
+    from .agent import execute_tool, trail  # agent imports this module
 
     result = execute_tool(name, args, turn)
     content = json.dumps(result, ensure_ascii=False, default=str)
+    try:  # the UI's picture of what the step found, which must never fail the step itself
+        found = trail(name, args, content)
+        if found:
+            turn.trail.append({"id": call_id, **found})
+    except Exception:  # noqa: BLE001
+        log.exception("trail for %s failed", name)
     return content if len(content) <= MAX_RESULT else content[:MAX_RESULT] + '... (truncated)"}'
 
 
@@ -128,7 +137,8 @@ def build(specs: list[dict[str, Any]], checkpointer: AsyncSqliteSaver | None):
 
         async def one(call: dict[str, Any]) -> ToolMessage:
             try:
-                content = await asyncio.to_thread(_run_tool, call["name"], call["args"], runtime.context.turn)
+                content = await asyncio.to_thread(_run_tool, call["name"], call["args"], runtime.context.turn,
+                                                  call["id"] or "")
                 return ToolMessage(content, tool_call_id=call["id"], name=call["name"])
             except Exception as e:  # noqa: BLE001
                 return ToolMessage(f"Error: {e}", tool_call_id=call["id"], name=call["name"], status="error")

@@ -102,6 +102,10 @@ export const stylesheet: StylesheetJson = [
   { selector: 'node.current', style: { 'border-color': '#ffd23f', 'border-width': 6, 'z-index': 16 } },
   { selector: 'edge.solution', style: { 'line-color': '#3ddc84', 'target-arrow-color': '#3ddc84', 'line-style': 'dashed', opacity: 1, width: 3, 'text-opacity': 1, 'z-index': 14 } },
   { selector: 'node.solution', style: { 'border-color': '#3ddc84', 'border-width': 4 } },
+  // what the Ask agent has found while it works, and the nodes it added to the canvas for that
+  { selector: 'node.asktrail', style: { 'border-color': '#7aa2ff', 'border-width': 4, 'z-index': 15 } },
+  { selector: 'edge.asktrail', style: { 'line-color': '#7aa2ff', 'target-arrow-color': '#7aa2ff', opacity: 0.9, width: 2, 'z-index': 15 } },
+  { selector: 'node.askghost', style: { 'border-style': 'dashed' } },
   // selected node's neighbourhood
   { selector: '.dim', style: { opacity: 0.2, 'text-opacity': 0.15 } },
   { selector: 'node.nbr', style: { 'border-color': '#ffffff', 'border-width': 3, 'z-index': 15 } },

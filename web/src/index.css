@@ -691,3 +691,6 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .menu-upload:hover { border-color: var(--accent); }
 .menu-upload.disabled { opacity: 0.4; cursor: default; pointer-events: none; }
 .menu-upload input { display: none; }
+.steps pre.query { margin: 2px 0; padding: 4px 6px; font-size: 10px; color: #a9b1c7; background: rgba(255, 255, 255, 0.04); border-radius: 4px; white-space: pre-wrap; word-break: break-word; }
+.steps .found { color: #7aa2ff; }
+.steps .found .link { margin-left: 6px; font-size: 11px; }

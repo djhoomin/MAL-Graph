@@ -195,10 +195,19 @@ export interface ConversationSummary {
   updated_at: number
   turns: number
 }
+/** One tool call of an Ask answer. `found` and `refs` say what a graph step found, for drawing it again. */
+export interface AskStep {
+  id?: string
+  name: string
+  args: Record<string, unknown>
+  error?: string
+  found?: string
+  refs?: string[]
+}
 export interface ConversationTurn {
   role: 'user' | 'assistant'
   text: string
-  steps: { name: string; args: Record<string, unknown>; error?: string }[]
+  steps: AskStep[]
   cards: { title: string; cards: { node: GNode; caption: string }[] }[]
   usage?: { prompt_tokens: number; completion_tokens: number; cached_tokens?: number } | null
   error?: string | null
@@ -216,7 +225,8 @@ export interface Conversation {
 
 export type AskEvent =
   | { type: 'session'; id: string; model: string; resumed: boolean }
-  | { type: 'tool_call'; name: string; args: Record<string, unknown> }
+  | { type: 'tool_call'; id?: string; name: string; args: Record<string, unknown> }
+  | { type: 'trail'; id: string; summary: string; payload: GraphPayload }
   | { type: 'tool_error'; name: string; message: string }
   | { type: 'canvas'; payload: GraphPayload & { select?: string } }
   | { type: 'cards'; title: string; cards: { node: GNode; caption: string }[] }
@@ -283,6 +293,8 @@ export const api = {
   renameConversation: (id: string, title: string) =>
     req<{ id: string; title: string }>(`/api/conversations/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }),
   deleteConversation: (id: string) => req<{ deleted: boolean }>(`/api/conversations/${id}`, { method: 'DELETE' }),
+  subgraph: (refs: string[]) =>
+    req<GraphPayload>('/api/subgraph', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refs }) }),
   answerFeedback: (id: string, runId: string, score: number | null) =>
     req<{ run_id: string; feedback: number | null }>(`/api/conversations/${id}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ run_id: runId, score }) }),
   insightsList: () => req<{ anime: ListAnime[] }>('/api/insights/list'),

@@ -25,6 +25,8 @@ interface State {
   pathFrom: string | null
   pathTo: string | null
   highlight: Set<string> // node + edge ids of the current path result
+  askTrail: Set<string> // node + edge ids the Ask agent has found while it works on an answer
+  askGhosts: Set<string> // the ones it added to the canvas, removed when the answer is done unless it shows them
   filters: Filters
   user: UserSummary | null
   busy: string | null
@@ -44,6 +46,9 @@ interface State {
   authError: string | null // from a failed sign-in redirect (?auth_error=...)
 
   mergePayload: (p: GraphPayload, opts?: { select?: string }) => void
+  addAskTrail: (p: GraphPayload) => void
+  keepAsk: (p: GraphPayload) => void
+  endAskTrail: () => void
   removeNode: (id: string) => void
   collapseNode: (id: string) => number
   clear: () => void
@@ -126,6 +131,8 @@ export const useStore = create<State>((set, get) => ({
   pathFrom: null,
   pathTo: null,
   highlight: new Set(),
+  askTrail: new Set(),
+  askGhosts: new Set(),
   filters: { labels: DEFAULT_LABELS, rels: DEFAULT_RELS, statuses: DEFAULT_STATUSES, ...loadPrefs() },
   user: null,
   busy: null,
@@ -152,6 +159,28 @@ export const useStore = create<State>((set, get) => ({
       // While a path is highlighted everything else is faded, so what was just added joins the highlight and shows.
       const highlight = s.highlight.size ? new Set([...s.highlight, ...p.nodes.map((n) => n.id), ...p.edges.map((e) => e.id)]) : s.highlight
       return { nodes, edges, highlight, selected: opts?.select ?? s.selected }
+    }),
+  addAskTrail: (p) => {
+    const s = get()
+    const ids = [...p.nodes.map((n) => n.id), ...p.edges.map((e) => e.id)]
+    const ghosts = new Set(s.askGhosts)
+    for (const id of ids) if (!s.nodes[id] && !s.edges[id]) ghosts.add(id)
+    s.mergePayload(p)
+    set({ askTrail: new Set([...get().askTrail, ...ids]), askGhosts: ghosts })
+  },
+  keepAsk: (p) =>
+    set((s) => {
+      const ghosts = new Set(s.askGhosts)
+      for (const x of [...p.nodes, ...p.edges]) ghosts.delete(x.id)
+      return { askGhosts: ghosts }
+    }),
+  endAskTrail: () =>
+    set((s) => {
+      const gone = s.askGhosts
+      const nodes = Object.fromEntries(Object.entries(s.nodes).filter(([k]) => !gone.has(k)))
+      const edges = Object.fromEntries(Object.entries(s.edges).filter(([k, e]) => !gone.has(k) && nodes[e.source] && nodes[e.target]))
+      const selected = s.selected && !nodes[s.selected] ? null : s.selected
+      return { nodes, edges, selected, askTrail: new Set(), askGhosts: new Set() }
     }),
   removeNode: (id) =>
     set((s) => {
@@ -180,7 +209,7 @@ export const useStore = create<State>((set, get) => ({
     set({ nodes, edges, selected: s.selected && leaves.has(s.selected) ? id : s.selected })
     return leaves.size
   },
-  clear: () => set({ nodes: {}, edges: {}, selected: null, highlight: new Set(), pathFrom: null, pathTo: null, pathPicking: false, pathResult: null }),
+  clear: () => set({ nodes: {}, edges: {}, selected: null, highlight: new Set(), askTrail: new Set(), askGhosts: new Set(), pathFrom: null, pathTo: null, pathPicking: false, pathResult: null }),
   select: (id) => set({ selected: id, view: 'node' }),
   startPath: (fromId) => set({ pathFrom: fromId, pathTo: null, pathPicking: true, pathResult: null, highlight: new Set() }),
   completePath: async (toId) => {

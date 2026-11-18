@@ -145,6 +145,13 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       steps are custom, so the hand-built graph stays.
 - [x] **Thumbs up and down on answers.** Each turn keeps its run id. A thumb is saved with the conversation and, for
       traced users, sent to LangSmith as `user_score` feedback on the run. The same thumb again takes it back.
+- [x] **Show the agent's trail on the canvas.** Each graph step sends what it found (up to 40 nodes and the edges
+      between them) as a `trail` event, drawn in blue, with dashed borders on the nodes it added. When the answer is
+      done those added nodes go again, unless the answer showed them. The steps list shows each step's result and the
+      full Cypher of queries, and a "show" link draws a step again, from conversation history too (`/api/subgraph`).
+- [ ] **Keep an answer written before its last tool call.** A model sometimes writes the whole answer, then calls
+      `show_on_canvas`, then replies with one line. The UI drops text written before a tool call, so only that line
+      is left. Seen with DeepSeek on 18 November 2026 ("I've also put him ... in your graph view").
 
 ## Checks not done yet
 

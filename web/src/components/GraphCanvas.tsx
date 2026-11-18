@@ -116,6 +116,8 @@ export function GraphCanvas() {
   const layoutTick = useStore((s) => s.layoutTick)
   const fitTick = useStore((s) => s.fitTick)
   const golf = useGolf((s) => s.golf)
+  const askTrail = useStore((s) => s.askTrail)
+  const askGhosts = useStore((s) => s.askGhosts)
 
   // Create the Cytoscape instance once.
   useEffect(() => {
@@ -271,6 +273,19 @@ export function GraphCanvas() {
       })
     })
   }, [highlight, nodes, edges])
+
+  // The Ask agent's trail.
+  useEffect(() => {
+    const cy = cyRef.current
+    if (!cy) return
+    cy.batch(() => {
+      cy.elements().removeClass('asktrail askghost')
+      cy.elements().forEach((el) => {
+        if (askTrail.has(el.id())) el.addClass('asktrail')
+        if (askGhosts.has(el.id())) el.addClass('askghost')
+      })
+    })
+  }, [askTrail, askGhosts, nodes, edges])
 
   // Graph Golf marks.
   useEffect(() => {

@@ -1,14 +1,15 @@
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { useEffect, useRef, useState } from 'react'
-import { api, ask, type AskEvent, type AskStatus, type ConversationSummary, type GNode } from '../api'
+import { api, ask, type AskEvent, type AskStatus, type AskStep, type ConversationSummary, type GNode } from '../api'
+import { useGolf } from '../golf'
 import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
 
 interface Turn {
   role: 'user' | 'assistant'
   text: string
-  steps: { name: string; args: Record<string, unknown>; error?: string }[]
+  steps: AskStep[]
   cards: { title: string; cards: { node: GNode; caption: string }[] }[]
   usage?: { prompt_tokens: number; completion_tokens: number; cached_tokens?: number } | null
   error?: string | null
@@ -75,6 +76,8 @@ export function AskPanel() {
   const bottom = useRef<HTMLDivElement>(null)
   const mergePayload = useStore((s) => s.mergePayload)
   const select = useStore((s) => s.select)
+  const { addAskTrail, keepAsk, endAskTrail } = useStore.getState()
+  const drawing = () => !useGolf.getState().golf // a Graph Golf board keeps its own canvas
 
   useEffect(() => {
     api.askStatus().then(setStatus).catch(() => setStatus({ configured: false, model: null, remaining_today: null }))
@@ -137,6 +140,7 @@ export function AskPanel() {
     } finally {
       setBusy(false)
       abortRef.current = null
+      endAskTrail()
       api.askStatus().then(setStatus).catch(() => {})
       if (!title) setTitle(q.slice(0, 80))
     }
@@ -150,7 +154,7 @@ export function AskPanel() {
         break
       case 'tool_call':
         update((a) => {
-          a.steps = [...a.steps, { name: ev.name, args: ev.args }]
+          a.steps = [...a.steps, { id: ev.id, name: ev.name, args: ev.args }]
           a.draft = undefined // what the model wrote before calling a tool was a preamble
         })
         break
@@ -165,8 +169,13 @@ export function AskPanel() {
           a.steps = steps
         })
         break
+      case 'trail':
+        update((a) => (a.steps = a.steps.map((s) => (s.id === ev.id ? { ...s, found: ev.summary, refs: ev.payload.nodes.map((n) => n.id) } : s))))
+        if (drawing()) addAskTrail(ev.payload)
+        break
       case 'canvas':
         mergePayload(ev.payload)
+        keepAsk(ev.payload)
         if (ev.payload.select) select(ev.payload.select)
         break
       case 'cards':
@@ -189,6 +198,12 @@ export function AskPanel() {
         })
         break
     }
+  }
+
+  const showStep = async (s: AskStep) => {
+    if (!s.refs?.length) return
+    const p = await api.subgraph(s.refs)
+    mergePayload(p)
   }
 
   const rate = async (i: number, score: number) => {
@@ -292,7 +307,19 @@ export function AskPanel() {
                   <ol>
                     {t.steps.map((s, j) => (
                       <li key={j} className={s.error ? 'error' : ''}>
-                        <b>{TOOL_LABELS[s.name] ?? s.name}</b> <code>{argSummary(s.name, s.args)}</code>
+                        <b>{TOOL_LABELS[s.name] ?? s.name}</b>{' '}
+                        {s.name === 'cypher_read' ? <pre className="query">{String(s.args.query ?? '').trim()}</pre> : <code>{argSummary(s.name, s.args)}</code>}
+                        {s.found && (
+                          <span className="found">
+                            {' '}
+                            → {s.found}
+                            {s.refs?.length && !(busy && i === turns.length - 1) ? (
+                              <button className="link" onClick={() => void showStep(s)} title="Draw what this step found on the graph">
+                                show
+                              </button>
+                            ) : null}
+                          </span>
+                        )}
                         {s.error && <div className="error">{s.error}</div>}
                       </li>
                     ))}

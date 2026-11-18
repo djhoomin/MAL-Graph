@@ -359,6 +359,41 @@ class ToolContext:
     def __init__(self) -> None:
         self.canvas: list[dict[str, Any]] = []
         self.cards: list[dict[str, Any]] = []
+        self.trail: list[dict[str, Any]] = []  # what each graph step found, drawn on the canvas as the agent works
+
+
+# Tools whose results are drawn as the agent's trail. The catalogue tools (mal_*) return anime that are mostly not in
+# the graph, and show_on_canvas and present_cards already show what they were given.
+TRAIL_TOOLS = {"search", "node", "neighbors", "shortest_path", "va_roles", "roster", "people", "gaps", "cypher_read",
+               "taste_profile", "recommendations", "fetch_from_mal"}
+TRAIL_MAX = 40  # nodes drawn per step
+_REF = re.compile(r'"((?:Anime|Character|Person|Studio|Genre):\d+)"')
+
+
+def trail(name: str, args: dict[str, Any], content: str) -> dict[str, Any] | None:
+    """The part of the graph a tool result names, for the canvas: up to TRAIL_MAX of its nodes and the edges between
+    them, with a short summary of what the step found. None for tools that aren't drawn or found nothing."""
+    if name not in TRAIL_TOOLS:
+        return None
+    refs = list(dict.fromkeys(_REF.findall(content)))
+    try:
+        result = json.loads(content)
+    except ValueError:  # cut short at MAX_RESULT
+        result = None
+    if name == "cypher_read" and isinstance(result, dict):
+        summary = f"{result.get('count', 0)} row{'' if result.get('count') == 1 else 's'}"
+    elif name == "shortest_path" and isinstance(result, dict):
+        hops = result.get("hops")
+        summary = f"path of {hops} hop{'' if hops == 1 else 's'}" if result.get("found") else "no path"
+    elif refs:
+        summary = f"{len(refs)} node{'' if len(refs) == 1 else 's'}"
+    else:
+        return None
+    # A query that returns names and counts rather than nodes still says how many rows it found.
+    payload = _subgraph(refs[:TRAIL_MAX]) if refs else {"nodes": [], "edges": []}
+    if len(refs) > len(payload["nodes"]) and payload["nodes"]:
+        summary += f", {len(payload['nodes'])} drawn"
+    return {"summary": summary, "refs": [n["id"] for n in payload["nodes"]], "payload": payload}
 
 
 def execute_tool(name: str, args: dict[str, Any], ctx: ToolContext) -> Any:
@@ -616,10 +651,10 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
                         usage["completion_tokens"] += meta.get("output_tokens", 0)
                         usage["cached_tokens"] += (meta.get("input_token_details") or {}).get("cache_read", 0) or 0
                         for call in reply.tool_calls:
-                            step = {"name": call["name"], "args": call["args"]}
+                            step = {"id": call["id"] or "", "name": call["name"], "args": call["args"]}
                             steps[call["id"] or ""] = step
                             turn["steps"].append(step)
-                            yield {"type": "tool_call", "name": call["name"], "args": call["args"]}
+                            yield {"type": "tool_call", "id": step["id"], "name": call["name"], "args": call["args"]}
                         if not reply.tool_calls and reply.text.strip():
                             turn["text"] = reply.text
                             yield {"type": "answer", "text": turn["text"]}
@@ -631,6 +666,11 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
                             if m.tool_call_id in steps:
                                 steps[m.tool_call_id]["error"] = message
                             yield {"type": "tool_error", "name": m.name, "message": message}
+                        while ctx.trail:
+                            found = ctx.trail.pop(0)
+                            if found["id"] in steps:
+                                steps[found["id"]].update(found=found["summary"], refs=found["refs"])
+                            yield {"type": "trail", "id": found["id"], "summary": found["summary"], "payload": found["payload"]}
                         while ctx.canvas:
                             yield {"type": "canvas", "payload": ctx.canvas.pop(0)}
                         while ctx.cards:
