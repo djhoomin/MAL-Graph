@@ -149,9 +149,13 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       between them) as a `trail` event, drawn in blue, with dashed borders on the nodes it added. When the answer is
       done those added nodes go again, unless the answer showed them. The steps list shows each step's result and the
       full Cypher of queries, and a "show" link draws a step again, from conversation history too (`/api/subgraph`).
-- [ ] **Keep an answer written before its last tool call.** A model sometimes writes the whole answer, then calls
-      `show_on_canvas`, then replies with one line. The UI drops text written before a tool call, so only that line
-      is left. Seen with DeepSeek on 18 November 2026 ("I've also put him ... in your graph view").
+- [x] **Keep an answer written before its last tool call.** A model often writes the whole answer, then calls
+      `show_on_canvas` or `present_cards`, then replies with one line. Text alongside a display tool is now part of
+      the answer, so the line is added to it instead of replacing it. GLM 5.3 failed the Chainsaw Man eval this way.
+- [x] **Schema notes for GLM's mistakes.** The system prompt now says that unscored anime have score 0, that
+      `positions` is a list to test with `IN` (a `{positions: ['Director']}` pattern matched 302 of 1,054 director
+      credits), what a sequel is, that Memgraph's `round` takes one argument, and that the graph can't say what a
+      character is (a cat, a dog), so such answers come from the model and must say so.
 
 ## Checks not done yet
 

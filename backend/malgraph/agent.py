@@ -39,6 +39,16 @@ Graph model (all ids are MAL ids; node refs look like "Anime:5114", "Character:1
   (:Anime)-[:RELATED_TO {{relation: 'Sequel'|'Prequel'|'Side Story'|...}}]->(:Anime)
   (:Anime)-[:PRODUCED_BY]->(:Studio {{id, name}})      (:Anime)-[:HAS_GENRE]->(:Genre {{id, name, kind}})
 List statuses: completed, watching, on_hold, dropped, plan_to_watch. "watched"/"seen" means LISTED.status <> 'plan_to_watch'.
+LISTED.score is 0 when the user hasn't scored the anime, never null, so use l.score > 0 for scored anime and averages.
+WORKED_ON.positions is a list, often several roles at once. Filter with 'Director' IN w.positions. A map pattern like
+-[:WORKED_ON {{positions: ['Director']}}]-> only matches people whose single role is Director and misses most of them.
+A sequel is an anime with a prequel: (a)-[:RELATED_TO {{relation: 'Prequel'}}]->(:Anime).
+Memgraph's Cypher has round(x) with one argument only, so round to 2 places with round(x * 100) / 100.
+The graph has names, roles and favourites for characters but no descriptions, so it can't tell what a character is
+(a dog, a cat, a robot) or what they're like. For such questions start from what you know: list the candidates you're
+sure of, then confirm them in one cypher_read (character names and their anime on the user's list), and say that the
+list comes from your own knowledge rather than the graph. Don't scan names for words like 'neko' or 'dog', which mostly
+finds characters who only have the word in their name.
 The graph is shared by several users, so the user's list exists only as their LISTED edges. Other users' lists are private.
 cypher_read enforces three rules: reach the list only as (u:User {{username: $user}})-[l:LISTED]->(a:Anime) (the $user
 parameter is filled in for you), give every node you start from a label, and give every relationship a type, also in
@@ -633,6 +643,7 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
 
     steps: dict[str, dict[str, Any]] = {}  # tool call id -> step, to mark errors
     partial = ""  # an answer cut off by the token limit
+    written = ""  # an answer written alongside show_on_canvas or present_cards, before the final reply
     try:
         with tracing_context(enabled=ask_graph.traced(username)):
             start = {"messages": [HumanMessage(user_message)], "nudged": False, "steps": 0, "stopped": False}
@@ -651,6 +662,10 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
                         usage["prompt_tokens"] += meta.get("input_tokens", 0)
                         usage["completion_tokens"] += meta.get("output_tokens", 0)
                         usage["cached_tokens"] += (meta.get("input_token_details") or {}).get("cache_read", 0) or 0
+                        if ask_graph.shown_with(reply):
+                            written = ask_graph.shown_with(reply)
+                        elif reply.tool_calls:
+                            written = ""  # text before a data tool was a preamble
                         for call in reply.tool_calls:
                             step = {"id": call["id"] or "", "name": call["name"], "args": call["args"]}
                             steps[call["id"] or ""] = step
@@ -662,7 +677,8 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
                             partial = reply.text.strip()
                             yield {"type": "retry"}
                         elif not reply.tool_calls and reply.text.strip():
-                            turn["text"] = reply.text
+                            # A final line after an answer that was written alongside a display tool adds to it.
+                            turn["text"] = f"{written}\n\n{reply.text}" if written else reply.text
                             yield {"type": "answer", "text": turn["text"]}
                         elif not reply.tool_calls:
                             log.warning("empty model reply (finish_reason=%s)", reply.response_metadata.get("finish_reason"))
@@ -683,6 +699,9 @@ async def run(session_id: str | None, user_message: str) -> AsyncIterator[dict[s
                             group = ctx.cards.pop(0)
                             turn["cards"].append(group)
                             yield {"type": "cards", **group}
+        if not turn["text"] and written:  # the answer came with show_on_canvas and nothing followed
+            turn["text"] = written
+            yield {"type": "answer", "text": turn["text"]}
         if not turn["text"]:
             turn["text"] = (partial + "\n\n*(This answer was cut short.)*" if len(partial) > 200 else
                             "I couldn't put an answer together this time. Try asking again, or ask a narrower question.")

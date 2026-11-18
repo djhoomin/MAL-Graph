@@ -82,6 +82,17 @@ def make_model() -> ChatOpenAI:
     )
 
 
+DISPLAY_TOOLS = {"show_on_canvas", "present_cards"}
+
+
+def shown_with(m: BaseMessage) -> str:
+    """The text of a reply that only calls display tools. Models often write their whole answer and then call
+    show_on_canvas, so this text is part of the answer, not a preamble."""
+    if isinstance(m, AIMessage) and m.tool_calls and all(c["name"] in DISPLAY_TOOLS for c in m.tool_calls):
+        return m.text.strip()
+    return ""
+
+
 def cut_off(m: BaseMessage) -> bool:
     """A reply that ran out of tokens before it finished its answer. Streamed replies can repeat the finish reason
     ("lengthlength"), so this looks for it inside the string."""
@@ -100,6 +111,8 @@ def history(messages: list[BaseMessage]) -> list[BaseMessage]:
             earlier.append(HumanMessage(m.text))
         elif isinstance(m, AIMessage) and not m.tool_calls and m.text.strip():
             earlier.append(AIMessage(m.text))
+        elif shown_with(m):  # an answer written before showing it, merged with what followed
+            earlier.append(AIMessage(shown_with(m)))
     kept: list[BaseMessage] = []
     chars = 0
     for m in reversed(earlier):
