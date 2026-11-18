@@ -4,11 +4,19 @@ Open work for MAL-Graph, in rough priority order. Production runs `main` behind 
 
 ## Before a public launch
 
-- [ ] **Ask MyAnimeList for written permission.** Their API agreement conflicts with three things the app does. It
+- [x] **Ask MyAnimeList for written permission.** Their API agreement conflicts with three things the app does. It
       stores users' lists on the server (§3(c)). It gets characters, voice actors and staff from Jikan, which scrapes
-      the MyAnimeList website (§4(i)). And it uses "MAL" in the app name and domain (§17). The request goes through
-      MyAnimeList's API support form. The site is non-commercial and read-only, which helps. The request was sent
-      through the support form on 14 November 2026, and this stays open until they reply.
+      the MyAnimeList website (§4(i)). And it uses "MAL" in the app name and domain (§17). The request went through
+      the support form on 14 November 2026. MyAnimeList replied on 18 November that they don't give permission on an
+      individual basis and that the API must be used within the guidelines, so none of the three is allowed. Without
+      stored lists and the Jikan data most of the app goes, so AniList becomes the main data source (below).
+- [ ] **Ask AniList to confirm** that a shared, on-demand cache fits their terms. This is now the permission the public
+      launch depends on. The question was emailed to contact@anilist.co (the only contact their API terms give) on
+      18 November 2026, and this stays open until they reply. Their terms allow free use under $150 a month of
+      revenue, with a commercial licence above that, and a name with "AniList" in it must say "unofficial" or "for AniList".
+- [ ] **Switch production to AniList.** Run `app` with `DATA_SOURCE=anilist`, as staging does, once AniList agrees.
+      MyAnimeList users bring their lists across with the export upload. Decide whether the current MyAnimeList graph
+      and its users' data are deleted or kept until people have moved.
 - [ ] **Rename the app.** Drop "MAL" from the name, the domain (`mal-graph.eu`) and the Kiss Marry Kill share image
       footer, whichever data source the app ends up on.
 - [ ] **Add a way to contact you on the privacy page.** `PRIVACY_CONTACT` is "DJ Human" with no address. GDPR expects
@@ -16,7 +24,7 @@ Open work for MAL-Graph, in rough priority order. Production runs `main` behind 
 - [ ] **Set a monthly spending cap on the OpenRouter key** in OpenRouter's dashboard, if that isn't done yet.
 - [ ] **Take the site password off** once the items above are settled. It's the `basic_auth` block in `web/Caddyfile`.
 
-## AniList as a data source (fallback if MyAnimeList says no)
+## AniList as a data source (the main source, since MyAnimeList said no on 18 November 2026)
 
 AniList's API officially provides everything the graph uses: anime, characters, voice actors by language, staff
 roles, studios, related anime, genres and genders. Its terms allow non-commercial use but forbid "hoarding or mass
@@ -48,7 +56,7 @@ have AniList ids, so an AniList graph needs its own database rather than sharing
       second Memgraph with the full AniList list. The AniList copy runs at `staging.mal-graph.eu` from
       `docker-compose.anilist.yml` (see `deploy/README.md`), with its own AniList API client and graph, and fetched
       a 355-anime list on 16 November 2026.
-- [ ] **Ask AniList to confirm** that a shared, on-demand cache fits their terms (their Discord is the quickest route).
+- [ ] **Ask AniList to confirm** the cache, listed under "Before a public launch".
 
 ## Operations
 
