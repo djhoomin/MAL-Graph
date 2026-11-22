@@ -50,7 +50,7 @@ class JikanClient:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.limiter = RateLimiter()
         self.max_retries = max_retries
-        self.http = httpx.Client(timeout=30, headers={"User-Agent": "mal-graph/0.1", "Accept-Encoding": "gzip"})
+        self.http = httpx.Client(timeout=30, headers={"User-Agent": "aniweb/0.1", "Accept-Encoding": "gzip"})
         self.stats = {"hits": 0, "requests": 0}
 
     def _cache_path(self, path: str, params: dict[str, Any] | None) -> Path:

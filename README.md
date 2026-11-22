@@ -1,6 +1,6 @@
-# MAL-Graph
+# Aniweb
 
-MyAnimeList as an explorable graph: your watch list, its characters, voice actors, staff,
+Your anime list as an explorable graph, live at https://aniweb.eu: your watch list, its characters, voice actors, staff,
 studios and related anime, stored in **Memgraph** and explored through a React + Cytoscape UI.
 
 ```

@@ -78,7 +78,7 @@ def make_model() -> ChatOpenAI:
         base_url=settings.openrouter_base,
         max_tokens=8000,  # reasoning models spend much of it thinking (GLM 5.3 cut an answer off at 4000)
         stream_usage=True,
-        default_headers={"HTTP-Referer": "https://github.com/djhoomin/MAL-Graph", "X-Title": "MAL-Graph"},
+        default_headers={"HTTP-Referer": "https://aniweb.eu", "X-Title": "Aniweb"},
     )
 
 

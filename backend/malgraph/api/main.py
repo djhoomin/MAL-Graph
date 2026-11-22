@@ -44,7 +44,7 @@ class UserMiddleware:
             await self.app(scope, receive, send)
 
 
-app = FastAPI(title="MAL-Graph API", version="0.1.0")
+app = FastAPI(title="Aniweb API", version="0.1.0")
 # Starlette runs the last-added middleware first, so the limiter (added first) sees the user UserMiddleware sets.
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(UserMiddleware)

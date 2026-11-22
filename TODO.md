@@ -17,8 +17,9 @@ Open work for MAL-Graph, in rough priority order. Production runs `main` behind 
 - [ ] **Switch production to AniList.** Run `app` with `DATA_SOURCE=anilist`, as staging does, once AniList agrees.
       MyAnimeList users bring their lists across with the export upload. Decide whether the current MyAnimeList graph
       and its users' data are deleted or kept until people have moved.
-- [ ] **Rename the app.** Drop "MAL" from the name, the domain (`mal-graph.eu`) and the Kiss Marry Kill share image
-      footer, whichever data source the app ends up on.
+- [x] **Rename the app.** It's Aniweb since 22 November 2026, at https://aniweb.eu with staging at
+      https://staging.aniweb.eu. The old `mal-graph.eu` addresses redirect there. Let `mal-graph.eu` expire in
+      September 2027 once nobody uses the old links. The GitHub repo and the Python package still carry the old name.
 - [ ] **Add a way to contact you on the privacy page.** `PRIVACY_CONTACT` is "DJ Human" with no address. GDPR expects
       people to be able to reach the operator, so add an email address to the server's `.env` and restart the API.
 - [ ] **Set a monthly spending cap on the OpenRouter key** in OpenRouter's dashboard, if that isn't done yet.

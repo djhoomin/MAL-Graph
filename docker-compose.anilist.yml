@@ -4,7 +4,7 @@
 #
 # Usage: docker compose -f docker-compose.prod.yml -f docker-compose.anilist.yml up -d --build
 #
-# .env needs STAGING_ADDRESS (e.g. staging.mal-graph.eu, with a DNS record pointing at the server), and an AniList
+# .env needs STAGING_ADDRESS (e.g. staging.aniweb.eu, with a DNS record pointing at the server), and an AniList
 # API client whose redirect URL is https://<STAGING_ADDRESS>/api/auth/anilist/callback in ANILIST_STAGING_CLIENT_ID
 # and ANILIST_STAGING_API_KEY. AniList clients have one redirect URL each, so it can't share the live site's client.
 #
@@ -60,6 +60,8 @@ services:
     environment:
       - SITE_ADDRESS=${SITE_ADDRESS:-http://localhost:8088}
       - STAGING_ADDRESS=${STAGING_ADDRESS}
+      - OLD_SITE_ADDRESS=${OLD_SITE_ADDRESS:-http://localhost:8090}
+      - OLD_STAGING_ADDRESS=${OLD_STAGING_ADDRESS:-http://localhost:8091}
     depends_on:
       - api
       - api-anilist

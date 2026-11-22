@@ -1,7 +1,7 @@
 {
-  "name": "MAL·Graph",
-  "short_name": "MAL·Graph",
-  "description": "MyAnimeList as an explorable graph",
+  "name": "Aniweb",
+  "short_name": "Aniweb",
+  "description": "Your anime list as an explorable graph",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

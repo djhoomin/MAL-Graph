@@ -36,10 +36,10 @@ export function PrivacyPage() {
       </header>
       <article className="doc">
         <h1>Privacy</h1>
-        <p>MAL-Graph shows your {al ? 'AniList' : 'MyAnimeList'} anime list as a graph. This page explains what it keeps about you, who can see it, and how to delete it.</p>
-        {me?.contact && <p>MAL-Graph is run by {me.contact}.</p>}
+        <p>Aniweb shows your {al ? 'AniList' : 'MyAnimeList'} anime list as a graph. This page explains what it keeps about you, who can see it, and how to delete it.</p>
+        {me?.contact && <p>Aniweb is run by {me.contact}.</p>}
 
-        <h2>What MAL-Graph keeps when you sign in</h2>
+        <h2>What Aniweb keeps when you sign in</h2>
         <ul>
           <li>{al ? 'Your AniList username.' : 'Your MyAnimeList or AniList username, whichever you signed in with.'}</li>
           <li>Your anime list. For each anime that means its status, your score, the episodes you've watched, whether you're rewatching it and when you last updated it. Private lists are included, because you sign in with your own account.</li>
@@ -48,9 +48,9 @@ export function PrivacyPage() {
           <li>Who you've linked with in Taste match, and your open invite link.</li>
         </ul>
         {al ? (
-          <p>MAL-Graph never sees your password, because AniList handles the sign-in. The access it grants is used once to read your list and is then discarded. MAL-Graph never changes anything on AniList. If you upload a MyAnimeList export file instead, only its statuses, scores and episode counts are kept, anime that AniList doesn't have are left out, and the file itself isn't stored.</p>
+          <p>Aniweb never sees your password, because AniList handles the sign-in. The access it grants is used once to read your list and is then discarded. Aniweb never changes anything on AniList. If you upload a MyAnimeList export file instead, only its statuses, scores and episode counts are kept, anime that AniList doesn't have are left out, and the file itself isn't stored.</p>
         ) : (
-        <p>MAL-Graph never sees your password, because MyAnimeList or AniList handles the sign-in. The access they grant is used once to read your list and is then discarded. MAL-Graph never changes anything on either site. An AniList list joins the graph through each anime's MyAnimeList id, so anime that aren't on MyAnimeList are left out. If you upload a MyAnimeList export file instead, only its statuses, scores and episode counts are kept, and the file itself isn't stored.</p>
+        <p>Aniweb never sees your password, because MyAnimeList or AniList handles the sign-in. The access they grant is used once to read your list and is then discarded. Aniweb never changes anything on either site. An AniList list joins the graph through each anime's MyAnimeList id, so anime that aren't on MyAnimeList are left out. If you upload a MyAnimeList export file instead, only its statuses, scores and episode counts are kept, and the file itself isn't stored.</p>
         )}
 
         <h2>Who can see it</h2>
@@ -72,7 +72,7 @@ export function PrivacyPage() {
         </ul>
 
         <h2>Cookies and browser storage</h2>
-        <p>MAL-Graph sets one cookie that keeps you signed in for 30 days, and a second one that only lasts the 10 minutes of a sign-in. Your display settings stay in your browser's local storage. There are no analytics, trackers or ads.</p>
+        <p>Aniweb sets one cookie that keeps you signed in for 30 days, and a second one that only lasts the 10 minutes of a sign-in. Your display settings stay in your browser's local storage. There are no analytics, trackers or ads.</p>
 
         <h2>How long it's kept</h2>
         <p>Your data stays until you delete it. The server's logs record IP addresses and the pages requested, for troubleshooting. They're capped at a small size, so new requests overwrite old ones. A backup is made every night and deleted automatically after 30 days.</p>
@@ -82,11 +82,11 @@ export function PrivacyPage() {
           <p className="doc-done">Your data has been deleted and you are signed out. Copies in backups disappear within 30 days.</p>
         ) : me?.username && me.sign_in ? (
           <>
-            <p>This removes your list, your Ask conversations, your game plays and your Taste match links from MAL-Graph straight away, and signs you out. Copies in backups disappear within 30 days. Your {al ? 'AniList' : 'MyAnimeList or AniList'} account isn't affected, and signing in again would read your list again.</p>
+            <p>This removes your list, your Ask conversations, your game plays and your Taste match links from Aniweb straight away, and signs you out. Copies in backups disappear within 30 days. Your {al ? 'AniList' : 'MyAnimeList or AniList'} account isn't affected, and signing in again would read your list again.</p>
             {confirming ? (
               <div className="doc-confirm">
                 <p>
-                  Delete everything MAL-Graph keeps about <b>{me.username}</b>? This can't be undone.
+                  Delete everything Aniweb keeps about <b>{me.username}</b>? This can't be undone.
                 </p>
                 <div className="doc-actions">
                   <button className="danger" onClick={() => void remove()} disabled={state === 'deleting'}>
@@ -111,11 +111,11 @@ export function PrivacyPage() {
         <h2>Where the anime data comes from</h2>
         {al ? (
           <p>
-            Anime, character and staff data, including character genders, comes from <a href="https://anilist.co" target="_blank" rel="noopener noreferrer">AniList</a> through its official API. MAL-Graph only fetches the anime on players' lists and what they open. Anyone signed in can correct a character's gender. Corrections are shared and aren't linked to the person who made them. MAL-Graph isn't affiliated with or endorsed by AniList.
+            Anime, character and staff data, including character genders, comes from <a href="https://anilist.co" target="_blank" rel="noopener noreferrer">AniList</a> through its official API. Aniweb only fetches the anime on players' lists and what they open. Anyone signed in can correct a character's gender. Corrections are shared and aren't linked to the person who made them. Aniweb isn't affiliated with or endorsed by AniList.
           </p>
         ) : (
         <p>
-          Anime, character and staff data comes from <a href="https://myanimelist.net" target="_blank" rel="noopener noreferrer">MyAnimeList</a>, through the official MyAnimeList API and <a href="https://jikan.moe" target="_blank" rel="noopener noreferrer">Jikan</a>. Character genders come from <a href="https://anilist.co" target="_blank" rel="noopener noreferrer">AniList</a>, and anyone signed in can correct one. Corrections are shared and aren't linked to the person who made them. MAL-Graph isn't affiliated with or endorsed by MyAnimeList or AniList.
+          Anime, character and staff data comes from <a href="https://myanimelist.net" target="_blank" rel="noopener noreferrer">MyAnimeList</a>, through the official MyAnimeList API and <a href="https://jikan.moe" target="_blank" rel="noopener noreferrer">Jikan</a>. Character genders come from <a href="https://anilist.co" target="_blank" rel="noopener noreferrer">AniList</a>, and anyone signed in can correct one. Corrections are shared and aren't linked to the person who made them. Aniweb isn't affiliated with or endorsed by MyAnimeList or AniList.
         </p>
         )}
       </article>

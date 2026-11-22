@@ -1,4 +1,4 @@
-"""Deleting everything MAL-Graph stores about a user ("Delete my data").
+"""Deleting everything Aniweb stores about a user ("Delete my data").
 
 Personal data lives in five places: the user's node and LISTED edges in Memgraph, their Ask conversations and
 usage (one folder), their plays of Graph Golf and the other daily games, their taste match links and invites, and

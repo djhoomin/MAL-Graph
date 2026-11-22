@@ -41,7 +41,7 @@ def _words(name: str | None) -> str:
 
 class AniList:
     def __init__(self) -> None:
-        self._http = httpx.Client(timeout=20, headers={"User-Agent": "MAL-Graph (non-commercial)"})
+        self._http = httpx.Client(timeout=20, headers={"User-Agent": "Aniweb (non-commercial; https://aniweb.eu)"})
         self._last = 0.0
 
     def _post(self, variables: dict[str, Any]) -> dict[str, Any] | None:

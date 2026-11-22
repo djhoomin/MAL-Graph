@@ -95,6 +95,7 @@ services:
       - "443:443"
     environment:
       - SITE_ADDRESS=${SITE_ADDRESS:-http://localhost:8088}
+      - OLD_SITE_ADDRESS=${OLD_SITE_ADDRESS:-http://localhost:8090}
     volumes:
       - ./deploy/caddy/users:/etc/caddy/users:ro
       - caddy_data:/data

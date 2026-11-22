@@ -240,7 +240,7 @@ class AniListSource:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.limiter = RateLimiter()
         self.max_retries = max_retries
-        self.http = httpx.Client(timeout=30, headers={"User-Agent": "MAL-Graph (non-commercial)", "Accept": "application/json"})
+        self.http = httpx.Client(timeout=30, headers={"User-Agent": "Aniweb (non-commercial; https://aniweb.eu)", "Accept": "application/json"})
         self.stats = {"hits": 0, "requests": 0}
 
     # ------------------------------------------------------------------ transport

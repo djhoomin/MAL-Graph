@@ -18,7 +18,7 @@ export function HelpPage() {
       </header>
       <article className="doc">
         <h1>Help</h1>
-        <p>MAL-Graph draws your {src.name} anime list as a graph. Anime, characters, voice actors, staff and studios are the dots, and the lines between them show how they're connected, such as who voices a character or which studio made an anime.</p>
+        <p>Aniweb draws your {src.name} anime list as a graph. Anime, characters, voice actors, staff and studios are the dots, and the lines between them show how they're connected, such as who voices a character or which studio made an anime.</p>
 
         <h2>Exploring the graph</h2>
         <p>Search for an anime, a character or a person in the bar at the top, and pick a result to put it on the graph. Tap any dot to open its card. On the card, Expand adds everything connected to it, and the ⋯ button has more, such as a voice actor's roles, opening it on {src.name} or removing it from the graph.</p>

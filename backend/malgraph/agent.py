@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 MAX_ROWS = 200
 FORBIDDEN = re.compile(r"\b(CREATE|MERGE|SET|DELETE|DETACH|REMOVE|DROP|INDEX|CONSTRAINT|LOAD\s+CSV|IMPORT|ALTER|STORAGE\s+MODE|FREE\s+MEMORY|CREATE\s+TRIGGER)\b", re.I)
 
-SYSTEM_PROMPT = """You are the guide for MAL-Graph, a personal graph of one MyAnimeList user's anime list, stored in Memgraph.
+SYSTEM_PROMPT = """You are the guide for Aniweb, a personal graph of one MyAnimeList user's anime list, stored in Memgraph.
 The user is {username}. Answer their questions by exploring the graph with the tools; never invent data.
 Treat every question as one about the user's anime unless it plainly can't be. When a question doesn't mention anime,
 such as a party game, a quiz, a date night or a gift idea, build the answer from the anime and characters on their list,

@@ -411,6 +411,6 @@ export async function renderResult(title: string, cards: KmkCard[], choices: Rec
   })
   ctx.fillStyle = '#6b7080'
   ctx.font = '16px system-ui, sans-serif'
-  ctx.fillText('Kiss Marry Kill · MAL-Graph', W / 2, H - 20)
+  ctx.fillText('Kiss Marry Kill · aniweb.eu', W / 2, H - 20)
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not make the image'))), 'image/png'))
 }

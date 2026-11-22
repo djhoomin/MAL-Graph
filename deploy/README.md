@@ -1,9 +1,9 @@
-# Deploying MAL-Graph
+# Deploying Aniweb
 
 Production runs the same services as development plus Caddy, from `docker-compose.prod.yml`:
 
 ```
-https://app.mal-graph.eu ──► Caddy (TLS, basic auth, static UI) ──► /api → FastAPI ──► Memgraph
+https://aniweb.eu ─────────► Caddy (TLS, basic auth, static UI) ──► /api → FastAPI ──► Memgraph
                                                                                 └──► Jikan ──► MongoDB
 ```
 
@@ -23,9 +23,10 @@ git clone https://github.com/djhoomin/MAL-Graph.git /opt/mal-graph
 Then on the server, in `/opt/mal-graph`:
 
 1. `.env` — copy `.env.example` and set `MAL_CLIENT_ID`, a random `MONGO_PASSWORD`,
-   `PUBLIC_URL=https://app.mal-graph.eu`, a random `SESSION_SECRET` and `SITE_ADDRESS=app.mal-graph.eu` (Caddy obtains the Let's Encrypt certificate itself; the DNS
-   A record must already point at the server).
-   The MAL app's redirect URL must be `https://app.mal-graph.eu/api/auth/callback`. With sign-in on,
+   `PUBLIC_URL=https://aniweb.eu`, a random `SESSION_SECRET` and `SITE_ADDRESS=aniweb.eu` (Caddy obtains the Let's Encrypt certificate itself; the DNS
+   A record must already point at the server). `OLD_SITE_ADDRESS` lists addresses that redirect to the site, such as
+   `app.mal-graph.eu, www.aniweb.eu` since the rename, and `OLD_STAGING_ADDRESS` does the same for staging.
+   The MAL app's redirect URL must be `https://aniweb.eu/api/auth/callback`. With sign-in on,
    `MAL_USERNAME` is only the default user for the CLI commands below.
 2. `deploy/caddy/users` — one `username bcrypt-hash` per line:
    ```sh
@@ -33,7 +34,7 @@ Then on the server, in `/opt/mal-graph`:
    ```
 3. Seed the Jikan cache from your laptop so the server doesn't have to crawl MAL again:
    ```sh
-   rsync -az data/cache/ root@app.mal-graph.eu:/opt/mal-graph/data/cache/
+   rsync -az data/cache/ root@aniweb.eu:/opt/mal-graph/data/cache/
    ```
 4. Build and start:
    ```sh
@@ -57,7 +58,7 @@ The **Sync list** button in the UI keeps the graph current with your MAL list; n
 (`DATA_SOURCE=anilist`), with its own Memgraph (`mg_anilist_lib`) and data folder (`data-anilist/`). Caddy serves it on
 `STAGING_ADDRESS` behind the same basic auth. It needs, in `.env`:
 
-- `STAGING_ADDRESS`, such as `staging.mal-graph.eu`, with a DNS A record pointing at the server.
+- `STAGING_ADDRESS`, such as `staging.aniweb.eu`, with a DNS A record pointing at the server.
 - `ANILIST_STAGING_CLIENT_ID` and `ANILIST_STAGING_API_KEY` from a second AniList API client, whose redirect URL is
   `https://<STAGING_ADDRESS>/api/auth/anilist/callback`. Each AniList client has a single redirect URL.
 

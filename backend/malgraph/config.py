@@ -16,7 +16,7 @@ class Settings:
     mal_client_id: str = os.getenv("MAL_CLIENT_ID", "")
     mal_client_secret: str = os.getenv("MAL_CLIENT_SECRET", "")  # only for MAL apps of type "web"
     mal_username: str = os.getenv("MAL_USERNAME", "")  # CLI default, and the API's user when sign-in is off
-    # Where the site is served, e.g. https://app.mal-graph.eu. Setting it turns on "Sign in with MyAnimeList";
+    # Where the site is served, e.g. https://aniweb.eu. Setting it turns on "Sign in with MyAnimeList";
     # the MAL app's redirect URL must be {PUBLIC_URL}/api/auth/callback.
     public_url: str = os.getenv("PUBLIC_URL", "").rstrip("/")
     session_secret: str = os.getenv("SESSION_SECRET", "")

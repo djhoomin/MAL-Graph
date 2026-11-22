@@ -36,7 +36,7 @@ export function Welcome() {
       )}
       {authError && <div className="error">{authError}</div>}
       <div className="muted small-text">
-        MAL-Graph only reads your anime list and never posts anything. By signing in you agree to the <a href="#/privacy">privacy notice</a>.
+        Aniweb only reads your anime list and never posts anything. By signing in you agree to the <a href="#/privacy">privacy notice</a>.
       </div>
       <div className="muted small-text">
         {src.anilist ? 'Data from AniList. Not affiliated with AniList.' : `Data from MyAnimeList${anilist ? ' and AniList' : ''}. Not affiliated with MyAnimeList${anilist ? ' or AniList' : ''}.`}
