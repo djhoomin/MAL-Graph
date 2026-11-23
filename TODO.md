@@ -20,8 +20,9 @@ Open work for MAL-Graph, in rough priority order. Production runs `main` behind 
 - [x] **Rename the app.** It's Aniweb since 22 November 2026, at https://aniweb.eu with staging at
       https://staging.aniweb.eu. The old `mal-graph.eu` addresses redirect there. Let `mal-graph.eu` expire in
       September 2027 once nobody uses the old links. The GitHub repo and the Python package still carry the old name.
-- [ ] **Add a way to contact you on the privacy page.** `PRIVACY_CONTACT` is "DJ Human" with no address. GDPR expects
-      people to be able to reach the operator, so add an email address to the server's `.env` and restart the API.
+- [x] **Add a way to contact you on the privacy page.** Since 23 November 2026 `PRIVACY_CONTACT` is
+      "DJ Human (contact@aniweb.eu)". Cloudflare hosts the aniweb.eu DNS and its Email Routing forwards that address to
+      your inbox. Replies go out from your own address.
 - [ ] **Set a monthly spending cap on the OpenRouter key** in OpenRouter's dashboard, if that isn't done yet.
 - [ ] **Take the site password off** once the items above are settled. It's the `basic_auth` block in `web/Caddyfile`.
 
