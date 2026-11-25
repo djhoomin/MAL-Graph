@@ -17,6 +17,11 @@ export function FiltersButton() {
 
   return (
     <div className="anchor" ref={ref}>
+      <button className={`fab ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-label="Filters" aria-expanded={open} title="Hide kinds of nodes or connections">
+        <FilterIcon />
+        <span className="fab-label">Filters</span>
+        {changed && <span className="badge-dot" />}
+      </button>
       {open && (
         <div className="popover up filters-pop">
           <div className="pop-head">
@@ -29,7 +34,7 @@ export function FiltersButton() {
           </div>
           <div className="chips">
             {LABELS.map((l) => (
-              <button key={l} className={`chip ${filters.labels[l] ? '' : 'off'}`} onClick={() => toggleLabel(l)}>
+              <button key={l} className={`chip ${filters.labels[l] ? '' : 'off'}`} aria-pressed={filters.labels[l]} onClick={() => toggleLabel(l)}>
                 <i style={{ background: LABEL_COLORS[l] }} /> {l}
               </button>
             ))}
@@ -37,7 +42,7 @@ export function FiltersButton() {
           <h3>My list</h3>
           <div className="chips">
             {LIST_STATUSES.map((st) => (
-              <button key={st} className={`chip ${filters.statuses[st] ? '' : 'off'}`} onClick={() => toggleStatus(st)}>
+              <button key={st} className={`chip ${filters.statuses[st] ? '' : 'off'}`} aria-pressed={filters.statuses[st]} onClick={() => toggleStatus(st)}>
                 <i className="ring" style={{ borderColor: STATUS_COLORS[st] }} /> {LIST_STATUS_LABELS[st]}
               </button>
             ))}
@@ -45,7 +50,7 @@ export function FiltersButton() {
           <h3>Connections</h3>
           <div className="chips">
             {REL_TYPES.map((r) => (
-              <button key={r} className={`chip ${filters.rels[r] ? '' : 'off'}`} onClick={() => toggleRel(r)}>
+              <button key={r} className={`chip ${filters.rels[r] ? '' : 'off'}`} aria-pressed={filters.rels[r]} onClick={() => toggleRel(r)}>
                 <i className="line" style={{ background: REL_COLORS[r] }} /> {REL_LABELS[r]}
               </button>
             ))}
@@ -61,11 +66,6 @@ export function FiltersButton() {
           </label>
         </div>
       )}
-      <button className={`fab ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-label="Filters" title="Hide kinds of nodes or connections">
-        <FilterIcon />
-        <span className="fab-label">Filters</span>
-        {changed && <span className="badge-dot" />}
-      </button>
     </div>
   )
 }

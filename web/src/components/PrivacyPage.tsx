@@ -102,7 +102,7 @@ export function PrivacyPage() {
                 Delete my data
               </button>
             )}
-            {error && <p className="error">{error}</p>}
+            {error && <p className="error" role="alert">{error}</p>}
           </>
         ) : (
           <p>Sign in to delete your data. If you can't sign in, contact the person running the site.</p>

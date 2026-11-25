@@ -105,10 +105,10 @@ export function TourPage() {
       <div className="kmk-page tour">
         <h1>Graph tour</h1>
         <div className="segmented tour-lens" role="group" aria-label="What links your anime">
-          <button className={lens === 'makers' ? 'on' : ''} onClick={() => pick('makers')}>
+          <button className={lens === 'makers' ? 'on' : ''} aria-pressed={lens === 'makers'} onClick={() => pick('makers')}>
             Makers
           </button>
-          <button className={lens === 'voices' ? 'on' : ''} onClick={() => pick('voices')}>
+          <button className={lens === 'voices' ? 'on' : ''} aria-pressed={lens === 'voices'} onClick={() => pick('voices')}>
             Voices
           </button>
         </div>
@@ -124,12 +124,12 @@ export function TourPage() {
         )}
         <div className="row tour-steps" role="group" aria-label="Tour step">
           {steps.map(([short], i) => (
-            <button key={short} className={`chip ${current === i ? 'on' : 'off'}`} onClick={() => go(i)}>
+            <button key={short} className={`chip ${current === i ? 'on' : 'off'}`} aria-current={current === i ? 'step' : undefined} onClick={() => go(i)}>
               {i + 1}. {short}
             </button>
           ))}
         </div>
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
         {!ready && !error && <p className="muted">Working out your graph…</p>}
         {lens === 'makers' && tour && (
           <>
@@ -301,7 +301,7 @@ function Timeline({ timeline }: { timeline: TourCluster['timeline'] }) {
       {timeline.makers.length > 0 && (
         <div className="row tour-timeline-makers">
           {timeline.makers.map((m) => (
-            <button key={m.id} className={`chip ${maker === m.id ? 'on' : 'off'}`} onClick={() => setMaker(maker === m.id ? null : m.id)}>
+            <button key={m.id} className={`chip ${maker === m.id ? 'on' : 'off'}`} aria-pressed={maker === m.id} onClick={() => setMaker(maker === m.id ? null : m.id)}>
               {m.name} <span className="muted">{m.anime}</span>
             </button>
           ))}

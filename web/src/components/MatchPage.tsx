@@ -119,11 +119,11 @@ function Overview() {
               </button>
             )}
           </section>
-          {error && <p className="error">{error}</p>}
+          {error && <p className="error" role="alert">{error}</p>}
           <section>
             <h2>People you're linked with</h2>
             {!links ? (
-              !error && <p className="muted">Loading…</p>
+              !error && <p className="muted" role="status">Loading…</p>
             ) : links.length ? (
               <ul className="match-links">
                 {links.map((l) => (
@@ -203,8 +203,8 @@ function Join({ token }: { token: string }) {
   }
 
   if (out) return <SignIn text="Someone has invited you to compare anime lists. Sign in to see who." />
-  if (error) return <p className="error">{error}</p>
-  if (!invite) return <p className="muted">Loading…</p>
+  if (error) return <p className="error" role="alert">{error}</p>
+  if (!invite) return <p className="muted" role="status">Loading…</p>
   if (invite.own) return <p>This is your own invite link. Send it to the person you want to compare with.</p>
   if (invite.linked)
     return (
@@ -246,7 +246,7 @@ function Compare({ them }: { them: string }) {
     }
   }
 
-  if (error) return <p className="error">{error}</p>
+  if (error) return <p className="error" role="alert">{error}</p>
   if (!m) return <p className="muted">Comparing your lists…</p>
   const { counts, parts } = m
   return (

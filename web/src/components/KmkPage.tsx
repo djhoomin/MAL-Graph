@@ -46,13 +46,13 @@ export function KmkPage() {
           <p>When a round is done you can save it as a picture to share.</p>
         </HowTo>
         <div className="segmented game-mode" role="group" aria-label="Which round">
-          <button className={mode === 'today' ? 'on' : ''} onClick={() => change('today')}>
+          <button className={mode === 'today' ? 'on' : ''} aria-pressed={mode === 'today'} onClick={() => change('today')}>
             Today's three
           </button>
-          <button className={mode === 'mine' ? 'on' : ''} onClick={() => change('mine')}>
+          <button className={mode === 'mine' ? 'on' : ''} aria-pressed={mode === 'mine'} onClick={() => change('mine')}>
             From your list
           </button>
-          <button className={mode === 'collection' ? 'on' : ''} onClick={() => change('collection')}>
+          <button className={mode === 'collection' ? 'on' : ''} aria-pressed={mode === 'collection'} onClick={() => change('collection')}>
             Your collection
           </button>
         </div>
@@ -73,8 +73,8 @@ function DailyKmk() {
     kmkDailyApi.get().then(setDaily, (e) => setError(errorText(e)))
   }, [])
 
-  if (error) return <p className="error">{error}</p>
-  if (!daily) return <p className="muted">Loading today's three…</p>
+  if (error) return <p className="error" role="alert">{error}</p>
+  if (!daily) return <p className="muted" role="status">Loading today's three…</p>
 
   // The server keys choices by MyAnimeList id, the round by node id.
   const byNode = (ids: Record<string, Choice>) => Object.fromEntries(daily.cards.map((c) => [c.character.id, ids[String(c.character.key)]]))
@@ -137,7 +137,7 @@ function ThemeKmk() {
       {error && (
         <>
           {!theme && filter}
-          <p className="error">{error}</p>
+          <p className="error" role="alert">{error}</p>
         </>
       )}
       {!theme && !error && <p className="muted">Spinning a theme…</p>}
@@ -160,8 +160,8 @@ function Collection() {
   useEffect(() => {
     kmkHistoryApi.history().then(setHistory, (e) => setError(errorText(e)))
   }, [])
-  if (error) return <p className="error">{error}</p>
-  if (!history) return <p className="muted">Loading your collection…</p>
+  if (error) return <p className="error" role="alert">{error}</p>
+  if (!history) return <p className="muted" role="status">Loading your collection…</p>
   return (
     <>
       <p className="muted">

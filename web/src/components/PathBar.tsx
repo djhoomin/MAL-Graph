@@ -26,7 +26,7 @@ export function PathBar() {
   const name = (id: string) => nodes[id]?.name ?? id
 
   return (
-    <div className="path-bar float-panel">
+    <div className="path-bar float-panel" role="region" aria-label="Path" tabIndex={-1}>
       <div className="path-head">
         {picking ? (
           <span>
@@ -45,7 +45,7 @@ export function PathBar() {
           </span>
         )}
         {!picking && (
-          <button className="link" onClick={() => setShowOpts((v) => !v)}>
+          <button className="link" onClick={() => setShowOpts((v) => !v)} aria-expanded={showOpts}>
             {showOpts ? 'Hide options' : 'Options'}
           </button>
         )}
@@ -54,7 +54,10 @@ export function PathBar() {
         </button>
       </div>
 
-      {!picking && result && !result.found && <div className="error">No path within {opts.maxHops} hops in the data fetched so far.</div>}
+      <div className="sr-only" role="status">
+        {!picking && result?.found ? `Path found, ${result.hops} hops` : ''}
+      </div>
+      {!picking && result && !result.found && <div className="error" role="alert">No path within {opts.maxHops} hops in the data fetched so far.</div>}
       {!picking && result?.found && (
         <div className="path-list">
           {result.paths.slice(0, 5).map((p, i) => (
@@ -79,7 +82,7 @@ export function PathBar() {
           </label>
           <div className="chips">
             {VIA.map(([k, label]) => (
-              <button key={k} className={`chip ${opts.via[k] ? '' : 'off'}`} onClick={() => setPathOpts({ via: { ...opts.via, [k]: !opts.via[k] } })}>
+              <button key={k} className={`chip ${opts.via[k] ? '' : 'off'}`} aria-pressed={opts.via[k]} onClick={() => setPathOpts({ via: { ...opts.via, [k]: !opts.via[k] } })}>
                 {label}
               </button>
             ))}

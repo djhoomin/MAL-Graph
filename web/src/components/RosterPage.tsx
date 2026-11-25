@@ -71,7 +71,7 @@ function RosterList({ onlyWatched, mainOnly, lang }: Opts) {
         </label>
         {people && <span className="muted">{people.length} voice actors</span>}
       </div>
-      {err && <div className="error">{err}</div>}
+      {err && <div className="error" role="alert">{err}</div>}
       <div className="roster-grid people">
         {people?.map(({ person, characters, anime }) => (
           <button key={person.id} className="card" onClick={() => navigate(`/roster/${person.key}`)}>
@@ -165,7 +165,7 @@ function PersonRoster({ personId, onlyWatched, mainOnly, lang }: Opts & { person
         <button disabled={cards.length < 3 || playing} onClick={() => setPlaying(true)}>Play Kiss Marry Kill</button>
         <button disabled={!data} onClick={openInGraph}>Open in graph</button>
       </div>
-      {err && <div className="error">{err}</div>}
+      {err && <div className="error" role="alert">{err}</div>}
       {data && cards.length === 0 && <div className="muted">No characters match these filters.</div>}
       {playing && person && pool.length >= 3 && <KmkRound key={who} title={`Voiced by ${person.name}`} pool={pool} onClose={() => setPlaying(false)} filter={whoFilter} />}
       {playing && person && pool.length < 3 && (

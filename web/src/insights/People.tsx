@@ -96,7 +96,7 @@ export function People({ anime, statuses, lang, thread, onThread }: Props) {
     <div>
       <div className="tabs">
         {TABS.map((t) => (
-          <button key={t.key} className={`chip ${tab === t.key ? 'on' : 'off'}`} onClick={() => setTab(t.key)}>
+          <button key={t.key} className={`chip ${tab === t.key ? 'on' : 'off'}`} aria-pressed={tab === t.key} onClick={() => setTab(t.key)}>
             {t.label}
           </button>
         ))}
@@ -109,8 +109,8 @@ export function People({ anime, statuses, lang, thread, onThread }: Props) {
           </select>
         </label>
       </div>
-      {err && <div className="error">{err}</div>}
-      {!isLocal && !people && !err && <div className="muted">loading…</div>}
+      {err && <div className="error" role="alert">{err}</div>}
+      {!isLocal && !people && !err && <div className="muted" role="status">loading…</div>}
       <ol className="ranked">
         {rows.map((r) => {
           const active = thread?.label === r.name

@@ -74,7 +74,7 @@ export function InsightsPage() {
       <div className="filter-row">
         <span className="muted">include</span>
         {STATUS_ORDER.map((s) => (
-          <button key={s} className={`chip ${statuses.has(s) ? '' : 'off'}`} style={{ borderColor: STATUS_COLORS[s] }} onClick={() => toggleStatus(s)}>
+          <button key={s} className={`chip ${statuses.has(s) ? '' : 'off'}`} aria-pressed={statuses.has(s)} style={{ borderColor: STATUS_COLORS[s] }} onClick={() => toggleStatus(s)}>
             <i style={{ background: STATUS_COLORS[s] }} /> {LIST_STATUS_LABELS[s]}
           </button>
         ))}
@@ -89,8 +89,8 @@ export function InsightsPage() {
         </label>
       </div>
 
-      {err && <div className="error">{err}</div>}
-      {!all && !err && <div className="muted" style={{ padding: 20 }}>loading…</div>}
+      {err && <div className="error" role="alert">{err}</div>}
+      {!all && !err && <div className="muted" style={{ padding: 20 }} role="status">loading…</div>}
 
       {all && (
         <div className="insights-body">
@@ -105,10 +105,10 @@ export function InsightsPage() {
             <div className="section-head">
               <h2>Timeline</h2>
               <div className="row">
-                <button className={`chip ${granularity === 'season' ? 'on' : 'off'}`} onClick={() => setGranularity('season')}>
+                <button className={`chip ${granularity === 'season' ? 'on' : 'off'}`} aria-pressed={granularity === 'season'} onClick={() => setGranularity('season')}>
                   by season
                 </button>
-                <button className={`chip ${granularity === 'year' ? 'on' : 'off'}`} onClick={() => setGranularity('year')}>
+                <button className={`chip ${granularity === 'year' ? 'on' : 'off'}`} aria-pressed={granularity === 'year'} onClick={() => setGranularity('year')}>
                   by year
                 </button>
                 {thread && (

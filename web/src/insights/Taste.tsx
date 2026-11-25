@@ -31,10 +31,10 @@ export function HotTakes({ anime }: { anime: ListAnime[] }) {
         <h2>Hot takes</h2>
         <span className="muted">where your score is furthest from {src.name}'s average</span>
         <div className="row">
-          <button className={`chip ${side === 'above' ? 'on' : 'off'}`} onClick={() => setSide('above')}>
+          <button className={`chip ${side === 'above' ? 'on' : 'off'}`} aria-pressed={side === 'above'} onClick={() => setSide('above')}>
             you rate higher
           </button>
-          <button className={`chip ${side === 'below' ? 'on' : 'off'}`} onClick={() => setSide('below')}>
+          <button className={`chip ${side === 'below' ? 'on' : 'off'}`} aria-pressed={side === 'below'} onClick={() => setSide('below')}>
             you rate lower
           </button>
         </div>
@@ -93,10 +93,10 @@ export function GenreTaste({ anime }: { anime: ListAnime[] }) {
         <h2>Your genres</h2>
         <span className="muted">{mean != null ? `compared with your mean score of ${mean.toFixed(2)}` : 'score some anime to compare genres'}</span>
         <div className="row">
-          <button className={`chip ${sort === 'count' ? 'on' : 'off'}`} onClick={() => setSort('count')}>
+          <button className={`chip ${sort === 'count' ? 'on' : 'off'}`} aria-pressed={sort === 'count'} onClick={() => setSort('count')}>
             most watched
           </button>
-          <button className={`chip ${sort === 'score' ? 'on' : 'off'}`} onClick={() => setSort('score')}>
+          <button className={`chip ${sort === 'score' ? 'on' : 'off'}`} aria-pressed={sort === 'score'} onClick={() => setSort('score')}>
             best scored
           </button>
         </div>

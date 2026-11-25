@@ -44,7 +44,7 @@ export function GolfPanel() {
             <CloseIcon />
           </button>
         </header>
-        {starting ? <div className="muted">Setting up the hole…</div> : <div className="error">{startError}</div>}
+        {starting ? <div className="muted" role="status">Setting up the hole…</div> : <div className="error" role="alert">{startError}</div>}
       </div>
     )
   }
@@ -64,10 +64,10 @@ export function GolfPanel() {
         <span className="golf-header-actions">
           {!result && (
             <span className="segmented golf-level" role="group" aria-label="Difficulty">
-              <button className={golf.easy ? '' : 'on'} onClick={() => setEasy(false)} disabled={golf.loading} title="Every move from where you are, with a search box">
+              <button className={golf.easy ? '' : 'on'} aria-pressed={!golf.easy} onClick={() => setEasy(false)} disabled={golf.loading} title="Every move from where you are, with a search box">
                 Normal
               </button>
-              <button className={golf.easy ? 'on' : ''} onClick={() => setEasy(true)} disabled={golf.loading} title="A few moves to choose from, one of which always gets closer, and the distance to the hole after each move">
+              <button className={golf.easy ? 'on' : ''} aria-pressed={golf.easy} onClick={() => setEasy(true)} disabled={golf.loading} title="A few moves to choose from, one of which always gets closer, and the distance to the hole after each move">
                 Easy
               </button>
             </span>

@@ -123,7 +123,12 @@ export function Timeline({ anime, granularity, thread, onPick, picked }: Props) 
                 .filter((b) => b.anime.length)
                 .map((b) => (
                   <tr key={b.key} onClick={() => onPick(b)} className="clickable">
-                    <td>{b.label}</td>
+                    <td>
+                      {/* the row handles the click, and the button lets the keyboard make one */}
+                      <button className="link" aria-pressed={picked === b.key}>
+                        {b.label}
+                      </button>
+                    </td>
                     <td>{b.anime.length}</td>
                     {ORDER.map((s) => (
                       <td key={s}>{b.byStatus[s].length || ''}</td>
@@ -135,7 +140,7 @@ export function Timeline({ anime, granularity, thread, onPick, picked }: Props) 
         </div>
       ) : (
         <div className="chart-scroll" ref={wrap} onMouseLeave={() => setHover(null)}>
-          <svg width={width + 36} height={PLOT_H + AXIS_H + 8} style={{ display: 'block' }}>
+          <svg width={width + 36} height={PLOT_H + AXIS_H + 8} style={{ display: 'block' }} role="img" aria-label={`Anime per ${granularity}. The table button shows the same numbers as a table.`}>
             {/* every other year shaded, so a year's seasons read as one group */}
             {granularity === 'season' &&
               years.map((y) =>

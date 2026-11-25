@@ -241,7 +241,7 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: g
         {!fixed && pool.length > 3 && (
           <div className="segmented" role="group" aria-label="How the three are drawn">
             {DRAW_MODES.map((m) => (
-              <button key={m.value} className={mode === m.value ? 'on' : ''} onClick={() => changeMode(m.value)} title={m.tip}>
+              <button key={m.value} className={mode === m.value ? 'on' : ''} aria-pressed={mode === m.value} onClick={() => changeMode(m.value)} title={m.tip}>
                 {m.label}
               </button>
             ))}
@@ -280,7 +280,7 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: g
                 <>
                   <div className="kmk-choices">
                     {CHOICES.map((ch) => (
-                      <button key={ch} className={chosen === ch ? 'on' : ''} style={chosen === ch ? { background: COLORS[ch], borderColor: COLORS[ch] } : undefined} onClick={() => assign(c.character.id, ch)}>
+                      <button key={ch} className={chosen === ch ? 'on' : ''} aria-pressed={chosen === ch} style={chosen === ch ? { background: COLORS[ch], borderColor: COLORS[ch] } : undefined} onClick={() => assign(c.character.id, ch)}>
                         {LABELS[ch]}
                       </button>
                     ))}
@@ -296,7 +296,7 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: g
           )
         })}
       </div>
-      {lockError && <p className="error">{lockError}</p>}
+      {lockError && <p className="error" role="alert">{lockError}</p>}
       <div className="kmk-actions">
         {lockIn && !done && (
           <button className="primary" onClick={() => void confirm()} disabled={!complete || locking}>

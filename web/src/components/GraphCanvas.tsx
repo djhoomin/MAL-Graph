@@ -326,7 +326,7 @@ export function GraphCanvas() {
 
   return (
     <div className="canvas-wrap">
-      <div ref={ref} className="canvas" />
+      <div ref={ref} className="canvas" role="img" aria-label={`Graph with ${Object.keys(nodes).length} nodes and ${Object.keys(edges).length} connections`} />
       {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
       {Object.keys(nodes).length === 0 && (
         <div className="empty-hint">

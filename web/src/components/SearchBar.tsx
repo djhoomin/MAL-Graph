@@ -9,6 +9,8 @@ export function SearchBar() {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<Partial<Record<Label, GNode[]>>>({})
   const [open, setOpen] = useState(false)
+  const [searched, setSearched] = useState<string | null>(null) // the text the results are for
+  const [failed, setFailed] = useState(false)
   const input = useRef<HTMLInputElement>(null)
   const wrap = useRef<HTMLDivElement>(null)
   useDismiss(wrap, open, () => setOpen(false))
@@ -19,15 +21,33 @@ export function SearchBar() {
   useEffect(() => {
     if (q.trim().length < 2) {
       setResults({})
+      setSearched(null)
+      setFailed(false)
       return
     }
+    let live = true // a slow answer to earlier text must not replace a later one
     const t = setTimeout(() => {
-      api.search(q).then((r) => {
-        setResults(r.results)
-        setOpen(true)
-      })
+      api
+        .search(q)
+        .then((r) => {
+          if (!live) return
+          setResults(r.results)
+          setSearched(q)
+          setFailed(false)
+          setOpen(true)
+        })
+        .catch(() => {
+          if (!live) return
+          setResults({})
+          setSearched(null)
+          setFailed(true)
+          setOpen(true)
+        })
     }, 250)
-    return () => clearTimeout(t)
+    return () => {
+      live = false
+      clearTimeout(t)
+    }
   }, [q])
 
   // Entering path mode on a desktop puts the cursor straight into the search box.
@@ -49,6 +69,8 @@ export function SearchBar() {
   }
 
   const groups = Object.entries(results).filter(([, v]) => v && v.length > 0) as [Label, GNode[]][]
+  const count = groups.reduce((n, [, items]) => n + items.length, 0)
+  const note = !open ? '' : failed ? 'The search failed. Check your connection and try again.' : searched !== null && count === 0 ? 'Nothing found.' : ''
   return (
     <div className={`search ${picking ? 'picking' : ''}`} ref={wrap}>
       <div className="search-box">
@@ -77,6 +99,14 @@ export function SearchBar() {
           }}
         />
       </div>
+      <div className="sr-only" role="status">
+        {note || (open && count > 0 ? (count === 1 ? '1 result' : `${count} results`) : '')}
+      </div>
+      {note && (
+        <div className="search-results search-note muted" aria-hidden="true">
+          {note}
+        </div>
+      )}
       {open && groups.length > 0 && (
         <div className="search-results">
           {groups.map(([label, items]) => (

@@ -48,10 +48,10 @@ export function YayPage() {
           <p>After 10 votes, Your patterns shows what the characters you said yay or nay to have in common, such as a voice actor, a studio, a genre or a series.</p>
         </HowTo>
         <div className="segmented game-mode" role="group" aria-label="Which stack">
-          <button className={mode === 'today' ? 'on' : ''} onClick={() => change('today')}>
+          <button className={mode === 'today' ? 'on' : ''} aria-pressed={mode === 'today'} onClick={() => change('today')}>
             Today's stack
           </button>
-          <button className={mode === 'mine' ? 'on' : ''} onClick={() => change('mine')}>
+          <button className={mode === 'mine' ? 'on' : ''} aria-pressed={mode === 'mine'} onClick={() => change('mine')}>
             From your list
           </button>
         </div>
@@ -87,8 +87,8 @@ function Daily() {
     }
   }
 
-  if (error) return <p className="error">{error}</p>
-  if (!game) return <p className="muted">Loading today's stack…</p>
+  if (error) return <p className="error" role="alert">{error}</p>
+  if (!game) return <p className="muted" role="status">Loading today's stack…</p>
   const left = game.cards.filter((c) => !(String(idOf(c)) in game.votes))
   if (left.length || !game.done) {
     return left.length ? (
@@ -190,7 +190,7 @@ function Mine() {
 
   return (
     <>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
       {queue.length ? (
         <Swiper key={idOf(queue[0])} card={queue[0]} next={queue[1]} onVote={(yes) => void vote(queue[0], yes)} />
       ) : empty ? (
@@ -208,6 +208,7 @@ function Swiper({ card, next, onVote }: { card: KmkCard; next?: KmkCard; onVote:
   const [dx, setDx] = useState(0)
   const [out, setOut] = useState<0 | 1 | -1>(0)
   const start = useRef<number | null>(null)
+  const pointer = useRef<number | null>(null) // the finger doing the swipe, so a second one can't take it over
 
   const decide = useCallback(
     (yes: boolean) => {
@@ -237,18 +238,25 @@ function Swiper({ card, next, onVote }: { card: KmkCard; next?: KmkCard; onVote:
           className={`yay-top ${start.current === null ? 'settle' : ''}`}
           style={{ transform: `translateX(${x}px) rotate(${x / 18}deg)` }}
           onPointerDown={(e) => {
-            if (out) return
+            if (out || start.current !== null) return
+            pointer.current = e.pointerId
             start.current = e.clientX
             e.currentTarget.setPointerCapture(e.pointerId)
           }}
-          onPointerMove={(e) => start.current !== null && setDx(e.clientX - start.current)}
-          onPointerUp={() => {
-            if (start.current === null) return
+          onPointerMove={(e) => start.current !== null && e.pointerId === pointer.current && setDx(e.clientX - start.current)}
+          onPointerUp={(e) => {
+            if (start.current === null || e.pointerId !== pointer.current) return
             start.current = null
             if (Math.abs(dx) >= SWIPE) decide(dx > 0)
             else setDx(0)
           }}
-          onPointerCancel={() => {
+          onPointerCancel={(e) => {
+            if (e.pointerId !== pointer.current) return
+            start.current = null
+            setDx(0)
+          }}
+          onLostPointerCapture={() => {
+            if (start.current === null) return // an ordinary release, already handled
             start.current = null
             setDx(0)
           }}

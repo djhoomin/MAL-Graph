@@ -41,8 +41,8 @@ function Daily({ onPractice }: { onPractice: () => void }) {
     oddApi.daily().then(setDaily, (e) => setError(errorText(e)))
   }, [])
 
-  if (error && !daily) return <p className="error">{error}</p>
-  if (!daily) return <p className="muted">Loading today's rounds…</p>
+  if (error && !daily) return <p className="error" role="alert">{error}</p>
+  if (!daily) return <p className="muted" role="status">Loading today's rounds…</p>
 
   const total = daily.rounds.length
   const next = daily.rounds.findIndex((r) => !r.result)
@@ -111,7 +111,7 @@ function Daily({ onPractice }: { onPractice: () => void }) {
           </button>
         </div>
       </OddRound>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
     </>
   )
 }
@@ -180,7 +180,7 @@ function Practice({ onDaily }: { onDaily: () => void }) {
         </OddRound>
       )}
       {!round && !error && <p className="muted">Dealing…</p>}
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
     </>
   )
 }

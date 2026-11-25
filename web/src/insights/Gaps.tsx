@@ -64,6 +64,7 @@ export function Gaps({ statuses }: { statuses: ListStatus[] }) {
           <button
             key={r}
             className={`chip ${rels.has(r) ? 'on' : 'off'}`}
+            aria-pressed={rels.has(r)}
             onClick={() =>
               setRels((s) => {
                 const n = new Set(s)
@@ -86,7 +87,7 @@ export function Gaps({ statuses }: { statuses: ListStatus[] }) {
           </button>
         )}
       </div>
-      {err && <div className="error">{err}</div>}
+      {err && <div className="error" role="alert">{err}</div>}
       <p className="muted small-text">These follow on from anime you've completed or are watching, not ones you dropped or put on hold. Anything already on your list is left out, Plan to Watch included.</p>
       {gaps && rows.length === 0 && <div className="muted">You're caught up on these.</div>}
       <GapGrid rows={out.slice(0, 60)} fetchOne={fetchOne} />

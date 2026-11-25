@@ -34,7 +34,7 @@ export function Welcome() {
           Sign in with AniList
         </a>
       )}
-      {authError && <div className="error">{authError}</div>}
+      {authError && <div className="error" role="alert">{authError}</div>}
       <div className="muted small-text">
         Aniweb only reads your anime list and never posts anything. By signing in you agree to the <a href="#/privacy">privacy notice</a>.
       </div>
@@ -57,7 +57,7 @@ export function SyncPill() {
         Fetching anime from {src.name} · {sync.done} of {sync.total}
         {sync.others_in_queue > 0 && <span className="muted"> · {sync.others_in_queue} other {sync.others_in_queue === 1 ? 'list' : 'lists'} in the queue</span>}
       </span>
-      <span className="progress">
+      <span className="progress" role="progressbar" aria-label="Fetching anime" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
         <i style={{ width: `${pct}%` }} />
       </span>
     </div>

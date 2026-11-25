@@ -12,7 +12,7 @@ const SHOWN_PROPS = ['title_english', 'title_romaji', 'title_japanese', 'type', 
 
 export function NodeCard() {
   const view = useStore((s) => s.view)
-  return <div className="node-card float-panel">{view === 'va' ? <VaView /> : <NodeSummary />}</div>
+  return <div className="node-card float-panel" role="region" aria-label="Selected" tabIndex={-1}>{view === 'va' ? <VaView /> : <NodeSummary />}</div>
 }
 
 function NodeSummary() {
@@ -73,7 +73,14 @@ function NodeSummary() {
           <h2>{node.name}</h2>
           {statusLine && <div className={node.watched ? 'watched' : 'stub'}>{statusLine}</div>}
         </div>
-        <button className="icon-btn ghost" onClick={() => select(null)} aria-label="Close">
+        <button
+          className="icon-btn ghost"
+          onClick={() => {
+            select(null)
+            setTimeout(() => document.getElementById('node-list-button')?.focus({ preventScroll: true }))
+          }}
+          aria-label="Close"
+        >
           <CloseIcon />
         </button>
       </div>
@@ -84,7 +91,7 @@ function NodeSummary() {
           <button className="primary" onClick={() => void expandNode(node.id)} title="Add everything connected to this">
             Expand
           </button>
-          <button className={pathPicking && pathFrom === node.id ? 'on' : ''} onClick={() => startPath(node.id)} title="Find the shortest chain from this to something else">
+          <button className={pathPicking && pathFrom === node.id ? 'on' : ''} aria-pressed={pathPicking && pathFrom === node.id} onClick={() => startPath(node.id)} title="Find the shortest chain from this to something else">
             Path
           </button>
           <button className={`icon-btn ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen((v) => !v)} aria-label="More actions" aria-expanded={moreOpen}>

@@ -46,10 +46,10 @@ export function MysteryPage() {
           <p>From your list picks a main character from anime you've watched, so you're more likely to know them. You can play as many of those as you like, and they don't count towards today's scores.</p>
         </HowTo>
         <div className="segmented game-mode" role="group" aria-label="Which character">
-          <button className={mode === 'today' ? 'on' : ''} onClick={() => change('today')}>
+          <button className={mode === 'today' ? 'on' : ''} aria-pressed={mode === 'today'} onClick={() => change('today')}>
             Today's character
           </button>
-          <button className={mode === 'mine' ? 'on' : ''} onClick={() => change('mine')}>
+          <button className={mode === 'mine' ? 'on' : ''} aria-pressed={mode === 'mine'} onClick={() => change('mine')}>
             From your list
           </button>
         </div>
@@ -95,7 +95,7 @@ function Game({ mine = false }: { mine?: boolean }) {
 
   return (
     <>
-      {!game && !error && <p className="muted">{mine ? 'Picking a character from your list…' : "Loading today's clues…"}</p>}
+      {!game && !error && <p className="muted" role="status">{mine ? 'Picking a character from your list…' : "Loading today's clues…"}</p>}
       {game && (
         <>
           <ol className="mystery-clues">
@@ -137,7 +137,7 @@ function Game({ mine = false }: { mine?: boolean }) {
       )}
       {error && (
         <>
-          <p className="error">{error}</p>
+          <p className="error" role="alert">{error}</p>
           {mine && game && (
             <button onClick={load} disabled={busy}>
               New character
@@ -269,6 +269,11 @@ function GuessBox({ onGuess, disabled, exclude }: { onGuess: (n: GNode) => void;
       <input
         ref={input}
         type="search"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={items.length > 0}
+        aria-controls="guess-list"
+        aria-activedescendant={items[active] ? `guess-${active}` : undefined}
         placeholder={show ? 'Filter by name' : 'Name a character or an anime'}
         value={q}
         disabled={disabled}
@@ -283,14 +288,14 @@ function GuessBox({ onGuess, disabled, exclude }: { onGuess: (n: GNode) => void;
         }}
         aria-label="Guess a character"
       />
-      {show && !show.cast && !castError && <p className="muted small-text">Loading the characters…</p>}
+      {show && !show.cast && !castError && <p className="muted small-text" role="status">Loading the characters…</p>}
       {show && show.cast && !items.length && <p className="muted small-text">{show.cast.length ? 'No character by that name.' : 'No characters are listed for this anime.'}</p>}
-      {castError && <p className="error">{castError}</p>}
+      {castError && <p className="error" role="alert">{castError}</p>}
       {items.length > 0 && (
-        <ul className={`guess-results ${show ? 'inline' : ''}`}>
+        <ul id="guess-list" role="listbox" aria-label="Matches" className={`guess-results ${show ? 'inline' : ''}`}>
           {items.map((it, i) => (
-            <li key={it.node.id}>
-              <button className={i === active ? 'on' : ''} onClick={() => pick(it)}>
+            <li key={it.node.id} role="none">
+              <button id={`guess-${i}`} role="option" aria-selected={i === active} tabIndex={-1} className={i === active ? 'on' : ''} onClick={() => pick(it)}>
                 {it.node.image_url ? <img src={it.node.image_url} alt="" /> : <span className="noimg" />}
                 <span className="guess-name">{it.node.name}</span>
                 {it.anime && <span className="guess-kind">Anime · see characters</span>}

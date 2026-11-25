@@ -6,6 +6,7 @@ import { GolfPanel } from './components/GolfPanel'
 import { GraphCanvas } from './components/GraphCanvas'
 import { ChatIcon, CloseIcon, FitIcon } from './components/icons'
 import { NodeCard } from './components/NodeCard'
+import { NodeList } from './components/NodeList'
 import { PathBar } from './components/PathBar'
 import { PrivacyPage } from './components/PrivacyPage'
 import { HelpPage } from './components/HelpPage'
@@ -23,8 +24,30 @@ import { InsightsPage } from './insights/InsightsPage'
 import { useStore } from './store'
 import { navigate, useHashRoute } from './useHashRoute'
 
+const TITLES: Record<string, string> = {
+  roster: 'Voice actor roster',
+  insights: 'Insights',
+  privacy: 'Privacy',
+  help: 'Help',
+  tour: 'Graph tour',
+  kmk: 'Kiss Marry Kill',
+  odd: 'Odd one out',
+  mystery: 'Mystery character',
+  yay: 'Yay or Nay',
+  match: 'Taste match',
+}
+
 export default function App() {
   const route = useHashRoute()
+  const main = useRef<HTMLElement>(null)
+  const page = route[0] in TITLES ? route[0] : ''
+  const shown = useRef(page)
+  useEffect(() => {
+    document.title = page ? `${TITLES[page]} · Aniweb` : 'Aniweb'
+    if (shown.current === page) return
+    shown.current = page
+    main.current?.focus({ preventScroll: true }) // the link that led here is gone, so start from the new page
+  }, [page])
   // Someone opened an invite before signing in, and signing in brought them back to the start page.
   useEffect(() => {
     try {
@@ -36,6 +59,14 @@ export default function App() {
       /* storage blocked */
     }
   }, [])
+  return (
+    <main ref={main} tabIndex={-1}>
+      <Page route={route} />
+    </main>
+  )
+}
+
+function Page({ route }: { route: string[] }) {
   if (route[0] === 'roster') return <RosterPage personId={route[1]} />
   if (route[0] === 'insights') return <InsightsPage />
   if (route[0] === 'privacy') return <PrivacyPage />
@@ -85,7 +116,11 @@ function GraphPage() {
   }
   const fitUp = () => {
     if (hold.current) clearTimeout(hold.current)
+  }
+  // A click covers the keyboard too. The one that ends a long press has already re-laid the graph out.
+  const fitClick = () => {
     if (!held.current) fit()
+    held.current = false
   }
 
   return (
@@ -103,23 +138,31 @@ function GraphPage() {
       {!showWelcome && !golfing && <SyncPill />}
       {golfing && !showWelcome && <GolfPanel />}
 
-      {(busy || error) && !showWelcome && (
-        <div className={`toast ${error ? 'error' : ''}`} onClick={() => error && useStore.setState({ error: null })} title={error ? 'Dismiss' : undefined}>
-          {error ?? busy}
-        </div>
-      )}
+      {/* These two stay mounted, so screen readers notice when their text changes. */}
+      <div role="status">{busy && !error && !showWelcome && <div className="toast">{busy}</div>}</div>
+      <div role="alert">
+        {error && !showWelcome && (
+          <div className="toast error">
+            <span>{error}</span>
+            <button className="toast-close" onClick={() => useStore.setState({ error: null })} aria-label="Dismiss">
+              <CloseIcon size={14} />
+            </button>
+          </div>
+        )}
+      </div>
 
       {selected && !golfing && <NodeCard />}
 
       <div className="bottom-bar">
         {!golfing && <FiltersButton />}
+        {!golfing && !showWelcome && <NodeList />}
         {!golfing && <PathBar />}
         <div className="bottom-right">
-          <button className="fab" onPointerDown={fitDown} onPointerUp={fitUp} onPointerLeave={() => hold.current && clearTimeout(hold.current)} aria-label="Fit graph to view" title="Fit to view (hold to re-layout)">
+          <button className="fab" onPointerDown={fitDown} onPointerUp={fitUp} onPointerLeave={fitUp} onPointerCancel={fitUp} onClick={fitClick} aria-label="Fit graph to view" title="Fit to view (hold to re-layout)">
             <FitIcon />
           </button>
           {!golfing && (
-            <button className={`fab ${askOpen ? 'on' : ''}`} onClick={() => setAskOpen(!askOpen)} aria-label="Ask the graph" title="Ask the graph">
+            <button id="ask-button" className={`fab ${askOpen ? 'on' : ''}`} aria-expanded={askOpen} onClick={() => setAskOpen(!askOpen)} aria-label="Ask the graph" title="Ask the graph">
               <ChatIcon />
             </button>
           )}
@@ -127,8 +170,11 @@ function GraphPage() {
       </div>
 
       {askOpen && !golfing && (
-        <aside className="drawer">
-          <button className="icon-btn ghost drawer-close" onClick={() => setAskOpen(false)} aria-label="Close">
+        <aside className="drawer" aria-label="Ask the graph">
+          <button className="icon-btn ghost drawer-close" onClick={() => {
+              setAskOpen(false)
+              setTimeout(() => document.getElementById('ask-button')?.focus())
+            }} aria-label="Close">
             <CloseIcon />
           </button>
           <AskPanel />

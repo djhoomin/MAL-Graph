@@ -38,7 +38,7 @@ export function Recommendations() {
     <div>
       <div className="tabs">
         {VIA.map((v) => (
-          <button key={v.key} className={`chip ${via === v.key ? 'on' : 'off'}`} onClick={() => setVia(v.key)} title={v.hint}>
+          <button key={v.key} className={`chip ${via === v.key ? 'on' : 'off'}`} aria-pressed={via === v.key} onClick={() => setVia(v.key)} title={v.hint}>
             {v.label}
           </button>
         ))}
@@ -54,7 +54,7 @@ export function Recommendations() {
       <div className="muted" style={{ marginBottom: 8 }}>
         {VIA.find((v) => v.key === via)?.hint}. Sequels and prequels of anime you have seen are under Gaps instead.
       </div>
-      {err && <div className="error">{err}</div>}
+      {err && <div className="error" role="alert">{err}</div>}
       {recs && recs.length === 0 && (
         <div className="muted">
           Nothing yet — run <code>malgraph enrich</code> to pull your favourite people's filmographies into the graph.

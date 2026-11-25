@@ -68,6 +68,7 @@ export function AskPanel() {
   const [turns, setTurns] = useState<Turn[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [answered, setAnswered] = useState(false) // a question was answered since the panel opened
   const [history, setHistory] = useState<ConversationSummary[] | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [title, setTitle] = useState('')
@@ -139,6 +140,7 @@ export function AskPanel() {
       if ((e as Error).name !== 'AbortError') update((a) => (a.error = (e as Error).message))
     } finally {
       setBusy(false)
+      setAnswered(true)
       abortRef.current = null
       endAskTrail()
       api.askStatus().then(setStatus).catch(() => {})
@@ -205,8 +207,11 @@ export function AskPanel() {
 
   const showStep = async (s: AskStep) => {
     if (!s.refs?.length) return
-    const p = await api.subgraph(s.refs)
-    mergePayload(p)
+    try {
+      mergePayload(await api.subgraph(s.refs))
+    } catch (e) {
+      useStore.setState({ error: (e as Error).message })
+    }
   }
 
   const rate = async (i: number, score: number) => {
@@ -241,8 +246,11 @@ export function AskPanel() {
 
   return (
     <div className="ask">
+      <div className="sr-only" role="status">
+        {busy ? 'Working on an answer' : turns[turns.length - 1]?.text && turns[turns.length - 1].role === 'assistant' && answered ? 'The answer is ready' : ''}
+      </div>
       <div className="ask-head">
-        <button className="small" onClick={() => setShowHistory((v) => !v)} title="Saved conversations">
+        <button className="small" onClick={() => setShowHistory((v) => !v)} title="Saved conversations" aria-expanded={showHistory}>
           {showHistory ? '← back' : 'history'}
         </button>
         {!showHistory && turns.length > 0 && (
@@ -258,7 +266,7 @@ export function AskPanel() {
       </div>
       {showHistory ? (
         <div className="ask-log">
-          {history === null && <div className="muted">loading…</div>}
+          {history === null && <div className="muted" role="status">loading…</div>}
           {history?.length === 0 && <div className="muted">No saved conversations yet — every chat is saved automatically.</div>}
           {history?.map((c) => (
             <div key={c.id} className={`conv ${c.id === sessionRef.current ? 'active' : ''}`}>
@@ -268,7 +276,7 @@ export function AskPanel() {
               <span className="muted">
                 {when(c.updated_at)} · {Math.floor(c.turns / 2)} q
               </span>
-              <button className="small" onClick={() => void remove(c.id)} title="Delete">
+              <button className="small" onClick={() => void remove(c.id)} title="Delete" aria-label={`Delete ${c.title}`}>
                 ×
               </button>
             </div>
@@ -352,15 +360,15 @@ export function AskPanel() {
                   See it on the graph
                 </button>
               )}
-              {t.error && <div className="error">{t.error}</div>}
+              {t.error && <div className="error" role="alert">{t.error}</div>}
               {t.notice && <div className="muted" style={{ fontSize: 11 }}>{t.notice}</div>}
               {!t.text && !t.draft && !t.error && t.steps.length === 0 && busy && i === turns.length - 1 && <div className="muted">thinking…</div>}
               {t.text && t.run_id && !(busy && i === turns.length - 1) && (
                 <div className="answer-rating">
-                  <button className={`small ${t.feedback === 1 ? 'on' : ''}`} onClick={() => void rate(i, 1)} aria-pressed={t.feedback === 1} title="Good answer">
+                  <button className={`small ${t.feedback === 1 ? 'on' : ''}`} onClick={() => void rate(i, 1)} aria-pressed={t.feedback === 1} title="Good answer" aria-label="Good answer">
                     👍
                   </button>
-                  <button className={`small ${t.feedback === 0 ? 'on' : ''}`} onClick={() => void rate(i, 0)} aria-pressed={t.feedback === 0} title="Bad answer">
+                  <button className={`small ${t.feedback === 0 ? 'on' : ''}`} onClick={() => void rate(i, 0)} aria-pressed={t.feedback === 0} title="Bad answer" aria-label="Bad answer">
                     👎
                   </button>
                 </div>

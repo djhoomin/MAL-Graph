@@ -14,7 +14,7 @@ export function AppMenu() {
 
   return (
     <div className="anchor" ref={ref}>
-      <button className={`fab ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-label="Menu">
+      <button className={`fab ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-label="Menu" aria-expanded={open}>
         <MenuIcon />
         {sync?.running && <span className="badge-dot busy" />}
       </button>
@@ -71,7 +71,7 @@ function MenuBody({ close }: { close: () => void }) {
             />
           </label>
         )}
-        {syncMsg && <div className="muted small-text">{syncMsg}</div>}
+        <div className="muted small-text" role="status">{syncMsg}</div>
       </section>
 
       {me?.sign_in && me.username && (
@@ -80,7 +80,7 @@ function MenuBody({ close }: { close: () => void }) {
         </section>
       )}
 
-      <section className="menu-list">
+      <section className="menu-list" role="navigation" aria-label="Pages and games">
         <button onClick={act(() => void useGolf.getState().start('daily'))} title="Get from one thing to another along the graph in as few moves as you can">Graph Golf</button>
         <a href="#/kmk" onClick={close} title="Kiss one, marry one, kill one">Kiss Marry Kill</a>
         <a href="#/yay" onClick={close} title="Swipe right or left on characters">Yay or Nay</a>

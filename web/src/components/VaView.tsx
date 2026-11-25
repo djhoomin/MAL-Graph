@@ -45,7 +45,7 @@ export function VaView() {
           Only roles already in the graph are shown. <button onClick={() => void useStore.getState().fetchFromMal(node.id)}>Fetch full filmography</button>
         </div>
       )}
-      {err && <div className="error">{err}</div>}
+      {err && <div className="error" role="alert">{err}</div>}
       {data && (
         <>
           <div className="row">

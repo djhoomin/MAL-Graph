@@ -7,7 +7,12 @@ export function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, on
     const onDown = (e: PointerEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // Closing removes whatever had focus, so hand it back to the button or field that opened the popover.
+      if (ref.current?.contains(document.activeElement)) ref.current.querySelector<HTMLElement>('[aria-expanded], input')?.focus()
+      onClose()
+    }
     document.addEventListener('pointerdown', onDown)
     document.addEventListener('keydown', onKey)
     return () => {

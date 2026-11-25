@@ -33,7 +33,7 @@ export function WhoFilter({ value, onChange, disabled }: { value: Who; onChange:
   return (
     <div className="segmented" role="group" aria-label="Who to include">
       {WHO.map((w) => (
-        <button key={w.value} className={value === w.value ? 'on' : ''} onClick={() => onChange(w.value)} disabled={disabled}>
+        <button key={w.value} className={value === w.value ? 'on' : ''} aria-pressed={value === w.value} onClick={() => onChange(w.value)} disabled={disabled}>
           {w.label}
         </button>
       ))}
@@ -68,7 +68,7 @@ export function GenderFix({ node, onFixed }: { node: GNode; onFixed: (gender: st
       {open ? (
         <span className="gender-options">
           {[...GENDERS, null].map((g) => (
-            <button key={g ?? 'unknown'} className={g === current ? 'on' : ''} disabled={busy} onClick={() => void pick(g)}>
+            <button key={g ?? 'unknown'} className={g === current ? 'on' : ''} aria-pressed={g === current} disabled={busy} onClick={() => void pick(g)}>
               {g ?? 'Unknown'}
             </button>
           ))}
