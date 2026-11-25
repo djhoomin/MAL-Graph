@@ -651,7 +651,7 @@
       },
       {
         "name": "The Sixteen Pixel Rule",
-        "body": "Search and guess inputs are 16px on phones, so iOS doesn't zoom in when they get focus.",
+        "body": "Text fields and dropdowns are 16px on touch screens, so iOS doesn't zoom in when they get focus. Pinch zoom is never turned off.",
         "section": "typography"
       },
       {

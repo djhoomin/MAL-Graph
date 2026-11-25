@@ -216,7 +216,8 @@ every page.
 ### Named Rules
 **The Steady Figures Rule.** Numbers that line up in tables, charts and scores use tabular figures.
 
-**The Sixteen Pixel Rule.** Search and guess inputs are 16px on phones, so iOS doesn't zoom in when they get focus.
+**The Sixteen Pixel Rule.** Text fields and dropdowns are 16px on touch screens, so iOS doesn't zoom in when they get
+focus. Pinch zoom is never turned off.
 
 ## Layout
 
@@ -230,6 +231,9 @@ and 14px.
 
 At 700px and below, the node card becomes a bottom sheet, the Ask drawer fills the screen and button labels in the corner
 controls are hidden. Page padding drops to 12px. Some grids also change at 900px and 640px.
+
+Controls that stand alone are at least 24px high. On touch screens, chips and plain buttons are at least 36px, and corner
+controls, icon buttons and menu rows are 44px. Popovers and the Golf panel scroll rather than run off a short screen.
 
 ## Elevation & Depth
 

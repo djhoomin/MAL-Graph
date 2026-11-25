@@ -78,7 +78,7 @@ function fitBesidePanel(cy: Core) {
   const pad = 30
   const left = phone ? 0 : 370
   const w = cy.width() - left - 2 * pad
-  const h = (phone ? cy.height() * 0.48 : cy.height()) - 2 * pad
+  const h = (phone ? cy.height() * 0.36 : cy.height()) - 2 * pad
   const zoom = Math.min(w / Math.max(bb.w, 1), h / Math.max(bb.h, 1), 1.5)
   const cx = left + pad + w / 2
   const cyy = pad + h / 2
