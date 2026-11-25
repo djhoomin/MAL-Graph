@@ -1,0 +1,674 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-25T13:50:52+00:00",
+  "title": "Design System: Aniweb",
+  "extensions": {
+    "colorMeta": {
+      "polestar-blue": {
+        "role": "primary",
+        "displayName": "Polestar Blue",
+        "canonical": "#4f8cff",
+        "tonalRamp": [
+          "oklch(15.0% 0.093 262)",
+          "oklch(26.4% 0.142 262)",
+          "oklch(37.9% 0.172 262)",
+          "oklch(49.3% 0.182 262)",
+          "oklch(60.7% 0.174 262)",
+          "oklch(72.1% 0.147 262)",
+          "oklch(83.6% 0.100 262)",
+          "oklch(95.0% 0.035 262)"
+        ]
+      },
+      "comet-blue": {
+        "role": "primary",
+        "displayName": "Comet Blue",
+        "canonical": "#7aa2ff",
+        "tonalRamp": [
+          "oklch(15.0% 0.073 265)",
+          "oklch(26.4% 0.111 265)",
+          "oklch(37.9% 0.135 265)",
+          "oklch(49.3% 0.143 265)",
+          "oklch(60.7% 0.136 265)",
+          "oklch(72.1% 0.115 265)",
+          "oklch(83.6% 0.078 265)",
+          "oklch(95.0% 0.027 265)"
+        ]
+      },
+      "chart-blue": {
+        "role": "tertiary",
+        "displayName": "Chart Blue",
+        "canonical": "#3987e5",
+        "tonalRamp": [
+          "oklch(15.0% 0.082 255)",
+          "oklch(26.4% 0.125 255)",
+          "oklch(37.9% 0.152 255)",
+          "oklch(49.3% 0.161 255)",
+          "oklch(60.7% 0.154 255)",
+          "oklch(72.1% 0.130 255)",
+          "oklch(83.6% 0.088 255)",
+          "oklch(95.0% 0.031 255)"
+        ]
+      },
+      "ember": {
+        "role": "secondary",
+        "displayName": "Ember",
+        "canonical": "#ff8a4f",
+        "tonalRamp": [
+          "oklch(15.0% 0.082 46)",
+          "oklch(26.4% 0.124 46)",
+          "oklch(37.9% 0.150 46)",
+          "oklch(49.3% 0.160 46)",
+          "oklch(60.7% 0.152 46)",
+          "oklch(72.1% 0.129 46)",
+          "oklch(83.6% 0.088 46)",
+          "oklch(95.0% 0.030 46)"
+        ]
+      },
+      "nebula": {
+        "role": "secondary",
+        "displayName": "Nebula",
+        "canonical": "#c85cff",
+        "tonalRamp": [
+          "oklch(15.0% 0.123 312)",
+          "oklch(26.4% 0.187 312)",
+          "oklch(37.9% 0.226 312)",
+          "oklch(49.3% 0.240 312)",
+          "oklch(60.7% 0.229 312)",
+          "oklch(72.1% 0.193 312)",
+          "oklch(83.6% 0.132 312)",
+          "oklch(95.0% 0.046 312)"
+        ]
+      },
+      "aurora": {
+        "role": "secondary",
+        "displayName": "Aurora",
+        "canonical": "#26c6a2",
+        "tonalRamp": [
+          "oklch(15.0% 0.069 173)",
+          "oklch(26.4% 0.105 173)",
+          "oklch(37.9% 0.128 173)",
+          "oklch(49.3% 0.135 173)",
+          "oklch(60.7% 0.129 173)",
+          "oklch(72.1% 0.109 173)",
+          "oklch(83.6% 0.074 173)",
+          "oklch(95.0% 0.026 173)"
+        ]
+      },
+      "sunlight": {
+        "role": "secondary",
+        "displayName": "Sunlight",
+        "canonical": "#ffd166",
+        "tonalRamp": [
+          "oklch(15.0% 0.069 86)",
+          "oklch(26.4% 0.105 86)",
+          "oklch(37.9% 0.127 86)",
+          "oklch(49.3% 0.135 86)",
+          "oklch(60.7% 0.129 86)",
+          "oklch(72.1% 0.108 86)",
+          "oklch(83.6% 0.074 86)",
+          "oklch(95.0% 0.026 86)"
+        ]
+      },
+      "violet-line": {
+        "role": "secondary",
+        "displayName": "Violet Line",
+        "canonical": "#7f5af0",
+        "tonalRamp": [
+          "oklch(15.0% 0.109 289)",
+          "oklch(26.4% 0.167 289)",
+          "oklch(37.9% 0.202 289)",
+          "oklch(49.3% 0.214 289)",
+          "oklch(60.7% 0.204 289)",
+          "oklch(72.1% 0.172 289)",
+          "oklch(83.6% 0.118 289)",
+          "oklch(95.0% 0.041 289)"
+        ]
+      },
+      "go-green": {
+        "role": "tertiary",
+        "displayName": "Go Green",
+        "canonical": "#3ddc84",
+        "tonalRamp": [
+          "oklch(15.0% 0.092 154)",
+          "oklch(26.4% 0.140 154)",
+          "oklch(37.9% 0.170 154)",
+          "oklch(49.3% 0.180 154)",
+          "oklch(60.7% 0.172 154)",
+          "oklch(72.1% 0.145 154)",
+          "oklch(83.6% 0.099 154)",
+          "oklch(95.0% 0.034 154)"
+        ]
+      },
+      "verdict-green": {
+        "role": "tertiary",
+        "displayName": "Verdict Green",
+        "canonical": "#4cc38a",
+        "tonalRamp": [
+          "oklch(15.0% 0.069 159)",
+          "oklch(26.4% 0.106 159)",
+          "oklch(37.9% 0.128 159)",
+          "oklch(49.3% 0.136 159)",
+          "oklch(60.7% 0.130 159)",
+          "oklch(72.1% 0.110 159)",
+          "oklch(83.6% 0.075 159)",
+          "oklch(95.0% 0.026 159)"
+        ]
+      },
+      "stop-red": {
+        "role": "tertiary",
+        "displayName": "Stop Red",
+        "canonical": "#ff4f6a",
+        "tonalRamp": [
+          "oklch(15.0% 0.108 16)",
+          "oklch(26.4% 0.164 16)",
+          "oklch(37.9% 0.199 16)",
+          "oklch(49.3% 0.211 16)",
+          "oklch(60.7% 0.201 16)",
+          "oklch(72.1% 0.170 16)",
+          "oklch(83.6% 0.116 16)",
+          "oklch(95.0% 0.040 16)"
+        ]
+      },
+      "nay-red": {
+        "role": "tertiary",
+        "displayName": "Nay Red",
+        "canonical": "#f06a6a",
+        "tonalRamp": [
+          "oklch(15.0% 0.085 22)",
+          "oklch(26.4% 0.129 22)",
+          "oklch(37.9% 0.156 22)",
+          "oklch(49.3% 0.166 22)",
+          "oklch(60.7% 0.158 22)",
+          "oklch(72.1% 0.134 22)",
+          "oklch(83.6% 0.091 22)",
+          "oklch(95.0% 0.032 22)"
+        ]
+      },
+      "danger-red": {
+        "role": "tertiary",
+        "displayName": "Danger Red",
+        "canonical": "#c9364d",
+        "tonalRamp": [
+          "oklch(15.0% 0.093 17)",
+          "oklch(26.4% 0.142 17)",
+          "oklch(37.9% 0.172 17)",
+          "oklch(49.3% 0.183 17)",
+          "oklch(60.7% 0.174 17)",
+          "oklch(72.1% 0.147 17)",
+          "oklch(83.6% 0.100 17)",
+          "oklch(95.0% 0.035 17)"
+        ]
+      },
+      "blush": {
+        "role": "tertiary",
+        "displayName": "Blush",
+        "canonical": "#ff7eb6",
+        "tonalRamp": [
+          "oklch(15.0% 0.085 355)",
+          "oklch(26.4% 0.130 355)",
+          "oklch(37.9% 0.157 355)",
+          "oklch(49.3% 0.167 355)",
+          "oklch(60.7% 0.160 355)",
+          "oklch(72.1% 0.135 355)",
+          "oklch(83.6% 0.092 355)",
+          "oklch(95.0% 0.032 355)"
+        ]
+      },
+      "amber": {
+        "role": "tertiary",
+        "displayName": "Amber",
+        "canonical": "#f5b642",
+        "tonalRamp": [
+          "oklch(15.0% 0.075 79)",
+          "oklch(26.4% 0.114 79)",
+          "oklch(37.9% 0.138 79)",
+          "oklch(49.3% 0.146 79)",
+          "oklch(60.7% 0.140 79)",
+          "oklch(72.1% 0.118 79)",
+          "oklch(83.6% 0.080 79)",
+          "oklch(95.0% 0.028 79)"
+        ]
+      },
+      "status-completed": {
+        "role": "tertiary",
+        "displayName": "Status Completed",
+        "canonical": "#199e70",
+        "tonalRamp": [
+          "oklch(15.0% 0.065 163)",
+          "oklch(26.4% 0.100 163)",
+          "oklch(37.9% 0.121 163)",
+          "oklch(49.3% 0.128 163)",
+          "oklch(60.7% 0.122 163)",
+          "oklch(72.1% 0.103 163)",
+          "oklch(83.6% 0.070 163)",
+          "oklch(95.0% 0.024 163)"
+        ]
+      },
+      "status-watching": {
+        "role": "tertiary",
+        "displayName": "Status Watching",
+        "canonical": "#3987e5",
+        "tonalRamp": [
+          "oklch(15.0% 0.082 255)",
+          "oklch(26.4% 0.125 255)",
+          "oklch(37.9% 0.152 255)",
+          "oklch(49.3% 0.161 255)",
+          "oklch(60.7% 0.154 255)",
+          "oklch(72.1% 0.130 255)",
+          "oklch(83.6% 0.088 255)",
+          "oklch(95.0% 0.031 255)"
+        ]
+      },
+      "status-on-hold": {
+        "role": "tertiary",
+        "displayName": "Status On Hold",
+        "canonical": "#c98500",
+        "tonalRamp": [
+          "oklch(15.0% 0.073 73)",
+          "oklch(26.4% 0.111 73)",
+          "oklch(37.9% 0.134 73)",
+          "oklch(49.3% 0.142 73)",
+          "oklch(60.7% 0.136 73)",
+          "oklch(72.1% 0.115 73)",
+          "oklch(83.6% 0.078 73)",
+          "oklch(95.0% 0.027 73)"
+        ]
+      },
+      "status-plan-to-watch": {
+        "role": "tertiary",
+        "displayName": "Status Plan To Watch",
+        "canonical": "#9085e9",
+        "tonalRamp": [
+          "oklch(15.0% 0.074 287)",
+          "oklch(26.4% 0.113 287)",
+          "oklch(37.9% 0.137 287)",
+          "oklch(49.3% 0.145 287)",
+          "oklch(60.7% 0.139 287)",
+          "oklch(72.1% 0.117 287)",
+          "oklch(83.6% 0.080 287)",
+          "oklch(95.0% 0.028 287)"
+        ]
+      },
+      "status-dropped": {
+        "role": "tertiary",
+        "displayName": "Status Dropped",
+        "canonical": "#e66767",
+        "tonalRamp": [
+          "oklch(15.0% 0.081 22)",
+          "oklch(26.4% 0.123 22)",
+          "oklch(37.9% 0.149 22)",
+          "oklch(49.3% 0.159 22)",
+          "oklch(60.7% 0.151 22)",
+          "oklch(72.1% 0.128 22)",
+          "oklch(83.6% 0.087 22)",
+          "oklch(95.0% 0.030 22)"
+        ]
+      },
+      "status-none": {
+        "role": "tertiary",
+        "displayName": "Status None",
+        "canonical": "#5c6270",
+        "tonalRamp": [
+          "oklch(15.0% 0.012 267)",
+          "oklch(26.4% 0.018 267)",
+          "oklch(37.9% 0.022 267)",
+          "oklch(49.3% 0.024 267)",
+          "oklch(60.7% 0.022 267)",
+          "oklch(72.1% 0.019 267)",
+          "oklch(83.6% 0.013 267)",
+          "oklch(95.0% 0.004 267)"
+        ]
+      },
+      "midnight": {
+        "role": "neutral",
+        "displayName": "Midnight",
+        "canonical": "#0f1117",
+        "tonalRamp": [
+          "oklch(15.0% 0.007 271)",
+          "oklch(26.4% 0.010 271)",
+          "oklch(37.9% 0.012 271)",
+          "oklch(49.3% 0.013 271)",
+          "oklch(60.7% 0.012 271)",
+          "oklch(72.1% 0.010 271)",
+          "oklch(83.6% 0.007 271)",
+          "oklch(95.0% 0.002 271)"
+        ]
+      },
+      "dusk-panel": {
+        "role": "neutral",
+        "displayName": "Dusk Panel",
+        "canonical": "#171a23",
+        "tonalRamp": [
+          "oklch(15.0% 0.009 270)",
+          "oklch(26.4% 0.014 270)",
+          "oklch(37.9% 0.017 270)",
+          "oklch(49.3% 0.018 270)",
+          "oklch(60.7% 0.017 270)",
+          "oklch(72.1% 0.015 270)",
+          "oklch(83.6% 0.010 270)",
+          "oklch(95.0% 0.003 270)"
+        ]
+      },
+      "nightfall": {
+        "role": "neutral",
+        "displayName": "Nightfall",
+        "canonical": "#1d2130",
+        "tonalRamp": [
+          "oklch(15.0% 0.015 273)",
+          "oklch(26.4% 0.023 273)",
+          "oklch(37.9% 0.027 273)",
+          "oklch(49.3% 0.029 273)",
+          "oklch(60.7% 0.028 273)",
+          "oklch(72.1% 0.023 273)",
+          "oklch(83.6% 0.016 273)",
+          "oklch(95.0% 0.006 273)"
+        ]
+      },
+      "twilight-control": {
+        "role": "neutral",
+        "displayName": "Twilight Control",
+        "canonical": "#20242f",
+        "tonalRamp": [
+          "oklch(15.0% 0.011 269)",
+          "oklch(26.4% 0.017 269)",
+          "oklch(37.9% 0.020 269)",
+          "oklch(49.3% 0.022 269)",
+          "oklch(60.7% 0.021 269)",
+          "oklch(72.1% 0.017 269)",
+          "oklch(83.6% 0.012 269)",
+          "oklch(95.0% 0.004 269)"
+        ]
+      },
+      "horizon": {
+        "role": "neutral",
+        "displayName": "Horizon",
+        "canonical": "#2a2f3d",
+        "tonalRamp": [
+          "oklch(15.0% 0.013 269)",
+          "oklch(26.4% 0.020 269)",
+          "oklch(37.9% 0.025 269)",
+          "oklch(49.3% 0.026 269)",
+          "oklch(60.7% 0.025 269)",
+          "oklch(72.1% 0.021 269)",
+          "oklch(83.6% 0.014 269)",
+          "oklch(95.0% 0.005 269)"
+        ]
+      },
+      "haze": {
+        "role": "neutral",
+        "displayName": "Haze",
+        "canonical": "#8d99ae",
+        "tonalRamp": [
+          "oklch(15.0% 0.017 262)",
+          "oklch(26.4% 0.026 262)",
+          "oklch(37.9% 0.032 262)",
+          "oklch(49.3% 0.034 262)",
+          "oklch(60.7% 0.032 262)",
+          "oklch(72.1% 0.027 262)",
+          "oklch(83.6% 0.019 262)",
+          "oklch(95.0% 0.006 262)"
+        ]
+      },
+      "moonlight": {
+        "role": "neutral",
+        "displayName": "Moonlight",
+        "canonical": "#c9c9c9",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 149)",
+          "oklch(26.4% 0.000 149)",
+          "oklch(37.9% 0.000 149)",
+          "oklch(49.3% 0.000 149)",
+          "oklch(60.7% 0.000 149)",
+          "oklch(72.1% 0.000 149)",
+          "oklch(83.6% 0.000 149)",
+          "oklch(95.0% 0.000 149)"
+        ]
+      },
+      "starlight": {
+        "role": "neutral",
+        "displayName": "Starlight",
+        "canonical": "#e6e6e6",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 149)",
+          "oklch(26.4% 0.000 149)",
+          "oklch(37.9% 0.000 149)",
+          "oklch(49.3% 0.000 149)",
+          "oklch(60.7% 0.000 149)",
+          "oklch(72.1% 0.000 149)",
+          "oklch(83.6% 0.000 149)",
+          "oklch(95.0% 0.000 149)"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 149)",
+          "oklch(26.4% 0.000 149)",
+          "oklch(37.9% 0.000 149)",
+          "oklch(49.3% 0.000 149)",
+          "oklch(60.7% 0.000 149)",
+          "oklch(72.1% 0.000 149)",
+          "oklch(83.6% 0.000 149)",
+          "oklch(95.0% 0.000 149)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Large figures in Insights."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section and node card titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Interface text."
+      },
+      "reading": {
+        "displayName": "Reading",
+        "purpose": "Help and Privacy."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Supporting text."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase labels under figures."
+      }
+    },
+    "shadows": [
+      {
+        "name": "float",
+        "value": "0 8px 28px rgba(0, 0, 0, 0.45)",
+        "purpose": "Floating controls, popovers, toasts and the Ask drawer."
+      },
+      {
+        "name": "menu",
+        "value": "0 8px 24px rgba(0, 0, 0, 0.5)",
+        "purpose": "Search results, context menus and chart tooltips."
+      },
+      {
+        "name": "selected",
+        "value": "0 0 0 2px rgba(79, 140, 255, 0.35)",
+        "purpose": "The ring around a picked card."
+      }
+    ],
+    "motion": [
+      {
+        "name": "hover",
+        "value": "border-color 0.15s",
+        "purpose": "Game card hover."
+      },
+      {
+        "name": "press",
+        "value": "transform 0.1s",
+        "purpose": "Game card press."
+      },
+      {
+        "name": "settle",
+        "value": "transform 0.18s ease-out",
+        "purpose": "A Yay or Nay card returning."
+      },
+      {
+        "name": "clue-in",
+        "value": "0.3s ease-out",
+        "purpose": "A new clue in Mystery character."
+      },
+      {
+        "name": "progress",
+        "value": "width 0.4s",
+        "purpose": "Sync progress."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow-games",
+        "value": "640px"
+      },
+      {
+        "name": "phone",
+        "value": "700px"
+      },
+      {
+        "name": "tablet",
+        "value": "900px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "The default control.",
+      "html": "<button class=\"ds-btn\">Expand</button>",
+      "css": ".ds-btn{font:400 13px system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--text);background:#20242f;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer}.ds-btn:hover{border-color:var(--accent)}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The main action on a surface.",
+      "html": "<button class=\"ds-pri\">Got it</button>",
+      "css": ".ds-pri{font:400 13px system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:4px 8px;cursor:pointer}.ds-pri:hover{filter:brightness(1.1)}.ds-pri:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Deleting data.",
+      "html": "<button class=\"ds-dan\">Delete my data</button>",
+      "css": ".ds-dan{font:400 13px system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;background:#c9364d;border:1px solid #c9364d;border-radius:6px;height:36px;padding:0 14px;cursor:pointer}.ds-dan:hover{filter:brightness(1.1)}.ds-dan:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Floating Button",
+      "kind": "button",
+      "refersTo": "floating-button",
+      "description": "Corner controls over the canvas.",
+      "html": "<button class=\"ds-fab\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M3 6h18M7 12h10M10 18h4\"/></svg>Filters</button>",
+      "css": ".ds-fab{font:400 13px system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--float);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--border);box-shadow:var(--float-shadow);color:var(--text);display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-radius:20px;cursor:pointer}.ds-fab:hover{border-color:var(--accent)}.ds-fab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Search Box",
+      "kind": "input",
+      "refersTo": "search-box",
+      "description": "Search at the top of the canvas.",
+      "html": "<label class=\"ds-search\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"m16 16 5 5\"/></svg><input placeholder=\"Search anime, characters, people…\" aria-label=\"Search\"></label>",
+      "css": ".ds-search{background:var(--float);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--border);box-shadow:var(--float-shadow);color:var(--text);display:flex;align-items:center;gap:8px;width:300px;height:40px;padding:0 12px;border-radius:20px}.ds-search:hover,.ds-search:focus-within{border-color:var(--accent)}.ds-search input{flex:1;min-width:0;border:0;background:none;outline:0;color:var(--text);font:400 14px system-ui,sans-serif}"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Filters and list statuses.",
+      "html": "<button class=\"ds-chip\"><i></i>completed</button>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;gap:5px;font:400 11px system-ui,sans-serif;color:var(--text);background:#20242f;border:1px solid var(--border);border-radius:12px;padding:2px 7px;cursor:pointer}.ds-chip:hover{border-color:var(--accent)}.ds-chip i{width:8px;height:8px;border-radius:50%;background:#199e70}.ds-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Stat Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "A figure in Insights.",
+      "html": "<div class=\"ds-stat\"><b>8.18</b><span>My mean score</span></div>",
+      "css": ".ds-stat{width:180px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-family:system-ui,sans-serif;color:var(--text)}.ds-stat b{display:block;font-size:30px;font-weight:600;line-height:1.1}.ds-stat span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}"
+    },
+    {
+      "name": "Game Card",
+      "kind": "card",
+      "refersTo": "game-card",
+      "description": "A character to choose in the games.",
+      "html": "<button class=\"ds-game\"><span class=\"ds-art\"></span><strong>Character name</strong><span class=\"ds-sub\">Anime title</span></button>",
+      "css": ".ds-game{font:400 13px system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;display:flex;flex-direction:column;align-items:center;gap:6px;width:150px;padding:12px;color:var(--text);background:var(--panel);border:2px solid var(--border);border-radius:14px;cursor:pointer;transition:border-color .15s,transform .1s}.ds-game:hover{border-color:var(--accent)}.ds-game:active{transform:scale(.98)}.ds-art{width:100%;aspect-ratio:225/330;border-radius:10px;background:#20242f}.ds-game strong{font-size:15px}.ds-sub{color:var(--muted)}.ds-game:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Menu Popover",
+      "kind": "nav",
+      "refersTo": "popover",
+      "description": "The page menu.",
+      "html": "<nav class=\"ds-menu\"><a href=\"#\">Insights</a><a href=\"#\">VA roster</a><a href=\"#\">Help</a></nav>",
+      "css": ".ds-menu{font:400 13px system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;display:flex;flex-direction:column;width:220px;padding:6px;background:#1d2130;border:1px solid var(--border);border-radius:12px;box-shadow:var(--float-shadow)}.ds-menu a{color:var(--text);text-decoration:none;border-radius:6px;padding:7px 10px}.ds-menu a:hover{background:#2a2f3d}.ds-menu a:focus-visible{outline:2px solid var(--accent)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Night Sky Chart",
+    "overview": "Aniweb is a chart of a night sky. Anime, characters and people are points of light on a near-black field, and the lines between them are the constellations. The background stays dark and even so the points can be read, and almost all of the colour on screen belongs to a node, a connection, a list status or a piece of cover art.\n\nThe voice is playful and dark. The interface is compact, and its energy comes from the games, the cards and the covers. Controls float over the chart in translucent dark panels and leave the middle of the screen to the graph.\n\nThe system rejects three looks. It isn't a busy fan site with banners, cluttered sidebars or mascots. It isn't neon cyberpunk with glowing text, neon gradients or scanlines. It isn't a corporate dashboard with white cards and pale blue.",
+    "keyCharacteristics": [
+      "A single dark theme on a near-black background",
+      "Colour used as a code for kinds of nodes, connections and list statuses",
+      "Cover art and character portraits as the main imagery",
+      "Compact controls in the system typeface",
+      "Translucent, blurred controls floating over a full-screen canvas"
+    ],
+    "rules": [
+      {
+        "name": "The Coded Colour Rule",
+        "body": "A colour that stands for a kind of node, a connection or a list status keeps that meaning on every page.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dark Sky Rule",
+        "body": "Large surfaces use the neutrals. Bright colour appears in points, lines, rings, bars and controls.",
+        "section": "colors"
+      },
+      {
+        "name": "The Steady Figures Rule",
+        "body": "Numbers that line up in tables, charts and scores use tabular figures.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sixteen Pixel Rule",
+        "body": "Search and guess inputs are 16px on phones, so iOS doesn't zoom in when they get focus.",
+        "section": "typography"
+      },
+      {
+        "name": "The Soft Shadow Rule",
+        "body": "Shadows are dark and soft. They're never coloured and never a glow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** keep the background Midnight (#0f1117) and let covers, portraits and nodes bring the colour.",
+      "**Do** reuse the colour a kind of node, connection or status already has.",
+      "**Do** give controls over the canvas the translucent fill, 12px blur, border and Float shadow.",
+      "**Do** keep 12px plus the safe area between floating controls and the edge of the screen.",
+      "**Do** make presses visible, as the game cards do.",
+      "**Do** use tabular figures where numbers line up."
+    ],
+    "donts": [
+      "**Don't** make it look like a busy fan site with crowded banners, cluttered sidebars or mascot decoration.",
+      "**Don't** use neon cyberpunk effects such as glowing text, neon gradients or scanlines.",
+      "**Don't** make it look like a corporate dashboard with white cards and pale blue accents.",
+      "**Don't** use a coded colour for decoration.",
+      "**Don't** let controls cover the middle of the canvas while the visitor explores it."
+    ]
+  }
+}
