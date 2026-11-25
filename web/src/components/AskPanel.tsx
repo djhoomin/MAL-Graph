@@ -343,7 +343,7 @@ export function AskPanel() {
                   <div className="roster-grid people">
                     {group.cards.map((c) => (
                       <button key={c.node.id} className="card" onClick={() => openCard(c.node)} title="Open in graph">
-                        {c.node.image_url ? <img src={c.node.image_url} alt="" /> : <div className="noimg" />}
+                        {c.node.image_url ? <img src={c.node.image_url} alt="" loading="lazy" decoding="async" /> : <div className="noimg" />}
                         <div className="card-body">
                           <strong>{c.node.name}</strong>
                           {c.caption && <span className="muted">{c.caption}</span>}

@@ -116,7 +116,7 @@ export function People({ anime, statuses, lang, thread, onThread }: Props) {
           const active = thread?.label === r.name
           return (
             <li key={r.id} className={active ? 'active' : ''}>
-              {r.image_url ? <img src={r.image_url} alt="" /> : <span className="noimg" />}
+              {r.image_url ? <img src={r.image_url} alt="" loading="lazy" decoding="async" /> : <span className="noimg" />}
               <div className="ranked-body">
                 <div className="ranked-name">
                   <button className="link" onClick={() => onThread(active ? null : { label: r.name, ids: new Set(r.anime_ids) })} title="Highlight on the timeline">

@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { ANILIST_SIGN_IN_URL, errorText, matchApi, SIGN_IN_URL, type MakerKind, type Match, type MatchAnime, type MatchInvite, type MatchLink, type MatchMaker, type MatchPick } from '../api'
 import { useSource, useStore } from '../store'
 import { navigate } from '../useHashRoute'
+import { PENDING_INVITE_KEY } from '../invite'
 
 /** Where a visitor's invite waits while they sign in, since signing in comes back to the start page. */
-export const PENDING_INVITE_KEY = 'malgraph.match.invite'
 
 const signedOut = (e: unknown) => String((e as Error)?.message ?? '').startsWith('401')
 const score = (n: number | null) => (n === null ? 'Not scored' : Number.isInteger(n) ? String(n) : n.toFixed(1))
@@ -328,7 +328,7 @@ function AnimeList({ title, note, rows, them }: { title: string; note: string; r
       <ul>
         {rows.map((a) => (
           <li key={a.id}>
-            {a.image ? <img src={a.image} alt="" /> : <span className="noimg" />}
+            {a.image ? <img src={a.image} alt="" loading="lazy" decoding="async" /> : <span className="noimg" />}
             <a href={a.url ?? undefined} target="_blank" rel="noreferrer">
               {a.title}
             </a>
@@ -384,7 +384,7 @@ function PickList({ title, note, rows, who, planned }: { title: string; note: st
       <ul>
         {rows.map((a) => (
           <li key={a.id}>
-            {a.image ? <img src={a.image} alt="" /> : <span className="noimg" />}
+            {a.image ? <img src={a.image} alt="" loading="lazy" decoding="async" /> : <span className="noimg" />}
             <span className="match-pick">
               <a href={a.url ?? undefined} target="_blank" rel="noreferrer">
                 {a.title}

@@ -71,7 +71,7 @@ export function VaView() {
                         select(r.character.id)
                       }}
                     >
-                      {r.character.image_url && <img src={r.character.image_url} alt="" />}
+                      {r.character.image_url && <img src={r.character.image_url} alt="" loading="lazy" decoding="async" />}
                       {r.character.name}
                     </button>
                     <small> {r.role}</small>

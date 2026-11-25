@@ -771,3 +771,8 @@ main:focus, .node-card:focus, .path-bar:focus { outline: none; }
 .node-list-pop li button:hover { background: #2a2f3d; }
 .node-list-pop li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 700px) { .node-list-pop { position: fixed; left: var(--gap); bottom: calc(var(--safe-bottom) + var(--gap) + 48px); } .node-list-pop input { font-size: 16px; } }
+
+/* Pages arrive on their own. The text waits a moment, so a quick load doesn't flash it. */
+.page-loading { padding: 24px 20px; animation: page-loading 0s 0.3s both; }
+@keyframes page-loading { from { visibility: hidden; } to { visibility: visible; } }
+.load-failed { max-width: 420px; padding: 24px 20px; line-height: 1.5; }

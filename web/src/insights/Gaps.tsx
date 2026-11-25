@@ -117,7 +117,7 @@ function GapGrid({ rows, fetchOne }: { rows: Gap[]; fetchOne: (g: Gap) => Promis
     <div className="gap-grid">
       {rows.map((g) => (
         <div key={g.id} className="gap">
-          {g.image_url ? <img src={g.image_url} alt="" /> : <span className="noimg" />}
+          {g.image_url ? <img src={g.image_url} alt="" loading="lazy" decoding="async" /> : <span className="noimg" />}
           <div className="gap-body">
             <a href={g.url ?? undefined} target="_blank" rel="noreferrer" className="gap-title">
               {g.title}

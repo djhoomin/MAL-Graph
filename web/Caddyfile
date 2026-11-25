@@ -1,3 +1,20 @@
+# The static UI. Built files have a hash in their name, so they can be kept for good, and a missing one is a 404 rather
+# than index.html: after a deploy, an open tab may ask for a file that's gone.
+(ui) {
+	handle /assets/* {
+		root * /srv
+		@built file
+		header @built Cache-Control "private, max-age=31536000, immutable"
+		file_server
+	}
+	handle {
+		root * /srv
+		header Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}
+
 # SITE_ADDRESS e.g. aniweb.eu (automatic HTTPS) or http://localhost:8088 for local testing.
 {$SITE_ADDRESS:http://localhost:8088} {
 	encode gzip
@@ -11,11 +28,7 @@
 		reverse_proxy api:8000
 	}
 
-	handle {
-		root * /srv
-		try_files {path} /index.html
-		file_server
-	}
+	import ui
 }
 
 # The AniList copy (docker-compose.anilist.yml), e.g. staging.aniweb.eu. Without that overlay this block listens
@@ -31,11 +44,7 @@
 		reverse_proxy api-anilist:8000
 	}
 
-	handle {
-		root * /srv
-		try_files {path} /index.html
-		file_server
-	}
+	import ui
 }
 
 # Old addresses that redirect to the current ones, such as app.mal-graph.eu after the rename to Aniweb, or www.aniweb.eu.

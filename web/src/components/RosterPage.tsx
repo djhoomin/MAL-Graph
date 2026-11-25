@@ -73,9 +73,9 @@ function RosterList({ onlyWatched, mainOnly, lang }: Opts) {
       </div>
       {err && <div className="error" role="alert">{err}</div>}
       <div className="roster-grid people">
-        {people?.map(({ person, characters, anime }) => (
+        {people?.map(({ person, characters, anime }, i) => (
           <button key={person.id} className="card" onClick={() => navigate(`/roster/${person.key}`)}>
-            {person.image_url ? <img src={person.image_url} alt="" /> : <div className="noimg" />}
+            {person.image_url ? <img src={person.image_url} alt="" loading={i < 8 ? 'eager' : 'lazy'} decoding="async" /> : <div className="noimg" />}
             <div className="card-body">
               <strong>{person.name}</strong>
               <span className="muted">
@@ -184,7 +184,7 @@ function PersonRoster({ personId, onlyWatched, mainOnly, lang }: Opts & { person
         {cards
           .map(({ role, anime, main }) => (
             <div key={role.character.id} className="card">
-              {role.character.image_url ? <img src={role.character.image_url} alt="" /> : <div className="noimg" />}
+              {role.character.image_url ? <img src={role.character.image_url} alt="" loading="lazy" decoding="async" /> : <div className="noimg" />}
               <div className="card-body">
                 <strong>{role.character.name}</strong>
                 <span className="muted">{main ? 'Main' : 'Supporting'}</span>

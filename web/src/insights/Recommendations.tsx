@@ -63,7 +63,7 @@ export function Recommendations() {
       <div className="gap-grid">
         {recs?.map((r) => (
           <div key={r.anime.id} className="gap">
-            {r.anime.image_url ? <img src={r.anime.image_url} alt="" /> : <span className="noimg" />}
+            {r.anime.image_url ? <img src={r.anime.image_url} alt="" loading="lazy" decoding="async" /> : <span className="noimg" />}
             <div className="gap-body">
               <button className="link gap-title" onClick={() => open(r)} title="Open in graph">
                 {r.anime.name}
