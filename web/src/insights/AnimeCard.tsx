@@ -16,7 +16,7 @@ export function AnimeCard({ a, dim = false, note }: { a: ListAnime; dim?: boolea
     navigate('/')
   }
   return (
-    <button className="card" style={{ opacity: dim ? 0.35 : 1 }} onClick={open} title="Open in graph">
+    <button className={`card ${dim ? 'faint' : ''}`} onClick={open} title="Open in graph">
       {a.image_url ? <img src={a.image_url} alt="" /> : <div className="noimg" />}
       <div className="card-body">
         <strong>{a.title}</strong>

@@ -86,7 +86,7 @@ components:
     padding: "4px 8px"
   button-primary:
     backgroundColor: "{colors.polestar-blue}"
-    textColor: "{colors.white}"
+    textColor: "{colors.midnight}"
     rounded: "{rounded.control}"
     padding: "4px 8px"
   button-danger:
@@ -178,7 +178,7 @@ Colours with a fixed meaning.
 - **Danger Red** (#c9364d): Buttons that delete data.
 
 ### Neutral
-- **Midnight** (#0f1117): The page and canvas background, and the outline around node labels.
+- **Midnight** (#0f1117): The page and canvas background, the outline around node labels, and text on Polestar Blue.
 - **Dusk Panel** (#171a23): Panels, cards, page headers and the Ask drawer.
 - **Nightfall** (#1d2130): Popovers, menus, tooltips and search results.
 - **Twilight Control** (#20242f): Buttons, inputs, chips, and the space behind missing images.
@@ -186,11 +186,13 @@ Colours with a fixed meaning.
 - **Haze** (#8d99ae): Secondary text and labels, and genres.
 - **Moonlight** (#c9c9c9): Long supporting text.
 - **Starlight** (#e6e6e6): Main text.
-- **White** (#ffffff): Text on filled buttons, and the ring of selected nodes and paths.
+- **White** (#ffffff): Text on Danger Red buttons, and the ring of selected nodes and paths.
 
 ### Named Rules
 **The Coded Colour Rule.** A colour that stands for a kind of node, a connection or a list status keeps that meaning on
 every page.
+
+**The Dark Text on Blue Rule.** Text on Polestar Blue is Midnight, at 5.9:1. White on it only reaches 3.2:1.
 
 **The Dark Sky Rule.** Large surfaces use the neutrals. Bright colour appears in points, lines, rings, bars and controls.
 
@@ -261,8 +263,8 @@ Components are compact and tactile. They're small, and they respond clearly when
 ### Buttons
 - **Shape:** gently curved (6px).
 - **Default:** Twilight Control with a Horizon border and 4px 8px padding.
-- **Primary:** Polestar Blue with white text. It brightens by 10% on hover.
-- **Danger:** Danger Red with white text, 36px high.
+- **Primary:** Polestar Blue with bold (600) Midnight text. It brightens by 10% on hover.
+- **Danger:** Danger Red with white text, 36px high. It darkens by 8% on hover.
 - **Hover:** the border turns Polestar Blue. Disabled buttons fade to 40%.
 - **Selected:** Polestar Blue border and text.
 - **Floating:** 40px high pills with the translucent fill and the Float shadow.
@@ -270,7 +272,8 @@ Components are compact and tactile. They're small, and they respond clearly when
 
 ### Chips
 - **Style:** 11px text on Twilight Control, a Horizon border, 12px corners, and an 8px dot of the colour they stand for.
-- **State:** selected chips have a Polestar Blue border. Unselected ones fade to 35%.
+- **State:** selected chips have a Polestar Blue border. Unselected ones have no fill, a Horizon border and Haze text, and
+  their dot fades to 35%.
 
 ### Cards / Containers
 - **Corner Style:** 10px, or 14px for game cards.
@@ -281,6 +284,7 @@ Components are compact and tactile. They're small, and they respond clearly when
 
 ### Inputs / Fields
 - **Style:** Twilight Control, a Horizon border and 6px corners. The search box is a 40px floating pill.
+- **Placeholder:** Haze.
 - **Focus:** the search box border turns Polestar Blue. Other fields use the browser's focus ring.
 - **Picking a path end:** the search box border turns Go Green.
 

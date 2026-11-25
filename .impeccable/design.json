@@ -559,7 +559,7 @@
       "refersTo": "button-primary",
       "description": "The main action on a surface.",
       "html": "<button class=\"ds-pri\">Got it</button>",
-      "css": ".ds-pri{font:400 13px system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:4px 8px;cursor:pointer}.ds-pri:hover{filter:brightness(1.1)}.ds-pri:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+      "css": ".ds-pri{font:400 13px system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#0f1117;font-weight:600;background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:4px 8px;cursor:pointer}.ds-pri:hover{filter:brightness(1.1)}.ds-pri:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
     },
     {
       "name": "Danger Button",
@@ -567,7 +567,7 @@
       "refersTo": "button-danger",
       "description": "Deleting data.",
       "html": "<button class=\"ds-dan\">Delete my data</button>",
-      "css": ".ds-dan{font:400 13px system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;background:#c9364d;border:1px solid #c9364d;border-radius:6px;height:36px;padding:0 14px;cursor:pointer}.ds-dan:hover{filter:brightness(1.1)}.ds-dan:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+      "css": ".ds-dan{font:400 13px system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;background:#c9364d;border:1px solid #c9364d;border-radius:6px;height:36px;padding:0 14px;cursor:pointer}.ds-dan:hover{filter:brightness(0.92)}.ds-dan:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
     },
     {
       "name": "Floating Button",
@@ -583,7 +583,7 @@
       "refersTo": "search-box",
       "description": "Search at the top of the canvas.",
       "html": "<label class=\"ds-search\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"m16 16 5 5\"/></svg><input placeholder=\"Search anime, characters, people…\" aria-label=\"Search\"></label>",
-      "css": ".ds-search{background:var(--float);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--border);box-shadow:var(--float-shadow);color:var(--text);display:flex;align-items:center;gap:8px;width:300px;height:40px;padding:0 12px;border-radius:20px}.ds-search:hover,.ds-search:focus-within{border-color:var(--accent)}.ds-search input{flex:1;min-width:0;border:0;background:none;outline:0;color:var(--text);font:400 14px system-ui,sans-serif}"
+      "css": ".ds-search{background:var(--float);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--border);box-shadow:var(--float-shadow);color:var(--text);display:flex;align-items:center;gap:8px;width:300px;height:40px;padding:0 12px;border-radius:20px}.ds-search:hover,.ds-search:focus-within{border-color:var(--accent)}.ds-search input{flex:1;min-width:0;border:0;background:none;outline:0;color:var(--text);font:400 14px system-ui,sans-serif}.ds-search input::placeholder{color:var(--muted);opacity:1}"
     },
     {
       "name": "Status Chip",
@@ -632,6 +632,11 @@
       {
         "name": "The Coded Colour Rule",
         "body": "A colour that stands for a kind of node, a connection or a list status keeps that meaning on every page.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dark Text on Blue Rule",
+        "body": "Text on Polestar Blue is Midnight, at 5.9:1. White on it only reaches 3.2:1.",
         "section": "colors"
       },
       {
