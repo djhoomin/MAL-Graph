@@ -23,7 +23,14 @@ Open work for MAL-Graph, in rough priority order. Production runs `main` behind 
 - [x] **Add a way to contact you on the privacy page.** Since 23 November 2026 `PRIVACY_CONTACT` is
       "DJ Human (contact@aniweb.eu)". Cloudflare hosts the aniweb.eu DNS and its Email Routing forwards that address to
       your inbox. Replies go out from your own address.
-- [ ] **Set a monthly spending cap on the OpenRouter key** in OpenRouter's dashboard, if that isn't done yet.
+- [x] **Set a monthly spending cap on the OpenRouter key** in OpenRouter's dashboard. DJ confirmed it on 25 November 2026.
+- [ ] **Moderate questions to Ask with Mistral Moderation**, so people can't use it for prompt injection or other abuse.
+      `mistral-moderation-2603` has a jailbreaking category and takes a threshold per category. It's free and
+      runs in the EU (from DJ, 25 November 2026). Check each question before the agent runs, and decline flagged ones without running it. Set the thresholds so ordinary questions
+      about violent anime and Kiss Marry Kill get through, and add both kinds to the evals. Decide what happens when
+      the service is down, and whether a declined question counts towards the daily limit. It adds to the privacy
+      guard on Cypher and doesn't replace it, and text the tools return (synopses, names) isn't covered by checking
+      the question alone. Name Mistral on the privacy page, since questions will go there too.
 - [ ] **Take the site password off** once the items above are settled. It's the `basic_auth` block in `web/Caddyfile`.
 
 ## AniList as a data source (the main source, since MyAnimeList said no on 18 November 2026)
