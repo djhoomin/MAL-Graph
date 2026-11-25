@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { errorText, yayApi, type KmkCard, type YayDaily, type YayPattern, type YayPatterns } from '../api'
 import { navigate } from '../useHashRoute'
 import { GameCard, HowTo } from './GameBits'
+import { lessMotion } from '../motion'
 
 type Mode = 'today' | 'mine'
 const MODE_KEY = 'malgraph.yay.mode'
@@ -228,7 +229,8 @@ function Swiper({ card, next, onVote }: { card: KmkCard; next?: KmkCard; onVote:
     return () => window.removeEventListener('keydown', key)
   }, [decide])
 
-  const x = out ? out * 600 : dx
+  const fade = out !== 0 && lessMotion() // the card fades where it is instead of flying off
+  const x = out && !fade ? out * 600 : dx
   const lean = Math.max(-1, Math.min(1, x / SWIPE))
   return (
     <div className="yay-stage">
@@ -236,7 +238,7 @@ function Swiper({ card, next, onVote }: { card: KmkCard; next?: KmkCard; onVote:
         {next && <GameCard card={next} className="yay-next" />}
         <div
           className={`yay-top ${start.current === null ? 'settle' : ''}`}
-          style={{ transform: `translateX(${x}px) rotate(${x / 18}deg)` }}
+          style={{ transform: `translateX(${x}px) rotate(${x / 18}deg)`, opacity: fade ? 0 : undefined }}
           onPointerDown={(e) => {
             if (out || start.current !== null) return
             pointer.current = e.pointerId

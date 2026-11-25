@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { errorText, oddApi, type KmkCard, type OddDaily, type OddLink, type OddResult } from '../api'
 import { navigate } from '../useHashRoute'
 import { FieldBars, GameCard, HowTo } from './GameBits'
+import { scrollBehavior } from '../motion'
 
 /** On a phone the reveal sits below the cards, so a new round starts back at the top of the page. */
-const toTop = () => document.querySelector('.doc-page')?.scrollTo({ top: 0, behavior: 'smooth' })
+const toTop = () => document.querySelector('.doc-page')?.scrollTo({ top: 0, behavior: scrollBehavior() })
 
 /** Odd one out: four characters, three share a hidden link. Five daily rounds, then endless practice. */
 export function OddPage() {
@@ -211,7 +212,7 @@ function OddRound({ cards, result, busy, onPick, children }: { cards: KmkCard[];
   const reveal = useRef<HTMLDivElement>(null)
   const answered = !!result
   useEffect(() => {
-    if (answered) reveal.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if (answered) reveal.current?.scrollIntoView({ behavior: scrollBehavior(), block: 'nearest' })
   }, [answered])
   return (
     <>

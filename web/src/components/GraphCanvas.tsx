@@ -6,6 +6,7 @@ import { golfMarks, sortOptions, useGolf } from '../golf'
 import { useStore } from '../store'
 import { edgeElement, nodeElement } from '../graph/elements'
 import { stylesheet } from '../graph/style'
+import { lessMotion, ms } from '../motion'
 import { ContextMenu, type MenuState } from './ContextMenu'
 
 cytoscape.use(fcose)
@@ -25,8 +26,8 @@ const LAYOUT: FcoseLayoutOptions = {
 
 /** Run fcose and fit the viewport once the animation has finished (fcose's own `fit` uses pre-animation positions). */
 function runLayout(cy: Core, randomize: boolean) {
-  const layout = cy.layout({ ...LAYOUT, randomize } as FcoseLayoutOptions)
-  layout.one('layoutstop', () => cy.animate({ fit: { eles: cy.elements(), padding: 40 }, duration: 250, complete: () => keepSelectedClear(cy) }))
+  const layout = cy.layout({ ...LAYOUT, animate: !lessMotion(), randomize } as FcoseLayoutOptions)
+  layout.one('layoutstop', () => cy.animate({ fit: { eles: cy.elements(), padding: 40 }, duration: ms(250), complete: () => keepSelectedClear(cy) }))
   layout.run()
 }
 
@@ -95,9 +96,9 @@ function keepSelectedClear(cy: Core) {
   const w = cy.width()
   const h = cy.height()
   if (window.matchMedia('(max-width: 700px)').matches) {
-    if (y > h * 0.42) cy.animate({ panBy: { x: w / 2 - x, y: h * 0.25 - y }, duration: 250 })
+    if (y > h * 0.42) cy.animate({ panBy: { x: w / 2 - x, y: h * 0.25 - y }, duration: ms(250) })
   } else if (x > w - 390) {
-    cy.animate({ panBy: { x: (w - 390) / 2 - x, y: 0 }, duration: 250 })
+    cy.animate({ panBy: { x: (w - 390) / 2 - x, y: 0 }, duration: ms(250) })
   }
 }
 
@@ -179,7 +180,7 @@ export function GraphCanvas() {
     const ro = new ResizeObserver(() => {
       cy.resize()
       clearTimeout(fitTimer)
-      fitTimer = setTimeout(() => cy.nodes().length && cy.animate({ fit: { eles: cy.elements(), padding: 30 }, duration: 200 }), 250)
+      fitTimer = setTimeout(() => cy.nodes().length && cy.animate({ fit: { eles: cy.elements(), padding: 30 }, duration: ms(200) }), 250)
     })
     ro.observe(ref.current)
     return () => {
@@ -226,7 +227,7 @@ export function GraphCanvas() {
     const cy = cyRef.current
     if (!cy || cy.nodes().length === 0) return
     if (useGolf.getState().golf) return fitBesidePanel(cy)
-    cy.animate({ fit: { eles: cy.elements(':visible'), padding: 60 }, duration: 250 })
+    cy.animate({ fit: { eles: cy.elements(':visible'), padding: 60 }, duration: ms(250) })
   }, [fitTick])
 
   useEffect(() => {

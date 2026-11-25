@@ -208,7 +208,7 @@ every page.
 - **Headline** (700, 18px, 0.5px spacing): Page titles in the app. Text pages use 28px.
 - **Title** (700, 16px): Section and node card titles.
 - **Body** (400, 13px): The default for the interface.
-- **Reading** (400, 15px, 1.6): Help and Privacy, in a column up to 680px wide. It's 16px on phones.
+- **Reading** (400, 15px, 1.6): Help and Privacy, in a column up to 600px wide. It's 16px on phones.
 - **Small** (400, 12px): Supporting text, tables and card captions. Counts and metadata go down to 10 or 11px.
 - **Label** (400, 12px, 0.4px spacing, uppercase): Labels under figures. Small subheadings (bold, 0.6px spacing) use the
   same uppercase style.
@@ -225,7 +225,8 @@ The graph view is a fixed, full-screen canvas with controls pinned 12px from its
 Search is at the top left, the menu at the top right, Filters at the bottom left, and fit and Ask at the bottom right. The
 node card is 340px wide on the right, and the Ask drawer is 420px wide and moves the card and the bottom buttons aside.
 
-Other pages are a single column: 680px for text pages, 900px for games and 1400px for Insights, with 20px side padding.
+Other pages are a single column: 600px for text pages, 900px for games and 1400px for Insights, with 20px side padding. Text
+on the game and tour pages is at most 58ch wide, while grids use the full column.
 Covers, cards and figures sit in grids that fill the available width. Spacing is tight, mostly in steps of 4, 6, 8, 10, 12
 and 14px.
 
@@ -289,7 +290,7 @@ Components are compact and tactile. They're small, and they respond clearly when
 ### Inputs / Fields
 - **Style:** Twilight Control, a Horizon border and 6px corners. The search box is a 40px floating pill.
 - **Placeholder:** Haze.
-- **Focus:** the search box border turns Polestar Blue. Other fields use the browser's focus ring.
+- **Focus:** the search box border turns Polestar Blue. Everything else that takes keyboard focus gets a 2px Polestar Blue ring.
 - **Picking a path end:** the search box border turns Go Green.
 
 ### Navigation
@@ -308,6 +309,11 @@ Components are compact and tactile. They're small, and they respond clearly when
 - Hover turns the border Polestar Blue over 0.15s, and pressing shrinks the card to 98%.
 - Results colour the border: Verdict Green for right, Stop Red for wrong, and Nay Red for nay.
 - Yay or Nay cards are dragged, show a rotated stamp, and settle back over 0.18s.
+
+### Motion
+- Motion is short (0.1 to 0.4s) and shows what changed: a press, a card leaving, a new clue, the graph settling.
+- For people who prefer reduced motion, the graph and the scrolling jump into place, a Yay or Nay card fades where it is,
+  and new clues fade in. Colours and fades that confirm an action stay.
 
 ## Do's and Don'ts
 

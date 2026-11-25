@@ -65,7 +65,9 @@ function RosterList({ onlyWatched, mainOnly, lang }: Opts) {
   return (
     <div className="roster-body">
       <div className="row">
-        <input placeholder="filter by name…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <label className="row">
+          name <input type="search" value={q} onChange={(e) => setQ(e.target.value)} />
+        </label>
         <label className="row">
           at least <input type="number" min={1} max={50} value={min} onChange={(e) => setMin(Math.max(1, +e.target.value || 1))} style={{ width: 56 }} /> characters
         </label>

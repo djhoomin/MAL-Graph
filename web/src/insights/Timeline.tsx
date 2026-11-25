@@ -213,7 +213,7 @@ export function Timeline({ anime, granularity, thread, onPick, picked }: Props) 
                     {a.title}
                   </li>
                 ))}
-                {hover.b.anime.length > 6 && <li className="muted">+{hover.b.anime.length - 6} more — click for all</li>}
+                {hover.b.anime.length > 6 && <li className="muted">+{hover.b.anime.length - 6} more. Click for all.</li>}
               </ul>
             </div>
           )}

@@ -86,6 +86,7 @@ export function SearchBar() {
         )}
         <input
           ref={input}
+          aria-label={picking ? 'Destination of the path' : 'Search anime, characters and people'}
           placeholder={picking ? 'Destination…' : 'Search anime, characters, people…'}
           value={q}
           onChange={(e) => setQ(e.target.value)}

@@ -90,7 +90,7 @@ export function InsightsPage() {
       </div>
 
       {err && <div className="error" role="alert">{err}</div>}
-      {!all && !err && <div className="muted" style={{ padding: 20 }} role="status">loading…</div>}
+      {!all && !err && <div className="muted" style={{ padding: 20 }} role="status">Loading…</div>}
 
       {all && (
         <div className="insights-body">

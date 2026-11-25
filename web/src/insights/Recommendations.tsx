@@ -57,7 +57,7 @@ export function Recommendations() {
       {err && <div className="error" role="alert">{err}</div>}
       {recs && recs.length === 0 && (
         <div className="muted">
-          Nothing yet — run <code>malgraph enrich</code> to pull your favourite people's filmographies into the graph.
+          Nothing matches these settings yet. Try a lower score or another way of finding shows.
         </div>
       )}
       <div className="gap-grid">

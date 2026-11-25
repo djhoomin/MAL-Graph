@@ -151,7 +151,7 @@ export function GolfPanel() {
               {golf.toHole} {golf.toHole === 1 ? 'step' : 'steps'} to the hole{warmth}
             </div>
           )}
-          {!golf.easy && <input className="golf-filter" placeholder="Find a move" value={filter} onChange={(e) => setFilter(e.target.value)} autoComplete="off" />}
+          {!golf.easy && <input className="golf-filter" aria-label="Find a move" placeholder="Find a move" value={filter} onChange={(e) => setFilter(e.target.value)} autoComplete="off" />}
           <ul className="golf-moves">
             {options.slice(0, 300).map((o) => (
               <li key={o.node.id}>

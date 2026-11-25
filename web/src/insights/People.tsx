@@ -110,7 +110,7 @@ export function People({ anime, statuses, lang, thread, onThread }: Props) {
         </label>
       </div>
       {err && <div className="error" role="alert">{err}</div>}
-      {!isLocal && !people && !err && <div className="muted" role="status">loading…</div>}
+      {!isLocal && !people && !err && <div className="muted" role="status">Loading…</div>}
       <ol className="ranked">
         {rows.map((r) => {
           const active = thread?.label === r.name

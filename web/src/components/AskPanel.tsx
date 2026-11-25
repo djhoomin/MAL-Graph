@@ -5,6 +5,7 @@ import { api, ask, type AskEvent, type AskStatus, type AskStep, type Conversatio
 import { useGolf } from '../golf'
 import { useStore } from '../store'
 import { navigate } from '../useHashRoute'
+import { scrollBehavior } from '../motion'
 
 interface Turn {
   role: 'user' | 'assistant'
@@ -115,7 +116,7 @@ export function AskPanel() {
     void refreshHistory()
   }
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: 'smooth' })
+    bottom.current?.scrollIntoView({ behavior: scrollBehavior() })
   }, [turns])
 
   const send = async (text: string) => {
@@ -151,7 +152,7 @@ export function AskPanel() {
   const handle = (ev: AskEvent, update: (fn: (a: Turn) => void) => void) => {
     switch (ev.type) {
       case 'session':
-        if (sessionRef.current && !ev.resumed) update((a) => (a.notice = 'earlier context was lost — answering from scratch'))
+        if (sessionRef.current && !ev.resumed) update((a) => (a.notice = 'The earlier part of this chat was lost, so this answer starts fresh.'))
         sessionRef.current = ev.id
         break
       case 'tool_call':
@@ -251,23 +252,23 @@ export function AskPanel() {
       </div>
       <div className="ask-head">
         <button className="small" onClick={() => setShowHistory((v) => !v)} title="Saved conversations" aria-expanded={showHistory}>
-          {showHistory ? '← back' : 'history'}
+          {showHistory ? '← Back' : 'History'}
         </button>
         {!showHistory && turns.length > 0 && (
           <>
             <button className="link ask-title" onClick={() => void rename()} title="Rename">
-              {title || 'untitled'}
+              {title || 'Untitled'}
             </button>
             <button className="small" onClick={newChat}>
-              new chat
+              New chat
             </button>
           </>
         )}
       </div>
       {showHistory ? (
         <div className="ask-log">
-          {history === null && <div className="muted" role="status">loading…</div>}
-          {history?.length === 0 && <div className="muted">No saved conversations yet — every chat is saved automatically.</div>}
+          {history === null && <div className="muted" role="status">Loading…</div>}
+          {history?.length === 0 && <div className="muted">No saved conversations yet. Every chat is saved automatically.</div>}
           {history?.map((c) => (
             <div key={c.id} className={`conv ${c.id === sessionRef.current ? 'active' : ''}`}>
               <button className="link conv-title" onClick={() => void openConversation(c.id)}>
@@ -362,7 +363,7 @@ export function AskPanel() {
               )}
               {t.error && <div className="error" role="alert">{t.error}</div>}
               {t.notice && <div className="muted" style={{ fontSize: 11 }}>{t.notice}</div>}
-              {!t.text && !t.draft && !t.error && t.steps.length === 0 && busy && i === turns.length - 1 && <div className="muted">thinking…</div>}
+              {!t.text && !t.draft && !t.error && t.steps.length === 0 && busy && i === turns.length - 1 && <div className="muted">Thinking…</div>}
               {t.text && t.run_id && !(busy && i === turns.length - 1) && (
                 <div className="answer-rating">
                   <button className={`small ${t.feedback === 1 ? 'on' : ''}`} onClick={() => void rate(i, 1)} aria-pressed={t.feedback === 1} title="Good answer" aria-label="Good answer">
@@ -393,6 +394,7 @@ export function AskPanel() {
         }}
       >
         <textarea
+          aria-label="Your question"
           value={input}
           maxLength={2000}
           disabled={status?.remaining_today === 0}
@@ -408,11 +410,11 @@ export function AskPanel() {
         />
         {busy ? (
           <button type="button" onClick={() => abortRef.current?.abort()}>
-            stop
+            Stop
           </button>
         ) : (
           <button type="submit" disabled={!input.trim()}>
-            ask
+            Ask
           </button>
         )}
       </form>
