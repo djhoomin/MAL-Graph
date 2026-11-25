@@ -6,6 +6,7 @@ import { golfMarks, sortOptions, useGolf } from '../golf'
 import { useStore } from '../store'
 import { edgeElement, nodeElement } from '../graph/elements'
 import { stylesheet } from '../graph/style'
+import { edgeShown, nodeShown } from '../graph/visible'
 import { lessMotion, ms } from '../motion'
 import { ContextMenu, type MenuState } from './ContextMenu'
 
@@ -325,9 +326,14 @@ export function GraphCanvas() {
     })
   }, [filters, nodes, edges, golf])
 
+  // Golf shows every move whatever the filters say.
+  const shownNodes = Object.values(nodes).filter((n) => golf || nodeShown(n, filters)).length
+  const shownEdges = Object.values(edges).filter((e) => golf || edgeShown(e, nodes, filters)).length
+  const label = `Graph with ${shownNodes} ${shownNodes === 1 ? 'node' : 'nodes'} and ${shownEdges} ${shownEdges === 1 ? 'connection' : 'connections'}`
+
   return (
     <div className="canvas-wrap">
-      <div ref={ref} className="canvas" role="img" aria-label={`Graph with ${Object.keys(nodes).length} nodes and ${Object.keys(edges).length} connections`} />
+      <div ref={ref} className="canvas" role="img" aria-label={label} />
       {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
       {Object.keys(nodes).length === 0 && (
         <div className="empty-hint">

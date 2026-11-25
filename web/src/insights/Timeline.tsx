@@ -8,8 +8,8 @@ import { buildBuckets, type Bucket } from './data'
 const yearStep = (yearWidth: number) => [1, 2, 5, 10].find((n) => n * yearWidth >= 14) ?? 10
 
 const ORDER: ListStatus[] = ['completed', 'watching', 'on_hold', 'dropped', 'plan_to_watch']
-const ACCENT = '#3987e5'
-const DIM = '#3a3f4d'
+const ACCENT = 'var(--chart)'
+const DIM = 'var(--chart-dim)'
 const PLOT_H = 180
 const AXIS_H = 48 // room for the season strip and rotated year labels
 const STRIP_Y = 6 // season strip, just under the columns

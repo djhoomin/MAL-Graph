@@ -453,6 +453,21 @@
           "oklch(83.6% 0.000 149)",
           "oklch(95.0% 0.000 149)"
         ]
+      },
+      "field-edge": {
+        "role": "neutral",
+        "displayName": "Field Edge",
+        "canonical": "#6d768b",
+        "tonalRamp": [
+          "oklch(15.0% 0.020 268)",
+          "oklch(26.4% 0.020 268)",
+          "oklch(37.9% 0.020 268)",
+          "oklch(49.3% 0.020 268)",
+          "oklch(60.7% 0.020 268)",
+          "oklch(72.1% 0.020 268)",
+          "oklch(83.6% 0.020 268)",
+          "oklch(95.0% 0.020 268)"
+        ]
       }
     },
     "typographyMeta": {
@@ -583,7 +598,7 @@
       "refersTo": "search-box",
       "description": "Search at the top of the canvas.",
       "html": "<label class=\"ds-search\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"m16 16 5 5\"/></svg><input placeholder=\"Search anime, characters, people…\" aria-label=\"Search\"></label>",
-      "css": ".ds-search{background:var(--float);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--border);box-shadow:var(--float-shadow);color:var(--text);display:flex;align-items:center;gap:8px;width:300px;height:40px;padding:0 12px;border-radius:20px}.ds-search:hover,.ds-search:focus-within{border-color:var(--accent)}.ds-search input{flex:1;min-width:0;border:0;background:none;outline:0;color:var(--text);font:400 14px system-ui,sans-serif}.ds-search input::placeholder{color:var(--muted);opacity:1}"
+      "css": ".ds-search{background:var(--float);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--field-border);box-shadow:var(--float-shadow);color:var(--text);display:flex;align-items:center;gap:8px;width:300px;height:40px;padding:0 12px;border-radius:20px}.ds-search:hover,.ds-search:focus-within{border-color:var(--accent)}.ds-search input{flex:1;min-width:0;border:0;background:none;outline:0;color:var(--text);font:400 14px system-ui,sans-serif}.ds-search input::placeholder{color:var(--muted);opacity:1}"
     },
     {
       "name": "Status Chip",
@@ -591,7 +606,7 @@
       "refersTo": "chip",
       "description": "Filters and list statuses.",
       "html": "<button class=\"ds-chip\"><i></i>completed</button>",
-      "css": ".ds-chip{display:inline-flex;align-items:center;gap:5px;font:400 11px system-ui,sans-serif;color:var(--text);background:#20242f;border:1px solid var(--border);border-radius:12px;padding:2px 7px;cursor:pointer}.ds-chip:hover{border-color:var(--accent)}.ds-chip i{width:8px;height:8px;border-radius:50%;background:#199e70}.ds-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+      "css": ".ds-chip{display:inline-flex;align-items:center;gap:5px;font:400 12px system-ui,sans-serif;color:var(--text);background:#20242f;border:1px solid var(--border);border-radius:12px;padding:2px 7px;cursor:pointer}.ds-chip:hover{border-color:var(--accent)}.ds-chip i{width:8px;height:8px;border-radius:50%;background:#199e70}.ds-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
     },
     {
       "name": "Stat Panel",

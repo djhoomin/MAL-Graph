@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { LABELS, type ListStatus } from '../api'
+import { LABELS } from '../api'
+import { nodeShown } from '../graph/visible'
 import { useStore } from '../store'
 import { useDismiss } from './useDismiss'
 
@@ -19,7 +20,7 @@ export function NodeList() {
 
   // The same nodes the filters leave on the canvas.
   const onCanvas = Object.values(nodes)
-    .filter((n) => filters.labels[n.label] && (n.label !== 'Anime' || filters.statuses[(n.list_status ?? 'none') as ListStatus]))
+    .filter((n) => nodeShown(n, filters))
     .sort((a, b) => LABELS.indexOf(a.label) - LABELS.indexOf(b.label) || a.name.localeCompare(b.name))
   if (onCanvas.length === 0) return null
   const found = onCanvas.filter((n) => n.name.toLowerCase().includes(q.trim().toLowerCase()) && !(picking && n.id === pathFrom))

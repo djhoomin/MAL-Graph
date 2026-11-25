@@ -8,7 +8,10 @@ const CHOICES: Choice[] = ['kiss', 'marry', 'kill']
 /** What a card ends up as: a choice, or the terrarium for a killed character who was rescued. */
 type Fate = Choice | 'terrarium'
 const LABELS: Record<Fate, string> = { kiss: 'Kiss', marry: 'Marry', kill: 'Kill', terrarium: 'Terrarium' }
-const COLORS: Record<Fate, string> = { kiss: '#ff7eb6', marry: '#ffd166', kill: '#ff4f6a', terrarium: '#4cc38a' }
+const COLORS: Record<Fate, string> = { kiss: 'var(--blush)', marry: 'var(--sun)', kill: 'var(--stop)', terrarium: 'var(--good)' }
+
+/** A canvas can't use a CSS variable, so this looks up the colour behind one. */
+const css = (v: string) => getComputedStyle(document.documentElement).getPropertyValue(v.slice(4, -1)).trim()
 
 /** How a round's three are picked: at random, three about as well known as each other, or one famous with two obscure. */
 export type DrawMode = 'random' | 'balanced' | 'spicy'
@@ -280,7 +283,7 @@ export function KmkRound({ title, pool, fixed, lockIn, locked, tally, roundId: g
                 <>
                   <div className="kmk-choices">
                     {CHOICES.map((ch) => (
-                      <button key={ch} className={chosen === ch ? 'on' : ''} aria-pressed={chosen === ch} style={chosen === ch ? { background: COLORS[ch], borderColor: COLORS[ch] } : undefined} onClick={() => assign(c.character.id, ch)}>
+                      <button key={ch} className={chosen === ch ? 'on' : ''} aria-pressed={chosen === ch} aria-label={`${LABELS[ch]} ${c.character.name}`} style={chosen === ch ? { background: COLORS[ch], borderColor: COLORS[ch] } : undefined} onClick={() => assign(c.character.id, ch)}>
                         {LABELS[ch]}
                       </button>
                     ))}
@@ -369,10 +372,10 @@ export async function renderResult(title: string, cards: KmkCard[], choices: Rec
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')!
-  ctx.fillStyle = '#12141b'
+  ctx.fillStyle = css('var(--bg)')
   ctx.fillRect(0, 0, W, H)
   ctx.textAlign = 'center'
-  ctx.fillStyle = '#e8e8ef'
+  ctx.fillStyle = css('var(--text)')
   ctx.font = '600 30px system-ui, sans-serif'
   ctx.fillText(fitText(ctx, title, W - 80), W / 2, 58)
 
@@ -384,12 +387,12 @@ export async function renderResult(title: string, cards: KmkCard[], choices: Rec
   cards.forEach((c, i) => {
     const cx = gap + i * (colW + gap) + colW / 2
     const choice = choices[c.character.id]
-    ctx.fillStyle = COLORS[choice]
+    ctx.fillStyle = css(COLORS[choice])
     ctx.font = '800 40px system-ui, sans-serif'
     ctx.fillText(LABELS[choice].toUpperCase(), cx, 130)
     const x = cx - imgW / 2
     const y = 155
-    ctx.fillStyle = '#20242f'
+    ctx.fillStyle = css('var(--control)')
     ctx.fillRect(x, y, imgW, imgH)
     const img = images[i]
     if (img) {
@@ -399,17 +402,17 @@ export async function renderResult(title: string, cards: KmkCard[], choices: Rec
       const sh = imgH / s
       ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, x, y, imgW, imgH)
     }
-    ctx.strokeStyle = COLORS[choice]
+    ctx.strokeStyle = css(COLORS[choice])
     ctx.lineWidth = 5
     ctx.strokeRect(x, y, imgW, imgH)
-    ctx.fillStyle = '#e8e8ef'
+    ctx.fillStyle = css('var(--text)')
     ctx.font = '600 26px system-ui, sans-serif'
     ctx.fillText(fitText(ctx, c.character.name, colW), cx, y + imgH + 44)
-    ctx.fillStyle = '#9aa0ad'
+    ctx.fillStyle = css('var(--muted)')
     ctx.font = '20px system-ui, sans-serif'
     ctx.fillText(fitText(ctx, c.anime[0] ?? '', colW), cx, y + imgH + 74)
   })
-  ctx.fillStyle = '#8d99ae'
+  ctx.fillStyle = css('var(--muted)')
   ctx.font = '16px system-ui, sans-serif'
   ctx.fillText('Kiss Marry Kill · aniweb.eu', W / 2, H - 20)
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not make the image'))), 'image/png'))

@@ -77,7 +77,7 @@ export function Recommendations() {
                 {via === 'studio' ? 'by' : 'with'} <em>{r.via.slice(0, 4).join(', ')}</em>
                 {r.n_people > 4 && <span className="muted"> +{r.n_people - 4} more</span>}
               </div>
-              <a className="muted" href={String(r.anime.props.url ?? '')} target="_blank" rel="noreferrer" style={{ fontSize: 11 }}>
+              <a className="muted small-text" aria-label={`${src.short}, ${r.anime.name}`} href={String(r.anime.props.url ?? '')} target="_blank" rel="noreferrer">
                 {src.short} ↗
               </a>
             </div>

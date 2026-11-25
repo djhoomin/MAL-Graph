@@ -28,6 +28,7 @@ colors:
   nightfall: "#1d2130"
   twilight-control: "#20242f"
   horizon: "#2a2f3d"
+  field-edge: "#6d768b"
   haze: "#8d99ae"
   moonlight: "#c9c9c9"
   starlight: "#e6e6e6"
@@ -40,7 +41,7 @@ typography:
     lineHeight: 1.1
   headline:
     fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
-    fontSize: "18px"
+    fontSize: "20px"
     fontWeight: 700
     letterSpacing: "0.5px"
   title:
@@ -183,6 +184,7 @@ Colours with a fixed meaning.
 - **Nightfall** (#1d2130): Popovers, menus, tooltips and search results.
 - **Twilight Control** (#20242f): Buttons, inputs, chips, and the space behind missing images.
 - **Horizon** (#2a2f3d): Borders, dividers, and hovered rows in menus.
+- **Field Edge** (#6d768b): Borders of text fields and dropdowns, at 3:1 or more on every surface.
 - **Haze** (#8d99ae): Secondary text and labels, and genres.
 - **Moonlight** (#c9c9c9): Long supporting text.
 - **Starlight** (#e6e6e6): Main text.
@@ -205,11 +207,12 @@ every page.
 
 ### Hierarchy
 - **Display** (600, 30px, 1.1): The large figures in Insights. Taste match shows its score at 44px.
-- **Headline** (700, 18px, 0.5px spacing): Page titles in the app. Text pages use 28px.
+- **Headline** (700, 20px, 0.5px spacing): Page titles in the app. Text pages use 28px.
 - **Title** (700, 16px): Section and node card titles.
 - **Body** (400, 13px): The default for the interface.
 - **Reading** (400, 15px, 1.6): Help and Privacy, in a column up to 600px wide. It's 16px on phones.
-- **Small** (400, 12px): Supporting text, tables and card captions. Counts and metadata go down to 10 or 11px.
+- **Small** (400, 12px): Supporting text, tables and card captions. Nothing in the interface is smaller, except
+  chart axes at 11px and labels on the canvas, which grow with the zoom.
 - **Label** (400, 12px, 0.4px spacing, uppercase): Labels under figures. Small subheadings (bold, 0.6px spacing) use the
   same uppercase style.
 
@@ -276,7 +279,7 @@ Components are compact and tactile. They're small, and they respond clearly when
 - **Icon buttons:** 32px square with 8px corners. The quiet version has no fill and uses Haze until hovered.
 
 ### Chips
-- **Style:** 11px text on Twilight Control, a Horizon border, 12px corners, and an 8px dot of the colour they stand for.
+- **Style:** 12px text on Twilight Control, a Horizon border, 12px corners, and an 8px dot of the colour they stand for.
 - **State:** selected chips have a Polestar Blue border. Unselected ones have no fill, a Horizon border and Haze text, and
   their dot fades to 35%.
 
@@ -288,7 +291,7 @@ Components are compact and tactile. They're small, and they respond clearly when
 - **Internal Padding:** 8 to 14px. Cards that lead with a cover let it fill the card's width.
 
 ### Inputs / Fields
-- **Style:** Twilight Control, a Horizon border and 6px corners. The search box is a 40px floating pill.
+- **Style:** Twilight Control, a Field Edge border and 6px corners. The search box is a 40px floating pill.
 - **Placeholder:** Haze.
 - **Focus:** the search box border turns Polestar Blue. Everything else that takes keyboard focus gets a 2px Polestar Blue ring.
 - **Picking a path end:** the search box border turns Go Green.

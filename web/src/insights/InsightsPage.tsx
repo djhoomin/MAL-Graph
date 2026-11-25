@@ -74,7 +74,7 @@ export function InsightsPage() {
       <div className="filter-row">
         <span className="muted">include</span>
         {STATUS_ORDER.map((s) => (
-          <button key={s} className={`chip ${statuses.has(s) ? '' : 'off'}`} aria-pressed={statuses.has(s)} style={{ borderColor: STATUS_COLORS[s] }} onClick={() => toggleStatus(s)}>
+          <button key={s} className={`chip ${statuses.has(s) ? '' : 'off'}`} aria-pressed={statuses.has(s)} style={statuses.has(s) ? { borderColor: STATUS_COLORS[s] } : undefined} onClick={() => toggleStatus(s)}>
             <i style={{ background: STATUS_COLORS[s] }} /> {LIST_STATUS_LABELS[s]}
           </button>
         ))}

@@ -69,6 +69,7 @@ export function AskPanel() {
   const [turns, setTurns] = useState<Turn[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null) // the saved chat being asked about
   const [answered, setAnswered] = useState(false) // a question was answered since the panel opened
   const [history, setHistory] = useState<ConversationSummary[] | null>(null)
   const [showHistory, setShowHistory] = useState(false)
@@ -107,12 +108,26 @@ export function AskPanel() {
     if (!id) return
     const next = window.prompt('Conversation title', title)
     if (next == null) return
-    const r = await api.renameConversation(id, next)
-    setTitle(r.title)
+    try {
+      setTitle((await api.renameConversation(id, next)).title)
+    } catch (e) {
+      useStore.setState({ error: (e as Error).message })
+    }
+  }
+  // The button that was pressed goes away, so focus moves to what replaced it, on the side that loses nothing.
+  const askDelete = (id: string | null, from?: string) => {
+    setDeleting(id)
+    setTimeout(() => document.getElementById(id ? 'keep-chat' : `delete-${from}`)?.focus())
   }
   const remove = async (id: string) => {
-    await api.deleteConversation(id)
-    if (sessionRef.current === id) newChat()
+    try {
+      await api.deleteConversation(id)
+      if (sessionRef.current === id) newChat()
+    } catch (e) {
+      useStore.setState({ error: (e as Error).message })
+    }
+    setDeleting(null)
+    setTimeout(() => document.getElementById('ask-history')?.focus())
     void refreshHistory()
   }
   useEffect(() => {
@@ -251,7 +266,7 @@ export function AskPanel() {
         {busy ? 'Working on an answer' : turns[turns.length - 1]?.text && turns[turns.length - 1].role === 'assistant' && answered ? 'The answer is ready' : ''}
       </div>
       <div className="ask-head">
-        <button className="small" onClick={() => setShowHistory((v) => !v)} title="Saved conversations" aria-expanded={showHistory}>
+        <button id="ask-history" className="small" onClick={() => setShowHistory((v) => !v)} title="Saved conversations" aria-expanded={showHistory}>
           {showHistory ? '← Back' : 'History'}
         </button>
         {!showHistory && turns.length > 0 && (
@@ -271,15 +286,29 @@ export function AskPanel() {
           {history?.length === 0 && <div className="muted">No saved conversations yet. Every chat is saved automatically.</div>}
           {history?.map((c) => (
             <div key={c.id} className={`conv ${c.id === sessionRef.current ? 'active' : ''}`}>
-              <button className="link conv-title" onClick={() => void openConversation(c.id)}>
-                {c.title}
-              </button>
-              <span className="muted">
-                {when(c.updated_at)} · {Math.floor(c.turns / 2)} q
-              </span>
-              <button className="small" onClick={() => void remove(c.id)} title="Delete" aria-label={`Delete ${c.title}`}>
-                ×
-              </button>
+              {deleting === c.id ? (
+                <>
+                  <span className="conv-ask">Delete “{c.title}”? This can't be undone.</span>
+                  <button className="danger" onClick={() => void remove(c.id)}>
+                    Delete chat
+                  </button>
+                  <button id="keep-chat" onClick={() => askDelete(null, c.id)}>
+                    Keep
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="link conv-title" onClick={() => void openConversation(c.id)}>
+                    {c.title}
+                  </button>
+                  <span className="muted">
+                    {when(c.updated_at)} · {Math.floor(c.turns / 2)} q
+                  </span>
+                  <button id={`delete-${c.id}`} className="small" onClick={() => askDelete(c.id)} title="Delete" aria-label={`Delete ${c.title}`}>
+                    ×
+                  </button>
+                </>
+              )}
             </div>
           ))}
         </div>
@@ -362,7 +391,7 @@ export function AskPanel() {
                 </button>
               )}
               {t.error && <div className="error" role="alert">{t.error}</div>}
-              {t.notice && <div className="muted" style={{ fontSize: 11 }}>{t.notice}</div>}
+              {t.notice && <div className="muted small-text">{t.notice}</div>}
               {!t.text && !t.draft && !t.error && t.steps.length === 0 && busy && i === turns.length - 1 && <div className="muted">Thinking…</div>}
               {t.text && t.run_id && !(busy && i === turns.length - 1) && (
                 <div className="answer-rating">

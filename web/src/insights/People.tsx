@@ -133,9 +133,9 @@ export function People({ anime, statuses, lang, thread, onThread }: Props) {
                 </div>
               </div>
               <div className="ranked-actions">
-                {tab === 'va' && r.node && <a href={`#/roster/${r.node.key}`}>roster</a>}
+                {tab === 'va' && r.node && <a href={`#/roster/${r.node.key}`} aria-label={`roster, ${r.name}`}>roster</a>}
                 {r.node && (
-                  <button className="link" onClick={() => openInGraph(r)}>
+                  <button className="link" aria-label={`graph, ${r.name}`} onClick={() => openInGraph(r)}>
                     graph
                   </button>
                 )}

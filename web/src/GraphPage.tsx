@@ -61,6 +61,7 @@ export function GraphPage() {
 
   return (
     <div className={`shell ${askOpen ? 'ask-open' : ''} ${selected ? 'has-card' : ''} ${showWelcome ? 'welcoming' : ''} ${golfing ? 'golfing' : ''}`}>
+      <h1 className="sr-only">Your anime graph</h1>
       <GraphCanvas />
 
       {!golfing && (
