@@ -556,6 +556,12 @@ button.game-card:active:not(:disabled) { transform: scale(0.98); }
 .howto-body p { margin: 0 0 10px; }
 .golf-rules { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; line-height: 1.5; max-height: 40vh; overflow-y: auto; }
 .golf-rules p { margin: 0 0 8px; }
+/* On a small screen the rules have the panel to themselves, with one thing to scroll and Got it always in view. */
+@media (max-width: 700px), (max-height: 600px) {
+  .golf-panel:has(> .golf-rules) > :not(header, .golf-rules) { display: none; }
+  .golf-panel > .golf-rules { flex: 0 1 auto; min-height: 0; max-height: none; }
+  .golf-rules button.primary { position: sticky; bottom: 0; width: 100%; min-height: 40px; box-shadow: 0 0 0 8px var(--panel); }
+}
 .golf-header-actions .link.on { text-decoration: underline; }
 .howto-body > button { margin: 0 0 12px; }
 /* The golf header wraps its buttons to a second row on narrow screens instead of squeezing the title. */
